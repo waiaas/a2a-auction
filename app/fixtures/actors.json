@@ -1,0 +1,30 @@
+{
+  "buyer-a": {
+    "name": "Analyst Agent",
+    "emoji": "📊",
+    "persona": "시장 데이터를 종합해 투자 브리핑을 만드는 분석 에이전트",
+    "mandateChip": "instant_max 3 USDC · 경매 프로그램+vault만 허용"
+  },
+  "buyer-b": {
+    "name": "Growth Agent",
+    "emoji": "🚀",
+    "persona": "성장 실험을 빠르게 돌리는 그로스 에이전트. 큰 베팅을 선호",
+    "mandateChip": "5 USDC 초과는 owner 승인 필요 · owner 등록됨"
+  },
+  "buyer-c": {
+    "name": "Experimental Agent",
+    "emoji": "🧪",
+    "persona": "새 소스를 실험하는 에이전트. 아직 vault 지출 권한 미위임",
+    "mandateChip": "경매 프로그램 commit만 허용 · vault 수신 미허용"
+  },
+  "seller": {
+    "name": "Research Specialist Agent",
+    "emoji": "🔬",
+    "persona": "특정 주제 리서치를 원가 이하로 대행하는 전문 에이전트"
+  },
+  "marketplace": {
+    "name": "A2A Marketplace",
+    "emoji": "🏛️",
+    "persona": "경매를 열고 정산하는 중립 운영자"
+  }
+}

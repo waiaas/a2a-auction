@@ -1,0 +1,21 @@
+{
+  "name": "a2a-auction-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Policy-Bound A2A Auction — 데모 백엔드 (seed / orchestrator / seller). WAIaaS 데몬 5개를 API로만 사용.",
+  "scripts": {
+    "seed": "node seed.js",
+    "orchestrator": "node orchestrator.js",
+    "seller": "node seller.js",
+    "demo": "node demo-path.js"
+  },
+  "dependencies": {
+    "@solana/spl-token": "0.4.14",
+    "@solana/web3.js": "1.98.4",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

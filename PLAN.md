@@ -14,13 +14,14 @@
 - [x] 세션 노트 작성 (`docs/sessions/2026-07-28-hackathon-d6-spike.md`)
 - [ ] 팀 채널에 스파이크 결과 공유 (게이트 2개 판정 + 3분기 tx) ← 사용자 몫
 
-## D-5 (7/29 화) 컨트랙트·백엔드
-- [ ] 경매 프로그램 데모 경로 완성 (create→commit→예치→reveal→settle 통합 실행 스크립트)
-- [ ] 경매 오케스트레이터 상태 머신 (`/api/auction/start` `/state` `/receipt` `/reset`)
-- [ ] seller 서비스 (온체인 정산 확인 후에만 결과 제공, 미정산 시 403)
-- [ ] Gemini 연동 (make-vs-buy 견적 · bid rationale · specialist result) + 폴백 캐시
-- [ ] 시드 스크립트·픽스처 (멱등, **B owner verify 포함**)
-- 완료 판정: **curl로 전 플로우 완주**
+## D-5 (7/29 화) 컨트랙트·백엔드 ✅ (`feat/d5-contract-orchestrator`, curl 완주)
+- [x] 경매 프로그램 데모 경로 완성 (`app/demo-path.js` — create→commit→예치→reveal→settle 통합 실행)
+- [x] 경매 오케스트레이터 상태 머신 (`app/orchestrator.js` :4000 — start/state/receipt/reset)
+- [x] seller 서비스 (`app/seller.js` :4100 — 온체인 Settled·winner 확인 후 200, 미정산 403)
+- [x] Gemini 연동 (`app/lib/gemini.js` — 견적·rationale·result, 라이브 REST + `fixtures/` 폴백 캐시)
+- [x] 시드 스크립트·픽스처 (`app/seed.js` 멱등, **B owner verify 포함** — 이미 verified면 스킵)
+- [x] 완료 판정: **curl로 전 플로우 완주** (`app/verify-e2e.sh` PASS — A ALLOW / B APPROVAL / C DENY, settle·unlock)
+- 메모: 라운드별 auction_id 증가 + A·B WHITELIST에 auction_pda `PUT` 갱신(정책 엔진이 tx마다 DB 재조회 → 즉시 반영). deployer 키는 시드 전용(오케스트레이터/seller는 데몬 API+읽기 전용).
 
 ## D-4 (7/30 수) 웹 UI
 - [ ] 경매 스테이지 화면 (commit·예치 배지, DIY vs BUY 칩, RAW vs EXECUTABLE 배너)
