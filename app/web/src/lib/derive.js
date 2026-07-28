@@ -16,6 +16,16 @@ export function fmtUsdc(n) {
   return Number(n).toFixed(2);
 }
 
+/** 데몬 거부 에러를 사람이 읽는 짧은 사유로 축약. 원문은 호출부가 title로 보존한다. */
+export function friendlyDenyReason(error) {
+  if (!error) return null;
+  if (/not in whitelist/i.test(error)) {
+    const m = error.match(/Address\s+(\w+)/);
+    return m ? `수신처 WHITELIST 미등록 (${truncTx(m[1], 4, 4)})` : '수신처 WHITELIST 미등록';
+  }
+  return error.length > 64 ? `${error.slice(0, 61)}…` : error;
+}
+
 /** buyer 배열을 서버 map에서 고정 순서로 뽑는다(없으면 빈 배열). */
 export function orderedBuyers(buyers) {
   if (!buyers) return [];

@@ -70,16 +70,48 @@ export async function getQuoteAndRationale(role, item) {
   };
 }
 
+/** 라운드별 결과물 확정 캐시 경로. */
+function resultCachePath(auctionId) {
+  return path.join(PATHS.resultCache, `result-${auctionId}.json`);
+}
+
 /**
  * 낙찰자에게 unlock되는 specialist 결과 브리핑. 라이브 성공 시 그 텍스트, 실패 시 캐시.
+ * auctionId를 주면 라운드별 확정본을 캐시한다 — orchestrator가 정산 시 먼저 생성·저장하고
+ * seller가 이를 재사용해 **동일한 contentMarkdown·hash**를 낸다(라이브 모드에서도 hash 일치).
+ * 접근권 판정은 여전히 seller가 온체인 Settled·winner로 하고, 여기서 공유하는 건 콘텐츠뿐이다.
  * @returns {Promise<{contentMarkdown:string, hash:string, source:'live'|'cache'}>}
  */
-export async function getResult(item) {
+export async function getResult(item, auctionId = null) {
+  const cachePath = auctionId != null ? resultCachePath(auctionId) : null;
+  // 캐시 히트: 파일 I/O는 시스템 경계 — 없거나 손상되면 미스로 보고 아래 생성 경로로 폴백한다.
+  if (cachePath) {
+    try {
+      const { source, contentMarkdown } = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      if (typeof contentMarkdown === 'string') {
+        return { contentMarkdown, hash: sha256Hex(contentMarkdown), source };
+      }
+    } catch { /* 캐시 없음/손상 → 재생성 */ }
+  }
+
   const cached = fixtureText('result.md');
   const prompt =
     `"${item.task}"에 대한 전문 리서치 브리핑을 한국어 마크다운으로 작성하라. ` +
     `한 줄 요약, 채택 신호, 병목, 시사점, 방법론 주석 순으로. 수치는 대표값임을 명시하라.`;
   const live = await generate(prompt, { timeoutMs: 20000 });
   const contentMarkdown = live || cached;
-  return { contentMarkdown, hash: sha256Hex(contentMarkdown), source: live ? 'live' : 'cache' };
+  const source = live ? 'live' : 'cache';
+
+  // 확정본 저장 → 같은 auctionId 후속 호출(seller)이 재사용. temp+rename으로 원자적 교체(부분·동시 쓰기 손상 방지).
+  if (cachePath) {
+    try {
+      fs.mkdirSync(PATHS.resultCache, { recursive: true });
+      const tmp = `${cachePath}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify({ source, contentMarkdown }));
+      fs.renameSync(tmp, cachePath);
+    } catch (e) {
+      console.error(`[gemini] result 캐시 쓰기 실패 auction=${auctionId}: ${e.message}`);
+    }
+  }
+  return { contentMarkdown, hash: sha256Hex(contentMarkdown), source };
 }

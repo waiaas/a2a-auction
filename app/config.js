@@ -67,6 +67,7 @@ export const PATHS = {
   deployer: path.join(ROOT, 'onchain/deployer.json'), // mint authority + 온체인 셋업 payer
   demoConfig: path.join(ROOT, 'app/demo-config.json'), // 시드 산출 (mint·assetId·policyIds·nextAuctionId)
   fixtures: path.join(__dirname, 'fixtures'),
+  resultCache: path.join(ROOT, 'app/result-cache'), // 라운드별 낙찰 결과물 확정 캐시(orchestrator↔seller hash 일관성)
 };
 
 /** hero 경매 카탈로그 (무대 소품, 스펙 7.1). */

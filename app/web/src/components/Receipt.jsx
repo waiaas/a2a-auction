@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchReceipt, fetchResult } from '../api.js';
-import { orderedBuyers, truncTx, fmtUsdc, verdictShort } from '../lib/derive.js';
+import { orderedBuyers, truncTx, fmtUsdc, verdictShort, friendlyDenyReason } from '../lib/derive.js';
 
 /** commit·deposit 행에 쓰는 짧은 라벨(receipt는 role만 담고 이모지는 안 담음). */
 const SHORT = { 'buyer-a': '📊 A', 'buyer-b': '🚀 B', 'buyer-c': '🧪 C' };
@@ -151,7 +151,7 @@ export default function Receipt({ state, onBack }) {
                   <div className="arow"><span>commit</span><Tx sig={c?.txHash} /></div>
                   <div className="arow"><span>deposit</span>{d?.txHash ? <Tx sig={d.txHash} /> : <span className="tx dim">{d?.status || '—'}</span>}</div>
                   <div className="arow"><span>tier · status</span><span className="mono">{(d?.tier || '-')} · {(d?.status || '-')}</span></div>
-                  {d?.error && <div className="aerr" title={d.error}>{d.error}</div>}
+                  {d?.error && <div className="aerr" title={d.error}>{friendlyDenyReason(d.error)}</div>}
                   {d?.inPending && <div className="apend">📱 owner 승인 큐 등재</div>}
                 </div>
               );
