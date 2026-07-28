@@ -1,0 +1,248 @@
+{
+  "auctionId": "1",
+  "network": "solana-devnet",
+  "rpc": "http://192.168.0.113:8899",
+  "addresses": {
+    "usdcMint": "2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht",
+    "assetId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1/token:2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht",
+    "sellerTokenAccount": "139ExFuCCxZnRi9euBQKNdDcyg8oXe5uqS42T1FJJn4t",
+    "auctionPda": "JDoUixU75qHa6f4jmCvQKxyjzPzpe4YMsP9HGx6h9F5s",
+    "vault": "hVogm9fuZ2myBtd7AZL1uUMHqnvcAn4gDqACrYU8q9T",
+    "marketplace": "4Nwk5xj2287f6KVa92K1PJX7zG1TsJ8jJbFBRwQrh5Zq",
+    "seller": "G7pZfDaeZm6R1VH7bXNUpBrRWVYWkseVeZGxCnFiaahh",
+    "bidA": "88TsQd2cMDQhtbnukQuZEY7jzDQiRQZn6ogF3cruYLNy",
+    "bidB": "AKPHwBurbgVk1pptrABEBpLPU2iyvCvKYdQfrQLa2Xpm",
+    "bidC": "6NXnLzmpqmnwQQZYrZndrcKrytDscqP6Jqk451DRUK9n"
+  },
+  "policies": {
+    "buyer-a": [
+      {
+        "type": "CONTRACT_WHITELIST",
+        "rules": {
+          "contracts": [
+            {
+              "address": "9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV",
+              "name": "a2a-auction"
+            }
+          ]
+        }
+      },
+      {
+        "type": "WHITELIST",
+        "rules": {
+          "allowed_addresses": [
+            "9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV",
+            "JDoUixU75qHa6f4jmCvQKxyjzPzpe4YMsP9HGx6h9F5s"
+          ]
+        }
+      },
+      {
+        "type": "ALLOWED_TOKENS",
+        "rules": {
+          "tokens": [
+            {
+              "address": "2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht",
+              "symbol": "USDC",
+              "assetId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1/token:2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht"
+            }
+          ]
+        }
+      },
+      {
+        "type": "SPENDING_LIMIT",
+        "rules": {
+          "token_limits": {
+            "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1/token:2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht": {
+              "instant_max": "3",
+              "notify_max": "3",
+              "delay_max": "3"
+            }
+          }
+        }
+      }
+    ],
+    "buyer-b": [
+      {
+        "type": "CONTRACT_WHITELIST",
+        "rules": {
+          "contracts": [
+            {
+              "address": "9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV",
+              "name": "a2a-auction"
+            }
+          ]
+        }
+      },
+      {
+        "type": "WHITELIST",
+        "rules": {
+          "allowed_addresses": [
+            "9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV",
+            "JDoUixU75qHa6f4jmCvQKxyjzPzpe4YMsP9HGx6h9F5s"
+          ]
+        }
+      },
+      {
+        "type": "ALLOWED_TOKENS",
+        "rules": {
+          "tokens": [
+            {
+              "address": "2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht",
+              "symbol": "USDC",
+              "assetId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1/token:2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht"
+            }
+          ]
+        }
+      },
+      {
+        "type": "SPENDING_LIMIT",
+        "rules": {
+          "token_limits": {
+            "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1/token:2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht": {
+              "instant_max": "5",
+              "notify_max": "5",
+              "delay_max": "5"
+            }
+          }
+        }
+      }
+    ],
+    "buyer-c": [
+      {
+        "type": "CONTRACT_WHITELIST",
+        "rules": {
+          "contracts": [
+            {
+              "address": "9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV",
+              "name": "a2a-auction"
+            }
+          ]
+        }
+      },
+      {
+        "type": "WHITELIST",
+        "rules": {
+          "allowed_addresses": [
+            "9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV"
+          ]
+        }
+      },
+      {
+        "type": "ALLOWED_TOKENS",
+        "rules": {
+          "tokens": [
+            {
+              "address": "2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht",
+              "symbol": "USDC",
+              "assetId": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1/token:2KWujfx23kX2Z46BAyzDTjPkzZLL7qyUqhwnupSym3Ht"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "steps": {
+    "buyerB_owner": {
+      "ownerAddress": "7FHaXLizPnwwQ5ijwqFdugxNeRimZ8Mouym61E4kB54X",
+      "ownerState": "LOCKED",
+      "ownerVerified": true
+    },
+    "createAuction": {
+      "status": "SUBMITTED",
+      "txHash": "2KbxHMs45AX3k56qaL7GeBnKZmneRgAwmApVvrZamWCJ6FgfSHqhfMCSECSuRYdH1ZHvWeyT3VKpEgTR2eTMSCFi",
+      "onchain": "confirmed",
+      "auctionExists": true
+    },
+    "commit": {
+      "buyer-a": {
+        "status": "SUBMITTED",
+        "tier": "INSTANT",
+        "txHash": "2W21aoacahgmaCPcq4GDPXBvhUoqvSwjibtJEVT48p83Ap2uYNG8RADctjZibF3To87833RZvhcM4cTsjnimxvwe",
+        "onchain": "confirmed"
+      },
+      "buyer-b": {
+        "status": "SUBMITTED",
+        "tier": "INSTANT",
+        "txHash": "673L1Vqxpbc1zBADxREhuUTyMoSfk311fptDcSWhhTqqV71uR1yWUfBxFyVuoCQ9oUXZSP5Bmfuk7qxm2pNGrG59",
+        "onchain": "confirmed"
+      },
+      "buyer-c": {
+        "status": "SUBMITTED",
+        "tier": "INSTANT",
+        "txHash": "u8zWga5w8tXHETcog4wZr8tvM9QTJFnpj7ybVoJYVSuCxP9rSCps5XDM9tjqFyBfmNeUQxPCXmdZNrieNJpGtdH",
+        "onchain": "confirmed"
+      }
+    },
+    "deposit": {
+      "buyer-a": {
+        "txId": "019fa60a-8824-7135-b41b-9d9a1a88228b",
+        "status": "SUBMITTED",
+        "tier": "NOTIFY",
+        "txHash": "3QCp5yF6usi8kwys5krTkFEVA4uW5RDJMrZUwb3rZ3Nx4RrDofiFSYQfAhppXF5QZAR8G7DyWYrqbAcesgHwmqUo",
+        "onchain": "confirmed",
+        "error": null
+      },
+      "buyer-b": {
+        "txId": "019fa60a-8e14-7b10-8dde-d0bec76e7d8d",
+        "status": "QUEUED",
+        "tier": "APPROVAL",
+        "txHash": null,
+        "onchain": "no-sig",
+        "error": null,
+        "inPending": true
+      },
+      "buyer-c": {
+        "txId": "019fa60a-8e1d-78cc-b225-f389c3b5d303",
+        "status": "CANCELLED",
+        "tier": null,
+        "txHash": null,
+        "onchain": "no-sig",
+        "error": "Address JDoUixU75qHa6f4jmCvQKxyjzPzpe4YMsP9HGx6h9F5s not in whitelist"
+      }
+    },
+    "vaultAfterDeposit": 2.8,
+    "revealA": {
+      "status": "SUBMITTED",
+      "tier": "INSTANT",
+      "txHash": "Kv5GF7ZirGvAzDbJoquBBCc5rY5bNLEJ1Nr842TFh9z8D1p17n47NoxLcajmjAjjDUmiTEUZFevQDYHcYozyzb3",
+      "onchain": "confirmed"
+    },
+    "settle": {
+      "status": "SUBMITTED",
+      "txHash": "5gvKrGxKd1qSUB2ZitNCeLkTgAFk9KZVZhE6PqQ1MwYg4MN2kxMnT4DsgQqjQKnKZpyxPrsxmgXBGAYoqupLs88K",
+      "onchain": "confirmed"
+    },
+    "final": {
+      "sellerUsdc": 2.8,
+      "vaultUsdc": 0
+    },
+    "auctionState": {
+      "status": "Settled",
+      "highest": "2800000",
+      "winner": "6Za38618o7XZ8z3SCPSx299A3RVbxsoEhKSpno4FtTwU",
+      "winnerIsA": true
+    }
+  },
+  "quadrant": {
+    "buyer-a": {
+      "commit": "SUBMITTED",
+      "deposit": "SUBMITTED",
+      "tier": "NOTIFY",
+      "txHash": "3QCp5yF6usi8kwys5krTkFEVA4uW5RDJMrZUwb3rZ3Nx4RrDofiFSYQfAhppXF5QZAR8G7DyWYrqbAcesgHwmqUo",
+      "verdict": "실행"
+    },
+    "buyer-b": {
+      "commit": "SUBMITTED",
+      "deposit": "QUEUED",
+      "tier": "APPROVAL",
+      "inPending": true,
+      "verdict": "QUEUED(승인대기)"
+    },
+    "buyer-c": {
+      "commit": "SUBMITTED",
+      "deposit": "CANCELLED",
+      "error": "Address JDoUixU75qHa6f4jmCvQKxyjzPzpe4YMsP9HGx6h9F5s not in whitelist",
+      "verdict": "POLICY_DENIED"
+    }
+  }
+}

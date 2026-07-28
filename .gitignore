@@ -1,0 +1,16 @@
+# 시크릿·로컬 상태 (절대 커밋 금지)
+infra/.env
+infra/daemon-data/
+demo-state.json
+**/recovery.key
+
+# 빌드 산출물
+node_modules/
+dist/
+target/
+.anchor/
+test-ledger/
+
+# OS·에디터
+.DS_Store
+*.log

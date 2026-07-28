@@ -1,0 +1,84 @@
+# =============================================================================
+# a2a-auction — WAIaaS 데몬 5개 (에이전트별 데몬 분리, 스펙 v3 §3.1)
+#   buyer A/B/C + seller + marketplace. 각 데몬 = 지갑 1개 + 자기 정책 + 자기 감사 로그.
+#
+# 이미지: WAIaaS 레포에서 로컬 빌드한 waiaas-daemon:local (infra/.env의 WAIAAS_IMAGE).
+#   빌드: (WAIaaS 레포에서) docker compose -f docker-compose.yml -f docker-compose.build.yml build
+# 기동:  docker compose --env-file .env -f docker-compose.yml up -d
+# 상태:  docker compose -f docker-compose.yml ps
+# 정지:  docker compose -f docker-compose.yml down          (데이터 보존)
+#        docker compose -f docker-compose.yml down -v       (데이터 볼륨까지 삭제)
+#
+# 포트(호스트, 127.0.0.1 바인딩): A=3100 B=3101 C=3102 seller=3103 marketplace=3104
+# 마스터 패스워드: infra/.env (gitignore 대상, docs 미기록)
+# =============================================================================
+
+x-daemon-common: &daemon-common
+  image: ${WAIAAS_IMAGE:-waiaas-daemon:local}
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:3100/health"]
+    interval: 15s
+    timeout: 5s
+    start_period: 20s
+    retries: 5
+
+x-daemon-env: &daemon-env
+  WAIAAS_DATA_DIR: /data
+  WAIAAS_DAEMON_HOSTNAME: 0.0.0.0
+  # localnet 스파이크: solana-devnet RPC를 로컬 밸리데이터(호스트 LAN IP)로 우회.
+  # LOCALNET_RPC 미설정 시 실제 devnet으로 폴백(되돌리기 쉬움).
+  WAIAAS_RPC_SOLANA_DEVNET: ${LOCALNET_RPC:-https://api.devnet.solana.com}
+
+services:
+  buyer-a:
+    <<: *daemon-common
+    container_name: a2a-buyer-a
+    ports: ["127.0.0.1:3100:3100"]
+    volumes: ["buyer-a-data:/data"]
+    environment:
+      <<: *daemon-env
+      WAIAAS_MASTER_PASSWORD: ${BUYER_A_MASTER_PASSWORD}
+
+  buyer-b:
+    <<: *daemon-common
+    container_name: a2a-buyer-b
+    ports: ["127.0.0.1:3101:3100"]
+    volumes: ["buyer-b-data:/data"]
+    environment:
+      <<: *daemon-env
+      WAIAAS_MASTER_PASSWORD: ${BUYER_B_MASTER_PASSWORD}
+
+  buyer-c:
+    <<: *daemon-common
+    container_name: a2a-buyer-c
+    ports: ["127.0.0.1:3102:3100"]
+    volumes: ["buyer-c-data:/data"]
+    environment:
+      <<: *daemon-env
+      WAIAAS_MASTER_PASSWORD: ${BUYER_C_MASTER_PASSWORD}
+
+  seller:
+    <<: *daemon-common
+    container_name: a2a-seller
+    ports: ["127.0.0.1:3103:3100"]
+    volumes: ["seller-data:/data"]
+    environment:
+      <<: *daemon-env
+      WAIAAS_MASTER_PASSWORD: ${SELLER_MASTER_PASSWORD}
+
+  marketplace:
+    <<: *daemon-common
+    container_name: a2a-marketplace
+    ports: ["127.0.0.1:3104:3100"]
+    volumes: ["marketplace-data:/data"]
+    environment:
+      <<: *daemon-env
+      WAIAAS_MASTER_PASSWORD: ${MARKETPLACE_MASTER_PASSWORD}
+
+volumes:
+  buyer-a-data:
+  buyer-b-data:
+  buyer-c-data:
+  seller-data:
+  marketplace-data:
