@@ -30,7 +30,15 @@ app.get('/slot/:auctionId/result', async (req, res) => {
 
   const conn = connection();
   const auctionPda = deriveAuctionPda(config.marketplace, auctionId);
-  const auction = await fetchAuction(conn, auctionPda);
+
+  // RPC I/O는 시스템 경계 — 일시적 실패(밸리데이터 블립)가 프로세스를 죽이지 않게 여기서 잡는다.
+  let auction;
+  try {
+    auction = await fetchAuction(conn, auctionPda);
+  } catch (e) {
+    console.error(`[seller] RPC 조회 실패 auction=${auctionId}: ${e.message}`);
+    return res.status(503).json({ error: 'rpc_unavailable', auctionId });
+  }
 
   if (!auction) {
     return res.status(403).json({
