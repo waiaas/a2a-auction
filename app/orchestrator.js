@@ -8,9 +8,14 @@
  *
  * 실행: node orchestrator.js   ← 데몬/localnet 호출이 있어 Bash는 dangerouslyDisableSandbox 필요
  */
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { ORCHESTRATOR_PORT } from './config.js';
 import { initState, buildDeps, runAuction, assembleReceipt } from './auction-flow.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const WEB_DIST = path.join(__dirname, 'web/dist'); // Vite 빌드 산출 (없으면 dev는 Vite proxy 사용)
 
 let state = initState();
 let running = false;
@@ -61,6 +66,10 @@ app.post('/api/auction/reset', (req, res) => {
   state = initState();
   res.json({ reset: true, scenario });
 });
+
+// 웹 UI 정적 서빙(같은 오리진 → CORS 불필요). /api/*는 위에서 이미 처리되므로 나머지만 여기로 온다.
+// dev는 Vite(5173)가 /api를 4000으로 프록시하므로 dist가 없어도 무방하다.
+app.use(express.static(WEB_DIST));
 
 app.listen(ORCHESTRATOR_PORT, () => {
   console.log(`orchestrator listening on http://127.0.0.1:${ORCHESTRATOR_PORT}`);
