@@ -14,12 +14,6 @@ import { initState, buildDeps, runAuction, assembleReceipt } from './auction-flo
 
 let state = initState();
 let running = false;
-let deps = null;
-
-function ensureDeps() {
-  if (!deps) deps = buildDeps(); // config 없으면 여기서 throw
-  return deps;
-}
 
 const app = express();
 app.use(express.json());
@@ -30,9 +24,10 @@ app.post('/api/auction/start', (_req, res) => {
   if (running) {
     return res.status(409).json({ error: 'already_running', phase: state.phase });
   }
+  // 매 라운드 config를 새로 읽는다(시드 재실행으로 정책 ID·nextAuctionId가 바뀌어도 안전).
   let d;
   try {
-    d = ensureDeps();
+    d = buildDeps();
   } catch (e) {
     return res.status(400).json({ error: 'not_seeded', message: e.message });
   }
