@@ -1,0 +1,20 @@
+{
+  "buyer-a": {
+    "diyTokens": 500000,
+    "diyTimeMin": 120,
+    "buyPriceUsdc": 2.8,
+    "summary": "직접 리서치하면 약 50만 토큰과 2시간이 든다. 전문 슬롯은 2.80 USDC에 5분. 40만 토큰 차이라 사는 편이 이득이다."
+  },
+  "buyer-b": {
+    "diyTokens": 620000,
+    "diyTimeMin": 150,
+    "buyPriceUsdc": 6.5,
+    "summary": "성장 실험용 심화 브리핑은 직접 하면 62만 토큰, 2.5시간. 6.50 USDC에 사면 되지만 위임 한도를 넘겨 승인이 필요하다."
+  },
+  "buyer-c": {
+    "diyTokens": 480000,
+    "diyTimeMin": 110,
+    "buyPriceUsdc": 2.2,
+    "summary": "실험 예산으로 2.20 USDC면 충분하지만, 아직 이 vault로 지출할 권한을 위임받지 못했다."
+  }
+}

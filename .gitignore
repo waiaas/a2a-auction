@@ -2,6 +2,7 @@
 infra/.env
 infra/daemon-data/
 demo-state.json
+app/demo-config.json
 **/recovery.key
 
 # 빌드 산출물
