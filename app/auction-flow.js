@@ -13,7 +13,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { AMOUNTS, AUCTION_ITEM, PROGRAM_ID, PATHS } from './config.js';
+import { AMOUNTS, AUCTION_ITEM, PROGRAM_ID, PATHS, TOKEN_LIMITS } from './config.js';
 import {
   connection,
   deriveAuctionPda,
@@ -283,11 +283,20 @@ function classifyDeposit(fin) {
 export function assembleReceipt(state) {
   if (state.phase !== 'settled') return null;
   const b = state.buyers;
+  // A의 SPENDING_LIMIT 건당 위임 한도(instant_max) 대비 이번 라운드 지출. 오라클 없이 수량 티어로 판정된 값.
+  const delegatedLimitUsdc = Number(TOKEN_LIMITS['buyer-a']?.instant_max ?? 0);
+  const spentUsdc = b['buyer-a']?.bidUsdc ?? 0;
   return {
     auctionId: state.auctionId,
     item: state.item,
     winnerBuyerId: state.auctionState?.winnerIsA ? 'buyer-a' : null,
     bidAmountUsdc: b['buyer-a']?.bidUsdc ?? null,
+    budget: {
+      buyerId: 'buyer-a',
+      delegatedLimitUsdc, // 건당 위임 한도(SPENDING_LIMIT instant_max)
+      spentUsdc,
+      remainingUsdc: Math.max(0, Number((delegatedLimitUsdc - spentUsdc).toFixed(2))),
+    },
     commitTxSignatures: BUYERS.map((r) => ({ buyer: r, txHash: b[r]?.commit?.txHash || null })),
     depositDecisions: BUYERS.map((r) => ({
       buyer: r,

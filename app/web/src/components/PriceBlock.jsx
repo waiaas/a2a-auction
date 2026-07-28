@@ -1,7 +1,7 @@
 import { executableWinner, rawHighest, fmtUsdc, isRunning } from '../lib/derive.js';
 
 /** 좌측 가격 블록: 낙찰가 · RAW→EXECUTABLE · Start Round · 반전 문구. */
-export default function PriceBlock({ state, onStart, starting }) {
+export default function PriceBlock({ state, onStart, starting, onOpenReceipt }) {
   const winner = executableWinner(state);
   const raw = rawHighest(state.buyers);
   const running = isRunning(state.phase) || starting;
@@ -22,7 +22,7 @@ export default function PriceBlock({ state, onStart, starting }) {
         <button className="cta" onClick={onStart} disabled={running}>
           {running ? '진행 중…' : 'Start Round ▶'}
         </button>
-        <div className="icirc" aria-hidden="true">🧾</div>
+        <button className="icirc ib" onClick={onOpenReceipt} title="Receipt 열기" aria-label="Receipt 열기">🧾</button>
         <div className="icirc" aria-hidden="true">⛓️</div>
       </div>
       <div className="note">

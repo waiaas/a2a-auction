@@ -5,14 +5,14 @@ import SpecTiles from './SpecTiles.jsx';
 import { orderedBuyers, statusPill, phaseLabel } from '../lib/derive.js';
 
 /** hero 글래스 카드: featured "지금 라이브" 경매 = 실제 3-way policy 경매. */
-export default function Hero({ state, onStart, starting }) {
+export default function Hero({ state, onStart, starting, onOpenReceipt }) {
   const buyers = orderedBuyers(state.buyers);
   const sp = statusPill(state.phase);
   const item = state.item;
 
   return (
     <div className="hero glass">
-      <HeaderBar />
+      <HeaderBar onOpenReceipt={onOpenReceipt} />
 
       <div className="htop">
         <div>
@@ -33,7 +33,7 @@ export default function Hero({ state, onStart, starting }) {
       </div>
 
       <div className="hmid">
-        <PriceBlock state={state} onStart={onStart} starting={starting} />
+        <PriceBlock state={state} onStart={onStart} starting={starting} onOpenReceipt={onOpenReceipt} />
         <div className="bids">
           {buyers.length
             ? buyers.map((b) => <BidTile key={b.role} buyer={b} />)

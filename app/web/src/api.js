@@ -28,3 +28,22 @@ export async function resetAuction(scenario = 'default') {
   if (!res.ok) throw new Error(`reset ${res.status}`);
   return res.json();
 }
+
+/** SettlementReceipt(증거 체인 전체). 정산 전(404)이면 null. */
+export async function fetchReceipt() {
+  const res = await fetch('/api/receipt', { cache: 'no-store' });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`receipt ${res.status}`);
+  return res.json();
+}
+
+/**
+ * seller 결과 unlock. 정산 후 200 { locked:false, result, winner, unlockedForBuyerId },
+ * 미정산/미존재 403 { locked:true, reason }. 그 외는 예외.
+ */
+export async function fetchResult(auctionId) {
+  const res = await fetch(`/slot/${auctionId}/result`, { cache: 'no-store' });
+  if (res.status === 403) return res.json(); // { locked:true, ... }
+  if (!res.ok) throw new Error(`result ${res.status}`);
+  return res.json();
+}
