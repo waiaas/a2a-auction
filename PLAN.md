@@ -23,16 +23,18 @@
 - [x] 완료 판정: **curl로 전 플로우 완주** (`app/verify-e2e.sh` PASS — A ALLOW / B APPROVAL / C DENY, settle·unlock)
 - 메모: 라운드별 auction_id 증가 + A·B WHITELIST에 auction_pda `PUT` 갱신(정책 엔진이 tx마다 DB 재조회 → 즉시 반영). deployer 키는 시드 전용(오케스트레이터/seller는 데몬 API+읽기 전용).
 
-## D-4 (7/30 수) 웹 UI
-- [ ] 경매 스테이지 화면 (commit·예치 배지, DIY vs BUY 칩, RAW vs EXECUTABLE 배너)
-- [ ] B 승인대기 연출 (owner 알림 장면)
-- 완료 판정: **브라우저에서 3분기 시연**
+## D-4 (7/30 수) 웹 UI ✅ (`feat/d4-web-ui`, PR #6 draft)
+- [x] 경매 스테이지 화면 (commit·예치 배지, DIY vs BUY 칩, RAW vs EXECUTABLE 배너) — v4 글래스 경매하우스로 구현
+- [x] B 승인대기 연출 (owner 알림 장면)
+- 완료 판정: **브라우저에서 3분기 시연** ✅ (`:4000` 정적서빙, Start 버튼 1개로 라운드 #6 완주: A ALLOW / B APPROVAL / C DENY)
+- 메모: UI 톤 v1→v5 반복 후 팀이 **v4(글래스모피즘 경매하우스)** 확정. 오케스트레이터 `express.static` + dev `vite proxy`. 확정 디자인 에셋 `app/web/design/`. seller unlock 내용·Receipt 뷰는 D-3.
 
-## D-3 (7/31 목) Receipt·통합
-- [ ] Receipt/Audit 뷰 (증거 체인 + 데몬별 감사 로그 원본)
-- [ ] result unlock (낙찰자 A에게만)
-- [ ] e2e 통합. 여유 시 컨트랙트에 환불→마감→유찰 순 추가
-- 완료 판정: **스펙 6장 완성 기준 충족**
+## D-3 (7/31 목) Receipt·통합 ✅ (`feat/d3-receipt`)
+- [x] Receipt/Audit 뷰 (증거 체인 + 데몬별 감사 로그 원본) — v4 글래스 톤, App `view` 전환
+- [x] result unlock (낙찰자 A에게만) — seller `/slot` relay, hash ✓ receipt 일치
+- [x] e2e 통합 (브라우저 `:4000` 정산 후 Receipt 완주) — 컨트랙트 환불→마감→유찰은 미착수(스트레치)
+- 완료 판정: **스펙 6장 완성 기준 충족** ✅
+- 메모: 백엔드 기존 완비 → 프론트 중심. seller `/slot` 프록시 2곳(dev vite / prod 오케스트레이터 relay). receipt에 `budget`(A 위임 한도 대비 지출) 추가. M2(라이브 모드 orchestrator·seller hash 불일치 가능)는 D-2 전 처리.
 
 ## D-2 (8/1 금) 배포·리허설
 - [ ] **devnet 공개 배포** (explorer 링크용): deployer `BtsvpHpPP3CFvTZR8T6C1ru6TCmGp4xS56gSAzuYrM2q`에 ~4 SOL + Circle devnet USDC mint 확정

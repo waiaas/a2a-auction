@@ -11,7 +11,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ORCHESTRATOR_PORT } from './config.js';
+import { ORCHESTRATOR_PORT, SELLER_PORT } from './config.js';
 import { initState, buildDeps, runAuction, assembleReceipt } from './auction-flow.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -67,8 +67,21 @@ app.post('/api/auction/reset', (req, res) => {
   res.json({ reset: true, scenario });
 });
 
-// 웹 UI 정적 서빙(같은 오리진 → CORS 불필요). /api/*는 위에서 이미 처리되므로 나머지만 여기로 온다.
-// dev는 Vite(5173)가 /api를 4000으로 프록시하므로 dist가 없어도 무방하다.
+// seller 결과 unlock(:4100)을 같은 오리진으로 relay. 정적 서빙(prod)에서 프론트가 /slot을 그대로 쓰게 한다.
+// dev는 Vite proxy가 /slot을 직접 4100으로 보내므로 이 라우트를 타지 않는다. 스펙 3.2 단일 오리진 원칙 유지.
+app.get('/slot/:auctionId/result', async (req, res) => {
+  try {
+    const r = await fetch(`http://127.0.0.1:${SELLER_PORT}/slot/${req.params.auctionId}/result`);
+    const body = await r.text();
+    res.status(r.status).type('application/json').send(body);
+  } catch (e) {
+    console.error('[orchestrator] seller relay 실패:', e.message);
+    res.status(502).json({ error: 'seller_unreachable' });
+  }
+});
+
+// 웹 UI 정적 서빙(같은 오리진 → CORS 불필요). /api/*·/slot은 위에서 이미 처리되므로 나머지만 여기로 온다.
+// dev는 Vite(5173)가 /api·/slot을 프록시하므로 dist가 없어도 무방하다.
 app.use(express.static(WEB_DIST));
 
 app.listen(ORCHESTRATOR_PORT, () => {
