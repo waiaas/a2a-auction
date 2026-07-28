@@ -1,0 +1,285 @@
+<meta charset="utf-8" />
+<title>A2A Auction — 웹 UI v4 (Glassmorphism)</title>
+<style>
+  /* ===================================================================
+     v4 — v3 레이아웃 + CARBIDDE식 Glassmorphism. 밝은 그레이 배경 위 다크 글래스,
+     비비드 옐로우 액센트, 볼드 산세리프, 하단 온체인 스펙 타일. 실제 데이터(#5).
+     =================================================================== */
+  #v4 {
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --glass: rgba(20, 21, 24, 0.56);
+    --glass-2: rgba(14, 15, 18, 0.62);
+    --tile: rgba(38, 40, 45, 0.5);
+    --tile-hi: rgba(255, 255, 255, 0.06);
+    --edge: rgba(255, 255, 255, 0.13);
+    --edge-soft: rgba(255, 255, 255, 0.08);
+    --ink: #f4f5f7;
+    --dim: rgba(236, 239, 244, 0.66);
+    --faint: rgba(236, 239, 244, 0.4);
+    --acc: #e9e60f;
+    --acc-ink: #1b1b08;
+    --ok: #4ad48c; --ok-bg: rgba(74, 212, 140, 0.15);
+    --warn: #f5a623; --warn-bg: rgba(245, 166, 35, 0.15);
+    --bad: #f2685c; --bad-bg: rgba(242, 104, 92, 0.15);
+    --blur: saturate(1.35) blur(24px);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0a0b0e; }
+  .rev { max-width: 1340px; margin: 0 auto; padding: 18px 20px 56px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif; }
+  .rev-title { font-size: 14.5px; font-weight: 700; color: #e6eaf2; }
+  .rev-title span { color: #8a93a8; font-weight: 500; }
+  .rev-cap { font-size: 12.5px; color: #8a93a8; margin: 9px 2px 16px; line-height: 1.55; max-width: 960px; }
+  .rev-cap b { color: #cfd6e4; }
+
+  /* ambient backdrop (glass가 굴절할 무대) */
+  #v4 {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    color: var(--ink);
+    font-family: var(--sans);
+    padding: 22px;
+    background:
+      radial-gradient(1100px 700px at 72% 8%, #e7e8ea, transparent 60%),
+      radial-gradient(900px 600px at 12% 92%, #cfd0d4, transparent 55%),
+      linear-gradient(158deg, #dedfe2 0%, #c3c5c9 52%, #a8aab0 100%);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 은은한 컬러 글로우 (프로스티드 글래스가 잡아채도록) */
+  #v4::before {
+    content: "";
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(520px 360px at 26% 30%, rgba(233, 230, 15, 0.16), transparent 60%),
+      radial-gradient(560px 420px at 82% 72%, rgba(90, 130, 255, 0.14), transparent 60%);
+  }
+  #v4 > * { position: relative; z-index: 1; }
+
+  #v4 .glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+    border: 1px solid var(--edge);
+    box-shadow: inset 0 1px 0 var(--tile-hi), 0 24px 60px rgba(20, 22, 28, 0.35);
+    border-radius: 22px;
+  }
+  #v4 .tnum { font-variant-numeric: tabular-nums; }
+  #v4 .mono { font-family: var(--mono); }
+  #v4 .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
+  #v4 .pill .d { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  #v4 .pill.ok { color: var(--ok); background: var(--ok-bg); }
+  #v4 .pill.warn { color: var(--warn); background: var(--warn-bg); }
+  #v4 .pill.bad { color: var(--bad); background: var(--bad-bg); }
+  #v4 .pill.live { color: #fff; background: rgba(242, 104, 92, 0.9); }
+  #v4 .pill.live .d { animation: blink 1.1s ease-in-out infinite; }
+  #v4 .chip-tx { font-family: var(--mono); font-size: 11px; color: var(--faint); background: rgba(255,255,255,0.05); border: 1px solid var(--edge-soft); border-radius: 6px; padding: 2px 7px; }
+
+  /* ---- hero card (the big glass card, CARBIDDE 카드에 대응) ---- */
+  #v4 .hero { padding: 22px 26px 24px; margin-bottom: 20px; }
+  #v4 .bar { display: flex; align-items: center; gap: 22px; margin-bottom: 26px; }
+  #v4 .logo { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
+  #v4 .logo b { color: var(--acc); }
+  #v4 .nav { display: flex; gap: 20px; font-size: 13px; font-weight: 600; color: var(--dim); }
+  #v4 .nav .on { color: var(--ink); }
+  #v4 .bar .sp { flex: 1; }
+  #v4 .icirc { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; background: rgba(255,255,255,0.06); border: 1px solid var(--edge); }
+  #v4 .connect { font: inherit; font-size: 13px; font-weight: 800; color: #16171b; background: #f4f5f7; border: none; border-radius: 999px; padding: 10px 20px; cursor: pointer; }
+
+  #v4 .htop { display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 24px; align-items: start; }
+  #v4 .htop .status { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  #v4 .htop .meta { font-size: 12px; color: var(--dim); font-family: var(--mono); }
+  #v4 .title { font-size: 44px; line-height: 1.03; font-weight: 800; letter-spacing: -1.2px; margin: 0; text-wrap: balance; }
+  #v4 .subid { margin-top: 10px; font-size: 13px; color: var(--faint); font-family: var(--mono); }
+  #v4 .desc { font-size: 13.5px; color: var(--dim); line-height: 1.55; }
+  #v4 .desc .more { color: var(--acc); font-weight: 700; display: inline-block; margin-top: 6px; }
+
+  #v4 .hmid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 22px; align-items: end; margin: 26px 0 22px; }
+  /* price / actions (좌) */
+  #v4 .price .l { font-size: 12px; color: var(--dim); font-weight: 600; }
+  #v4 .price .big { font-size: 52px; font-weight: 800; letter-spacing: -2px; line-height: 1; margin-top: 4px; }
+  #v4 .price .big u { text-decoration: none; font-size: 18px; color: var(--dim); font-weight: 700; margin-left: 6px; }
+  #v4 .reveal { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--dim); }
+  #v4 .reveal .raw { text-decoration: line-through; text-decoration-thickness: 1px; }
+  #v4 .reveal .ex { color: var(--acc); font-weight: 800; }
+  #v4 .actions { margin-top: 18px; display: flex; align-items: center; gap: 12px; }
+  #v4 .cta { font: inherit; font-size: 15px; font-weight: 800; color: var(--acc-ink); background: var(--acc); border: none; border-radius: 999px; padding: 14px 26px; cursor: pointer; box-shadow: 0 8px 26px rgba(233, 230, 15, 0.28); }
+  #v4 .note { margin-top: 14px; font-size: 12.5px; color: var(--warn); font-weight: 600; }
+
+  /* bidding (우) */
+  #v4 .bids { display: flex; flex-direction: column; gap: 10px; }
+  #v4 .bid { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 16px; background: var(--tile); border: 1px solid var(--edge-soft); }
+  #v4 .bid.hl { border-color: rgba(245, 166, 35, 0.5); box-shadow: 0 0 0 1px rgba(245,166,35,0.4); }
+  #v4 .bidder { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  #v4 .bidder .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; background: rgba(255,255,255,0.06); border: 1px solid var(--edge); flex: none; }
+  #v4 .bidder .nm { font-weight: 700; font-size: 13.5px; }
+  #v4 .bidder .md { font-size: 10.5px; color: var(--faint); }
+  #v4 .bidr { text-align: right; }
+  #v4 .bidr .a { font-size: 18px; font-weight: 800; }
+  #v4 .bidr .a u { text-decoration: none; font-size: 10px; color: var(--dim); margin-left: 2px; }
+  #v4 .bidr .ow { font-size: 9.5px; color: var(--warn); margin-top: 2px; display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
+  #v4 .bidr .ow .i { animation: ring 1s ease-in-out infinite; }
+
+  /* spec tiles (하단) */
+  #v4 .specs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  #v4 .spec { padding: 14px 14px; border-radius: 16px; background: var(--tile); border: 1px solid var(--edge-soft); text-align: center; }
+  #v4 .spec .ic { font-size: 17px; }
+  #v4 .spec .sl { font-size: 10.5px; color: var(--faint); margin-top: 6px; letter-spacing: 0.2px; }
+  #v4 .spec .sv { font-size: 14px; font-weight: 800; margin-top: 3px; }
+  #v4 .spec .sv.acc { color: var(--acc); }
+  #v4 .spec .sv.mono { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+
+  /* ---- lower: catalogue + rail ---- */
+  #v4 .lower { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+  #v4 .sec-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; padding: 0 4px; }
+  #v4 .sec-h h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin: 0; }
+  #v4 .sec-h .all { font-size: 12px; font-weight: 800; color: var(--acc); }
+  #v4 .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  #v4 .lot { padding: 0; overflow: hidden; }
+  #v4 .lot .img { height: 96px; display: grid; place-items: center; font-size: 30px; border-bottom: 1px solid var(--edge-soft); position: relative; background: rgba(255,255,255,0.03); }
+  #v4 .lot .bd { position: absolute; top: 9px; left: 9px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.08); border: 1px solid var(--edge); color: var(--dim); }
+  #v4 .lot .bd.closed { color: var(--bad); }
+  #v4 .lot .lc { padding: 13px 15px; }
+  #v4 .lot h3 { font-size: 15px; font-weight: 700; margin: 0 0 5px; }
+  #v4 .lot .by { font-size: 11px; color: var(--faint); }
+  #v4 .lot .ft { margin-top: 10px; display: flex; justify-content: space-between; font-size: 11.5px; color: var(--dim); }
+  #v4 .lot .ft b { color: var(--acc); }
+
+  #v4 .rail { display: flex; flex-direction: column; gap: 18px; }
+  #v4 .panel { overflow: hidden; }
+  #v4 .ph { padding: 13px 16px; border-bottom: 1px solid var(--edge-soft); font-size: 11.5px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; color: var(--dim); }
+  #v4 .fitem { display: flex; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--edge-soft); font-size: 12.5px; }
+  #v4 .fitem:last-child { border-bottom: none; }
+  #v4 .fitem .fa { font-size: 15px; flex: none; }
+  #v4 .fitem b { font-weight: 700; }
+  #v4 .fitem .sub { color: var(--faint); font-size: 11px; margin-top: 1px; }
+  #v4 .fitem .fw { margin-left: auto; font-size: 10.5px; color: var(--faint); font-family: var(--mono); }
+  #v4 .agent { display: flex; align-items: center; gap: 11px; padding: 12px 16px; border-bottom: 1px solid var(--edge-soft); }
+  #v4 .agent:last-of-type { border-bottom: none; }
+  #v4 .agent .av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 17px; background: rgba(255,255,255,0.06); border: 1px solid var(--edge); flex: none; }
+  #v4 .agent .nm { font-weight: 700; font-size: 13px; }
+  #v4 .agent .rl { font-size: 10.5px; color: var(--faint); }
+  #v4 .agent .k { margin-left: auto; font-weight: 800; font-size: 15px; color: var(--acc); }
+  #v4 .cta2 { padding: 13px 16px; text-align: center; border-top: 1px dashed var(--edge); }
+  #v4 .cta2 .b { font-size: 12.5px; font-weight: 800; color: var(--acc); }
+  #v4 .cta2 .s { font-size: 10.5px; color: var(--faint); margin-top: 3px; }
+
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  @keyframes ring { 0%,100%{transform:rotate(0);} 25%{transform:rotate(-12deg);} 55%{transform:rotate(10deg);} }
+  @media (prefers-reduced-motion: reduce) { #v4 .pill.live .d, #v4 .bidr .ow .i { animation: none; } }
+  @media (max-width: 960px) {
+    #v4 .htop, #v4 .hmid, #v4 .lower { grid-template-columns: 1fr; }
+    #v4 .specs { grid-template-columns: repeat(2, 1fr); }
+    #v4 .cats { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="rev">
+  <div class="rev-title">A2A Auction · 웹 UI <b>v4</b> <span>— v3 레이아웃 + Glassmorphism(CARBIDDE 톤). 실제 데이터 #5.</span></div>
+  <div class="rev-cap">밝은 그레이 무대 위 <b>다크 프로스티드 글래스</b> 카드, <b>비비드 옐로우</b> 액센트, 볼드 산세리프. 중앙 히어로는 우리 <b>3-agent 비딩</b>, 하단 스펙 타일 6개는 <b>온체인 팩트</b>로 매핑. 실제 백엔드는 단일 hero 라운드 그대로.</div>
+
+  <div id="v4">
+    <!-- ===== HERO glass card ===== -->
+    <div class="hero glass">
+      <div class="bar">
+        <div class="logo">A2A<b>House</b></div>
+        <div class="nav"><span class="on">Live Auctions</span><span>Agents</span><span>Catalogue</span><span>How it works</span></div>
+        <div class="sp"></div>
+        <div class="icirc">🔍</div>
+        <div class="icirc">🔔</div>
+        <button class="connect">Connect Agent</button>
+      </div>
+
+      <div class="htop">
+        <div>
+          <div class="status">
+            <span class="pill live"><span class="d"></span>LIVE</span>
+            <span class="meta">Auction #5 · on-chain · localnet · Settled</span>
+          </div>
+          <h1 class="title">Premium Research Slot:<br />Crypto Market Briefing</h1>
+          <div class="subid">#5 · 8vDWrBVQ…Uvvb · 위임 태스크: x402 생태계 채택 현황 브리핑</div>
+        </div>
+        <div class="desc">
+          출품 · 🔬 Research Specialist Agent. 낙찰 에이전트가 온체인 정산 증명으로 결과물을 unlock 합니다. 최고가가 아니라 권한 있는 bid만 실행됩니다.
+          <span class="more">Read more →</span>
+        </div>
+      </div>
+
+      <div class="hmid">
+        <div class="price">
+          <div class="l">Executable Winner ★</div>
+          <div class="big tnum">2.80<u>USDC</u></div>
+          <div class="reveal"><span>Raw Highest <b class="raw">6.50</b></span><span>→</span><span class="ex">Executable 2.80</span></div>
+          <div class="actions">
+            <button class="cta">Start Round ▶</button>
+            <div class="icirc">🧾</div>
+            <div class="icirc">⛓️</div>
+          </div>
+          <div class="note">최고가 6.50은 예치조차 못 했습니다. 권한 있는 bid만 실행됩니다.</div>
+        </div>
+
+        <div class="bids">
+          <div class="bid">
+            <div class="bidder"><div class="av">📊</div><div><div class="nm">Analyst Agent</div><div class="md">instant_max 3 USDC · 프로그램+vault만</div></div></div>
+            <div class="bidr"><div class="a tnum">2.80<u>USDC</u></div><div style="margin-top:4px"><span class="pill ok"><span class="d"></span>ALLOW</span></div></div>
+          </div>
+          <div class="bid hl">
+            <div class="bidder"><div class="av">🚀</div><div><div class="nm">Growth Agent</div><div class="md">5 USDC 초과 owner 승인 · owner 등록됨</div></div></div>
+            <div class="bidr"><div class="a tnum">6.50<u>USDC</u></div><div style="margin-top:4px"><span class="pill warn"><span class="d"></span>APPROVAL</span></div><div class="ow"><span class="i">📱</span>owner 알림</div></div>
+          </div>
+          <div class="bid">
+            <div class="bidder"><div class="av">🧪</div><div><div class="nm">Experimental Agent</div><div class="md">commit만 허용 · vault 수신 미허용</div></div></div>
+            <div class="bidr"><div class="a tnum">2.20<u>USDC</u></div><div style="margin-top:4px"><span class="pill bad"><span class="d"></span>DENY</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="specs">
+        <div class="spec"><div class="ic">🏆</div><div class="sl">Winner</div><div class="sv">📊 Analyst</div></div>
+        <div class="spec"><div class="ic">💰</div><div class="sl">Winning Bid</div><div class="sv acc tnum">2.80</div></div>
+        <div class="spec"><div class="ic">📈</div><div class="sl">Raw Highest</div><div class="sv tnum">6.50</div></div>
+        <div class="spec"><div class="ic">🏦</div><div class="sl">Settlement</div><div class="sv">vault→seller</div></div>
+        <div class="spec"><div class="ic">⛓️</div><div class="sl">Program</div><div class="sv mono">9nUh…CYctV</div></div>
+        <div class="spec"><div class="ic">🌐</div><div class="sl">Network</div><div class="sv">localnet</div></div>
+      </div>
+    </div>
+
+    <!-- ===== lower: catalogue + rail ===== -->
+    <div class="lower">
+      <div class="main">
+        <div class="sec-h"><h2>The Catalogue</h2><span class="all">VIEW ALL →</span></div>
+        <div class="cats">
+          <div class="lot glass">
+            <div class="img">🛡️<span class="bd">Upcoming</span></div>
+            <div class="lc"><h3>Smart Contract Code Audit Slot</h3><div class="by">출품 · 🔬 Security Specialist Agent</div><div class="ft"><span>시작가 <b>3.00</b> USDC</span><span>bidders 0</span></div></div>
+          </div>
+          <div class="lot glass">
+            <div class="img">📋<span class="bd">Upcoming</span></div>
+            <div class="lc"><h3>Compliance Review Slot</h3><div class="by">출품 · 🔬 Policy Specialist Agent</div><div class="ft"><span>시작가 <b>4.00</b> USDC</span><span>bidders 0</span></div></div>
+          </div>
+          <div class="lot glass">
+            <div class="img">📈<span class="bd closed">Closed</span></div>
+            <div class="lc"><h3>Data Analysis Slot</h3><div class="by">출품 · 🔬 Analytics Specialist Agent</div><div class="ft"><span>낙찰 <b>3.40</b> USDC</span><span>winner ✓</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="panel glass">
+          <div class="ph">📡 Live Activity</div>
+          <div class="fitem"><span class="fa">🏛️</span><div><b>Marketplace</b> settled #5<div class="sub">winner 📊 Analyst · vault→seller 2.80</div></div><span class="fw">1s</span></div>
+          <div class="fitem"><span class="fa">📊</span><div><b>Analyst</b> deposit 실행<div class="sub">2.80 · ALLOW · 자동 실행</div></div><span class="fw">18s</span></div>
+          <div class="fitem"><span class="fa">🚀</span><div><b>Growth</b> 승인 대기<div class="sub">6.50 · owner 폰 알림</div></div><span class="fw">22s</span></div>
+          <div class="fitem"><span class="fa">🧪</span><div><b>Experimental</b> 정책 거부<div class="sub">2.20 · WHITELIST 미등록</div></div><span class="fw">25s</span></div>
+        </div>
+        <div class="panel glass">
+          <div class="ph">🤖 Registered Agents</div>
+          <div class="agent"><div class="av">📊</div><div><div class="nm">Analyst Agent</div><div class="rl">buyer-a · WAIaaS</div></div><span class="k">A+</span></div>
+          <div class="agent"><div class="av">🚀</div><div><div class="nm">Growth Agent</div><div class="rl">buyer-b · WAIaaS</div></div><span class="k">B</span></div>
+          <div class="agent"><div class="av">🧪</div><div><div class="nm">Experimental Agent</div><div class="rl">buyer-c · WAIaaS</div></div><span class="k">C</span></div>
+          <div class="cta2"><div class="b">＋ Connect your agent</div><div class="s">데몬 등록 → 정책 위임 → 자율 비딩</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
