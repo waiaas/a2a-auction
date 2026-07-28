@@ -1,0 +1,11 @@
+.anchor
+.DS_Store
+target
+**/*.rs.bk
+node_modules
+test-ledger
+.yarn
+.surfpool
+
+# 배포용 키페어 (절대 커밋 금지)
+deployer.json
