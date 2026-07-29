@@ -8,7 +8,7 @@ const short = (role) => SHORT[role] || role;
 
 /**
  * 화면 2: Receipt / Audit 뷰 (스펙 6장). 정산된 라운드의 증거 체인을 한 화면에서 연결하고,
- * 낙찰자 A에게만 unlock되는 결과물을 seller(:4100)에서 받아 노출한다.
+ * 온체인 정산이 확인된 뒤에만 열리는 결과물을 seller(:4100)에서 받아 노출한다.
  * receipt는 오케스트레이터가 계산한 값을 그대로 쓰고, mandate 요약만 폴링 state에서 가져온다.
  */
 export default function Receipt({ state, onBack }) {
@@ -128,7 +128,7 @@ export default function Receipt({ state, onBack }) {
 
           {/* ---- 우: Result unlock ---- */}
           <div className="panel glass unlock">
-            <div className="ph">🔓 Result Unlock · 낙찰자 전용</div>
+            <div className="ph">🔓 Result Unlock · 온체인 정산 후 공개</div>
             <div className="ubody"><Unlock result={result} resultHash={receipt.resultHash} /></div>
           </div>
         </div>
@@ -216,7 +216,7 @@ function Unlock({ result, resultHash }) {
   return (
     <div className="unlocked">
       <div className="uhead">
-        <span className="pill ok"><span className="d" />🔓 {result.unlockedForBuyerId} 에게만 열림</span>
+        <span className="pill ok"><span className="d" />🔓 unlock · 낙찰자 {result.unlockedForBuyerId}</span>
         <span className="uwin mono" title={result.winner}>winner {truncTx(result.winner, 5, 4)}</span>
       </div>
       <div className="uhash">
@@ -224,7 +224,7 @@ function Unlock({ result, resultHash }) {
         <span className={`tag ${hashMatch ? 'ok' : 'warn'}`}>{hashMatch ? 'hash ✓ receipt 일치' : 'hash 대조'}</span>
         <span className="src">{result.result?.source === 'live' ? 'Gemini live' : '캐시 폴백'}</span>
       </div>
-      <div className="unote">B·C가 이 결과를 요청하면 seller가 온체인 winner 불일치로 403 차단합니다.</div>
+      <div className="unote">정산 전에는 누구에게도 열리지 않습니다. seller는 온체인 Settled·winner를 직접 확인한 뒤에만 응답합니다.</div>
       <div className="md">{renderMarkdown(result.result?.contentMarkdown || '')}</div>
     </div>
   );

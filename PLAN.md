@@ -31,7 +31,7 @@
 
 ## D-3 (7/31 목) Receipt·통합 ✅ (`feat/d3-receipt`)
 - [x] Receipt/Audit 뷰 (증거 체인 + 데몬별 감사 로그 원본) — v4 글래스 톤, App `view` 전환
-- [x] result unlock (낙찰자 A에게만) — seller `/slot` relay, hash ✓ receipt 일치
+- [x] result unlock (온체인 정산 확인 후 공개) — seller `/slot` relay, hash ✓ receipt 일치. **요청자 신원 검증은 미구현**(게이트는 온체인 `Settled`·`winner`뿐 = 시간 게이트). 정산 후에는 요청자를 가리지 않음 → README 실물/연출 표에 명시, 낙찰자 서명 요구는 하드닝 로드맵
 - [x] e2e 통합 (브라우저 `:4000` 정산 후 Receipt 완주) — 컨트랙트 환불→마감→유찰은 미착수(스트레치)
 - 완료 판정: **스펙 6장 완성 기준 충족** ✅
 - 메모: 백엔드 기존 완비 → 프론트 중심. seller `/slot` 프록시 2곳(dev vite / prod 오케스트레이터 relay). receipt에 `budget`(A 위임 한도 대비 지출) 추가.
