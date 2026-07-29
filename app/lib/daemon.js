@@ -110,16 +110,21 @@ export function daemonClient(wallet, masterPassword) {
       const r = await http('GET', `${base}/v1/transactions/${id}`, authHdr);
       return r.json;
     },
-    /** 정지 상태(stopStatuses) 도달까지 폴링. 타임아웃 시 마지막 스냅샷 반환. */
+    /**
+     * 정지 상태(stopStatuses) 도달까지 폴링.
+     *
+     * 반환값에 `timedOut`을 실어 호출자가 **정책 판정과 관측 실패를 구분**할 수 있게 한다.
+     * 이게 없으면 느린 네트워크에서 중간 상태 스냅샷이 그대로 흘러가 정책 거부처럼 보인다.
+     */
     async pollTx(id, stopStatuses, timeoutMs = 45000) {
       const deadline = Date.now() + timeoutMs;
       let last = {};
       while (Date.now() < deadline) {
         last = await this.getTx(id);
-        if (last && stopStatuses.includes(last.status)) return last;
+        if (last && stopStatuses.includes(last.status)) return { ...last, timedOut: false };
         await sleep(1500);
       }
-      return last;
+      return { ...last, timedOut: true };
     },
     async pendingTxIds() {
       const r = await http('GET', `${base}/v1/transactions/pending`, authHdr);

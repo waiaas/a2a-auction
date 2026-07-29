@@ -207,8 +207,25 @@ export async function runAuction(state, deps) {
     const ids = await clients['buyer-b'].pendingTxIds();
     state.buyers['buyer-b'].deposit.inPending = ids.includes(state.buyers['buyer-b'].deposit.txId);
   }
-  state.vaultAfterDeposit = await tokenUiBalance(conn, vault);
-  pushLog(state, `vault after deposits = ${state.vaultAfterDeposit} USDC (A 예치만 기대)`);
+
+  // A의 예치가 온체인에 실제로 반영될 때까지 대기한 뒤 reveal로 넘어간다.
+  // 데몬은 tx를 제출하면 SUBMITTED를 반환하는데, reveal_bid는 vault 잔고가 reveal 금액
+  // 이상일 것을 요구한다(DepositNotFound). 이 간극을 흡수하지 않으면 라운드 전체가 죽는다.
+  const depA = state.buyers['buyer-a'].deposit;
+  if (depA.decision === 'ALLOW' || depA.decision === 'TIMEOUT') {
+    const wait = await waitForVaultDeposit(conn, vault, depA.txHash, state.buyers['buyer-a'].bidUsdc);
+    depA.onchainConfirmed = wait.confirmed;
+    state.vaultAfterDeposit = wait.balance;
+    pushLog(
+      state,
+      wait.confirmed
+        ? `A 예치 확정: vault=${wait.balance} USDC (${wait.waitedMs}ms 대기, sig=${wait.status})`
+        : `A 예치 확정 대기 초과(${wait.waitedMs}ms): sig=${wait.status} vault=${wait.balance} — reveal은 그대로 시도`,
+    );
+  } else {
+    state.vaultAfterDeposit = await tokenUiBalance(conn, vault);
+    pushLog(state, `vault after deposits = ${state.vaultAfterDeposit} USDC (A 예치 판정=${depA.decision})`);
+  }
 
   // ---- Step 5: reveal A ----
   state.phase = 'revealing';
@@ -273,10 +290,38 @@ export async function runAuction(state, deps) {
   return state;
 }
 
-/** 예치 결과를 데모 판정(UI)으로 매핑. A=NOTIFY지만 실행됨 → ALLOW. */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * A의 예치가 온체인에 반영될 때까지 짧게 재시도한다.
+ * reveal_bid의 온체인 요구사항(vault 잔고 >= reveal 금액)을 그대로 게이트로 쓴다.
+ *
+ * 확정되지 않아도 throw하지 않는다 — 조회가 늦었을 뿐 실제로는 반영됐을 수 있고,
+ * 여기서 라운드를 죽이면 기존 동작보다 더 나빠진다. 판단은 reveal의 온체인 검증에 맡긴다.
+ */
+async function waitForVaultDeposit(conn, vault, txHash, minUiAmount, intervalMs = 500, tries = 10) {
+  let status = 'unknown';
+  let balance = null;
+  for (let i = 0; i < tries; i++) {
+    status = await confirmSig(conn, txHash);
+    balance = await tokenUiBalance(conn, vault);
+    const sigOk = status === 'confirmed' || status === 'finalized';
+    if (sigOk && balance != null && balance >= minUiAmount) {
+      return { confirmed: true, status, balance, waitedMs: i * intervalMs };
+    }
+    await sleep(intervalMs);
+  }
+  return { confirmed: false, status, balance, waitedMs: tries * intervalMs };
+}
+
+/**
+ * 예치 결과를 데모 판정(UI)으로 매핑. A=NOTIFY지만 실행됨 → ALLOW.
+ * 타임아웃은 DENY로 접지 않는다 — 정책이 거부한 것(C)과 관측하지 못한 것은 다른 사건이다.
+ */
 function classifyDeposit(fin) {
   if (TX_OK.includes(fin.status)) return 'ALLOW'; // A: NOTIFY 자동 실행
   if (fin.status === 'QUEUED' || fin.status === 'DELAYED' || fin.tier === 'APPROVAL') return 'APPROVAL_REQUIRED'; // B
+  if (fin.timedOut) return 'TIMEOUT'; // 정지 상태에 도달하지 못함 = 정책 거부가 아니라 관측 실패
   return 'DENY'; // C: CANCELLED/POLICY_DENIED
 }
 
