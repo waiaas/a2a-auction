@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { fetchReceipt, fetchResult } from '../api.js';
+import Icon from './Icon.jsx';
 import { orderedBuyers, truncTx, fmtUsdc, verdictShort, friendlyDenyReason } from '../lib/derive.js';
 
-/** commit·deposit 행에 쓰는 짧은 라벨(receipt는 role만 담고 이모지는 안 담음). */
-const SHORT = { 'buyer-a': '📊 A', 'buyer-b': '🚀 B', 'buyer-c': '🧪 C' };
-const short = (role) => SHORT[role] || role;
+/** commit·deposit 행에 쓰는 짧은 라벨(receipt는 role만 담고 표시명은 안 담음). */
+const SHORT = { 'buyer-a': 'A', 'buyer-b': 'B', 'buyer-c': 'C' };
+const short = (role) => (SHORT[role] ? <><Icon name={role} size={13} />{SHORT[role]}</> : role);
 
 /**
  * 화면 2: Receipt / Audit 뷰 (스펙 6장). 정산된 라운드의 증거 체인을 한 화면에서 연결하고,
@@ -39,7 +40,7 @@ export default function Receipt({ state, onBack }) {
   return (
     <div className="rcpt">
       <div className="rcpt-top">
-        <button className="back" onClick={onBack}>← Live 경매로</button>
+        <button className="back" onClick={onBack}><Icon name="back" size={14} />Live 경매로</button>
         <div className="rtitle">Settlement Receipt</div>
         <span className="pill gold"><span className="d" />
           Auction {receipt ? `#${receipt.auctionId}` : '—'} · Settled
@@ -53,13 +54,13 @@ export default function Receipt({ state, onBack }) {
         <div className="rcpt-main">
           {/* ---- 좌: 증거 체인 ---- */}
           <div className="panel glass chain">
-            <div className="ph">🔗 증거 체인 · commit → 판정 → 예치 → settle → result</div>
+            <div className="ph"><Icon name="chain" size={14} />증거 체인 · commit → 판정 → 예치 → settle → result</div>
 
             <Step n="1" title="Mandate · 위임 지침">
               <div className="mtask">위임 태스크: {state.item?.task || receipt.item?.task || '—'}</div>
               {buyers.map((b) => (
                 <div className="mrow" key={b.role}>
-                  <span className="me">{b.emoji}</span><b>{b.name}</b>
+                  <span className="me"><Icon name={b.role} size={15} /></span><b>{b.name}</b>
                   <span className="mchip">{b.mandateChip}</span>
                 </div>
               ))}
@@ -128,7 +129,7 @@ export default function Receipt({ state, onBack }) {
 
           {/* ---- 우: Result unlock ---- */}
           <div className="panel glass unlock">
-            <div className="ph">🔓 Result Unlock · 온체인 정산 후 공개</div>
+            <div className="ph"><Icon name="unlock" size={14} />Result Unlock · 온체인 정산 후 공개</div>
             <div className="ubody"><Unlock result={result} resultHash={receipt.resultHash} /></div>
           </div>
         </div>
@@ -137,7 +138,7 @@ export default function Receipt({ state, onBack }) {
       {/* ---- 하단: 데몬별 감사 로그 원본 ---- */}
       {receipt && (
         <div className="panel glass audit">
-          <div className="ph">🗂️ 데몬별 감사 로그 원본 · 각자의 지갑, 각자의 기록</div>
+          <div className="ph"><Icon name="audit" size={14} />데몬별 감사 로그 원본 · 각자의 지갑, 각자의 기록</div>
           <div className="audgrid">
             {buyers.map((b) => {
               const d = decisions.find((x) => x.buyer === b.role);
@@ -145,14 +146,14 @@ export default function Receipt({ state, onBack }) {
               const v = verdictShort(b.ui ?? d?.decision);
               return (
                 <div className="audcard" key={b.role}>
-                  <div className="ah"><span className="me">{b.emoji}</span><b>{b.name}</b>
+                  <div className="ah"><span className="me"><Icon name={b.role} size={15} /></span><b>{b.name}</b>
                     <span className={`pill ${v.cls}`}><span className="d" />{v.label}</span></div>
                   <div className="arow"><span>waiaas req</span><span className="mono">{truncTx(d?.txId, 6, 5) || '—'}</span></div>
                   <div className="arow"><span>commit</span><Tx sig={c?.txHash} /></div>
                   <div className="arow"><span>deposit</span>{d?.txHash ? <Tx sig={d.txHash} /> : <span className="tx dim">{d?.status || '—'}</span>}</div>
                   <div className="arow"><span>tier · status</span><span className="mono">{(d?.tier || '-')} · {(d?.status || '-')}</span></div>
                   {d?.error && <div className="aerr" title={d.error}>{friendlyDenyReason(d.error)}</div>}
-                  {d?.inPending && <div className="apend">📱 owner 승인 큐 등재</div>}
+                  {d?.inPending && <div className="apend"><Icon name="phone" size={12} />owner 승인 큐 등재</div>}
                 </div>
               );
             })}
@@ -197,7 +198,7 @@ function Unlock({ result, resultHash }) {
     // seller 도달 불가(502/503) — 정책 잠금과 구분한다. 정산 자체는 완료됐으므로 접근권 실패가 아니다.
     return (
       <div className="locked">
-        <div className="lk-ic">🔌</div>
+        <div className="lk-ic"><Icon name="offline" size={34} /></div>
         <div className="lk-t">결과 서비스에 연결할 수 없음</div>
         <div className="lk-s">seller(:4100) 응답 없음: {result.reason}. 정산은 완료됐으나 결과물 조회에 일시 실패했습니다.</div>
       </div>
@@ -206,7 +207,7 @@ function Unlock({ result, resultHash }) {
   if (result.locked) {
     return (
       <div className="locked">
-        <div className="lk-ic">🔒</div>
+        <div className="lk-ic"><Icon name="locked" size={34} /></div>
         <div className="lk-t">정산 전 잠김</div>
         <div className="lk-s">사유: {result.reason || 'not_settled'} · 온체인 정산 증명 없이는 결과물이 열리지 않습니다.</div>
       </div>
@@ -216,7 +217,7 @@ function Unlock({ result, resultHash }) {
   return (
     <div className="unlocked">
       <div className="uhead">
-        <span className="pill ok"><span className="d" />🔓 unlock · 낙찰자 {result.unlockedForBuyerId}</span>
+        <span className="pill ok"><span className="d" /><Icon name="unlock" size={12} />unlock · 낙찰자 {result.unlockedForBuyerId}</span>
         <span className="uwin mono" title={result.winner}>winner {truncTx(result.winner, 5, 4)}</span>
       </div>
       <div className="uhash">
@@ -258,14 +259,14 @@ function NotSettled({ onBack, phase }) {
   return (
     <div className="rcpt">
       <div className="rcpt-top">
-        <button className="back" onClick={onBack}>← Live 경매로</button>
+        <button className="back" onClick={onBack}><Icon name="back" size={14} />Live 경매로</button>
         <div className="rtitle">Settlement Receipt</div>
       </div>
       <div className="panel glass empty-rcpt">
-        <div className="er-ic">🧾</div>
+        <div className="er-ic"><Icon name="receipt" size={40} /></div>
         <div className="er-t">아직 정산된 라운드가 없습니다</div>
         <div className="er-s">현재 상태: {phase}. Live 경매에서 <b>Start Round</b>로 완주하면 증거 체인이 여기 조립됩니다.</div>
-        <button className="cta" onClick={onBack}>Live 경매로 가기 ▶</button>
+        <button className="cta" onClick={onBack}>Live 경매로 가기<Icon name="play" size={15} /></button>
       </div>
     </div>
   );

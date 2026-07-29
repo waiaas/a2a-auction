@@ -1,4 +1,5 @@
 import HeaderBar from './HeaderBar.jsx';
+import Icon from './Icon.jsx';
 import PriceBlock from './PriceBlock.jsx';
 import BidTile from './BidTile.jsx';
 import SpecTiles from './SpecTiles.jsx';
@@ -28,7 +29,7 @@ export default function Hero({ state, onStart, starting, onOpenReceipt }) {
           </div>
         </div>
         <div className="desc">
-          출품 · 🔬 {item?.seller || 'Research Specialist Agent'}. 온체인 정산이 확인된 뒤에만 결과물이 열립니다. 최고가가 아니라 권한 있는 bid만 실행됩니다. <span className="more">Read more →</span>
+          출품 · <Icon name="seller" size={14} className="i-tx" /> {item?.seller || 'Research Specialist Agent'}. 온체인 정산이 확인된 뒤에만 결과물이 열립니다. 최고가가 아니라 권한 있는 bid만 실행됩니다. <span className="more">Read more →</span>
         </div>
       </div>
 
