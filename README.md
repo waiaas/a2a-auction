@@ -85,7 +85,7 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
     (marketplace)   (buyer A/B/C)      (정책 심사가 걸리는 지점)     (marketplace)
 ```
 
-`commit_bid`는 입찰 해시만 올리므로 금액이 드러나지 않습니다(commit-reveal). 예치 단계에서 실제 USDC가 움직이고, **바로 여기서 각 에이전트의 정책 엔진이 판정을 내립니다.**
+`commit_bid`는 금액이 아니라 **입찰 해시를 먼저 온체인에 올립니다**(commit-reveal 구조). 예치 단계에서 실제 USDC가 움직이고, **바로 여기서 각 에이전트의 정책 엔진이 판정을 내립니다.**
 
 ## WAIaaS를 control plane으로 확장하기
 
@@ -311,6 +311,7 @@ Gemini는 실제로 호출됩니다. API 키가 없으면 이전에 생성된 �
 
 - **패자·초과 예치금 환불** ([#5](https://github.com/waiaas/a2a-auction/issues/5)) — 현재 `settle`은 낙찰자 금액만 seller에게 지급하고 나머지는 vault에 남습니다
 - **per-bidder 예치 추적** ([#4](https://github.com/waiaas/a2a-auction/issues/4)) — 예치가 프로그램 밖 전송이라 `Bid` 계정에 예치 기록이 없고, `reveal_bid`가 vault 전역 잔고만 검증합니다. 데모 경로에서는 재현되지 않지만 실사용에는 필수입니다
+- **입찰 금액 은닉** — 온체인 검증식(`sha256(amount_le ‖ salt)`)은 정상이지만, 앱이 고르는 salt가 `sha256("a2a-salt|{role}|{auctionId}")`로 결정론적입니다. role 3개와 `auctionId`가 모두 공개라 누구나 `commitHash`를 재계산할 수 있으므로, 이 데모의 commit-reveal은 **해시 선등록이지 금액 은닉이 아닙니다.** 실사용에는 입찰자별 랜덤 salt 생성과 reveal 시점까지의 보관이 필요합니다
 - commit·reveal 데드라인 온체인 강제, reveal 미제출·해시 불일치 처리, 동점 규칙, 유찰 취소 경로
 - `settle` 권한 설계(permissionless crank 여부), 계정 rent 회수, 업그레이드 권한 관리(멀티시그/immutable), 외부 코드 리뷰
 
