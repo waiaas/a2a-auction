@@ -176,7 +176,26 @@ solana program deploy target/deploy/onchain.so \
 
 > **deployer는 직접 채워야 합니다.** `onchain/deployer.json`은 `.gitignore` 대상이라 레포에 없고, 프로그램 배포뿐 아니라 **4단계 시드의 payer**(USDC mint 생성 · ATA 생성 · buyer 잔고 top-up)이기도 합니다. 시드 스크립트의 airdrop은 **데몬 지갑 5개만** 대상이라 deployer를 채워주지 않으므로, 위 airdrop을 건너뛰면 시드가 mint 생성에서 실패합니다.
 
-> **Program ID 주의**: 빌드 산출물(`onchain/target/`)은 `.gitignore` 대상이라 레포에 포함되지 않습니다. `anchor build`가 **새 키페어를 생성하면 Program ID가 바뀌어** 소스의 `declare_id!`와 어긋납니다. 이때는 `anchor keys sync`로 `lib.rs`·`Anchor.toml`을 맞추고, **`app/config.js`의 `PROGRAM_ID`도 같은 값으로 바꿔야** 합니다. 기존 ID(`9nUhQ…`)를 그대로 쓰려면 해당 `onchain-keypair.json`이 필요합니다.
+> **Program ID 주의 (클론하면 반드시 겪습니다)**: 빌드 산출물(`onchain/target/`)은 `.gitignore` 대상이라 레포에 포함되지 않습니다. 따라서 `anchor build`가 **새 키페어를 생성**하고, 그 Program ID는 소스의 `declare_id!`(`9nUhQ…`)와 어긋납니다.
+>
+> 이 상태로 배포하면 **배포 자체는 성공하지만** 라운드를 실행하는 순간 모든 트랜잭션이 실패합니다.
+>
+> ```
+> Program log: AnchorError occurred. Error Code: DeclaredProgramIdMismatch. Error Number: 4100.
+> Program … failed: custom program error: 0x1004
+> ```
+>
+> 해소 순서입니다. **`keys sync`만 하고 재빌드를 건너뛰면 해결되지 않습니다** — `.so`에는 여전히 옛 ID가 박혀 있기 때문입니다.
+>
+> ```bash
+> anchor keys sync     # lib.rs의 declare_id! 와 Anchor.toml 을 새 키페어에 맞춘다
+> anchor build         # 새 declare_id! 로 .so 를 다시 빌드한다 (이 단계가 빠지면 위 에러가 그대로)
+> solana program deploy target/deploy/onchain.so \
+>   --program-id target/deploy/onchain-keypair.json \
+>   --keypair deployer.json --url http://<호스트-LAN-IP>:8899
+> ```
+>
+> 그다음 **`app/config.js`의 `PROGRAM_ID`를 새 값으로** 바꿉니다(`solana address -k onchain/target/deploy/onchain-keypair.json`으로 확인). 기존 ID(`9nUhQ…`)를 그대로 쓰려면 해당 `onchain-keypair.json` 파일이 필요합니다.
 >
 > `onchain/Anchor.toml`의 `wallet` 경로는 작성자 로컬 절대경로이므로 각자 환경에 맞게 수정하세요.
 
@@ -185,7 +204,7 @@ solana program deploy target/deploy/onchain.so \
 `infra/.env`에 마스터 패스워드 5개(`BUYER_A_MASTER_PASSWORD` 등)와 `LOCALNET_RPC`(위 밸리데이터 주소)를 설정한 뒤:
 
 ```bash
-cd infra
+cd <레포 루트>/infra
 docker compose --env-file .env up -d
 docker compose ps        # 5개 모두 healthy 확인
 ```
@@ -248,7 +267,7 @@ UI를 개발할 때는 Vite dev 서버(`npm run dev`, :5173)를 쓰면 됩니다
 커맨드라인으로 전 플로우를 검증하려면:
 
 ```bash
-cd app && ./verify-e2e.sh
+cd <레포 루트>/app && ./verify-e2e.sh
 ```
 
 헬스체크 → seller 게이트(미정산 403) → 라운드 실행 → receipt → unlock(200) → 3분기 및 온체인 `Settled`·`winner=A` 판정까지 확인합니다.
@@ -354,7 +373,7 @@ a2a-auction/
 온체인 프로그램 테스트:
 
 ```bash
-cd onchain
+cd <레포 루트>/onchain
 anchor build      # 테스트가 컴파일 타임에 .so를 읽으므로 빌드 선행 필수
 cargo test
 ```
