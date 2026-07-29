@@ -57,8 +57,9 @@ app.get('/slot/:auctionId/result', async (req, res) => {
     });
   }
 
-  // 정산 확인됨 → 결과 unlock (낙찰자에게만 의미 있음; 승자 주소를 함께 반환해 대조 가능)
-  const result = await getResult(AUCTION_ITEM);
+  // 정산 확인됨 → 결과 unlock (낙찰자에게만 의미 있음; 승자 주소를 함께 반환해 대조 가능).
+  // orchestrator가 정산 시 저장한 확정 캐시를 재사용 → receipt.resultHash와 동일(M2).
+  const result = await getResult(AUCTION_ITEM, auctionId);
   return res.json({
     locked: false,
     auctionId,
