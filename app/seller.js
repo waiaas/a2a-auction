@@ -1,10 +1,14 @@
 /**
  * Seller 결과 서비스 (스펙 3.3·5.2). 온체인 낙찰·정산을 직접 확인한 뒤에만 결과물을 내준다.
- * 정산 증명이 곧 접근 권한이다 — 오케스트레이터 상태를 믿지 않고 체인을 읽는다.
+ * 오케스트레이터 상태를 믿지 않고 체인을 읽는다 — 게이트는 온체인 Settled·winner뿐이다.
  *
  *   GET /slot/:auctionId/result
  *     - 온체인 auction이 Settled + winner 존재 → 200 + ServiceResult
  *     - 미정산/미존재 → 403 + 상태 안내
+ *
+ * 주의: 호출자 신원 검증은 없다(요청에 신원이 실리지도 않는다). 여기 구현된 것은
+ * "정산 전에는 아무도 못 본다"는 시간 게이트이고, 정산 후에는 요청자를 가리지 않는다.
+ * 낙찰자 서명(nonce 챌린지) 요구는 README 하드닝 로드맵.
  *
  * 실행: node seller.js   ← localnet 조회가 있어 Bash는 dangerouslyDisableSandbox 필요
  */
@@ -57,7 +61,7 @@ app.get('/slot/:auctionId/result', async (req, res) => {
     });
   }
 
-  // 정산 확인됨 → 결과 unlock (낙찰자에게만 의미 있음; 승자 주소를 함께 반환해 대조 가능).
+  // 정산 확인됨 → 결과 공개. 승자 주소를 함께 반환해 호출자가 대조할 수 있게 한다.
   // orchestrator가 정산 시 저장한 확정 캐시를 재사용 → receipt.resultHash와 동일(M2).
   const result = await getResult(AUCTION_ITEM, auctionId);
   return res.json({

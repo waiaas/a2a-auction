@@ -76,7 +76,7 @@ function resultCachePath(auctionId) {
 }
 
 /**
- * 낙찰자에게 unlock되는 specialist 결과 브리핑. 라이브 성공 시 그 텍스트, 실패 시 캐시.
+ * 정산 후 unlock되는 specialist 결과 브리핑. 라이브 성공 시 그 텍스트, 실패 시 캐시.
  * auctionId를 주면 라운드별 확정본을 캐시한다 — orchestrator가 정산 시 먼저 생성·저장하고
  * seller가 이를 재사용해 **동일한 contentMarkdown·hash**를 낸다(라이브 모드에서도 hash 일치).
  * 접근권 판정은 여전히 seller가 온체인 Settled·winner로 하고, 여기서 공유하는 건 콘텐츠뿐이다.

@@ -274,7 +274,7 @@ export async function runAuction(state, deps) {
       }
     : null;
 
-  // 낙찰자에게 unlock되는 결과물 메타(내용은 seller 서비스가 게이트).
+  // 정산 후 seller가 여는 결과물 메타(내용은 seller 서비스가 게이트).
   // auctionId를 넘겨 이 라운드의 확정본을 캐시 → seller가 동일 hash를 재현(M2).
   const result = await getResult(AUCTION_ITEM, auctionId);
   state.resultMeta = { hash: result.hash, source: result.source, unlockedFor: 'buyer-a' };
