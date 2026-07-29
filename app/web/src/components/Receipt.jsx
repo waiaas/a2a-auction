@@ -65,7 +65,7 @@ export default function Receipt({ state, onBack }) {
               ))}
             </Step>
 
-            <Step n="2" title="Commit · 입찰 해시 온체인 기록 (금액 은닉)">
+            <Step n="2" title="Commit · 입찰 해시 선등록 (commit-reveal)">
               {receipt.commitTxSignatures.map((c) => (
                 <div className="trow" key={c.buyer}>
                   <span className="who">{short(c.buyer)}</span><Tx sig={c.txHash} />

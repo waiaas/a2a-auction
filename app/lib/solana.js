@@ -38,7 +38,12 @@ export function acc(pubkey, isSigner, isWritable) {
 }
 
 /**
- * 라운드 결정론적 salt. 같은 (role, auctionId)면 항상 같은 값 → commit/reveal 재현 가능.
+ * 라운드 결정론적 salt. 같은 (role, auctionId)면 항상 같은 값 → commit/reveal 재현 가능
+ * (salt를 state에 들고 다니지 않아도 된다).
+ *
+ * 주의: role 3개와 auctionId가 모두 공개값이라 누구나 commitHash를 재계산할 수 있다.
+ * 이 구조는 **입찰 해시 선등록**이지 금액 은닉이 아니다 — 은닉이 필요하면 입찰자별
+ * 랜덤 salt 생성과 보관이 필요하다(README 하드닝 로드맵).
  */
 export function saltFor(role, auctionId) {
   return sha256(Buffer.from(`a2a-salt|${role}|${auctionId}`));

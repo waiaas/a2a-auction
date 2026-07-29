@@ -155,6 +155,6 @@ export function liveActivity(state) {
     else if (b.ui === 'TIMEOUT') items.push({ emoji: b.emoji, who: b.name, act: '판정 관측 실패', sub: `${fmtUsdc(b.bidUsdc)} · 데몬 응답 타임아웃` });
   }
   const committed = orderedBuyers(state.buyers).filter((b) => b.commit).length;
-  if (committed) items.push({ emoji: '🔗', who: `${committed} agents`, act: 'committed bids', sub: '해시 온체인 기록 · 금액 비공개' });
+  if (committed) items.push({ emoji: '🔗', who: `${committed} agents`, act: 'committed bids', sub: '입찰 해시 선등록 · reveal 전' });
   return items;
 }
