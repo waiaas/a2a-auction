@@ -75,12 +75,24 @@
   - ⚠️ **정정**: "데몬 env 하나만 바꾸면 됨"은 **틀림**. 데몬은 `LOCALNET_RPC`(→`WAIAAS_RPC_SOLANA_DEVNET`), **앱(시드·오케스트레이터·seller)은 별도로 `RPC_URL`** 을 읽는다(`app/config.js:15-16`). **두 값이 같은 체인을 가리켜야** 하며, 어긋나면 데몬이 보낸 tx를 앱이 조회하지 못해 라운드가 멈춘다. devnet 이관 시 프로그램 재배포·USDC mint 재생성도 필요.
 - [ ] (제품 로드맵, 스펙 부록 A) dApp 어댑터 / 승인 타임아웃 vs 경매 마감 정합
 
+## 제출 전 독립 감사 대응 (7/29) ✅
+
+> 결함 21건 중 "제출 전 반드시" 5건. 나머지는 아래 "알려진 이슈"와 README 하드닝 로드맵으로 이관.
+
+- [x] **C1** seller unlock 서술 정정 ([#11](https://github.com/waiaas/a2a-auction/pull/11), [#16](https://github.com/waiaas/a2a-auction/pull/16)) — 실제 게이트는 온체인 `Settled`·`winner`뿐인 **시간 게이트**이고, 요청자 신원 검증은 미구현이다. 정산 후에는 요청자를 가리지 않는다. 화면 문구 4곳 + 결과물 fixture + README·PLAN 정정, 실물/연출 표와 하드닝 로드맵에 명시. 근본 수정(낙찰자 서명 요구)은 마감 후.
+- [x] **C2** 클론 직후 재현 불가 2건 ([#12](https://github.com/waiaas/a2a-auction/pull/12)) — `onchain/deployer.json` 생성·airdrop을 1단계에, `app/web` 빌드를 5단계 필수 선행으로. deployer는 배포뿐 아니라 **시드의 payer**인데 `seed.js`의 airdrop 대상이 아니다.
+- [x] **H1·H2** A 예치 확정 대기 + 타임아웃을 DENY와 분리 ([#13](https://github.com/waiaas/a2a-auction/pull/13)) — **이번 대응 중 유일한 코드 수정**. `depositStop`에 `SUBMITTED`가 있어 제출 즉시 reveal로 넘어가던 것을 vault 잔고 확정까지 대기(최대 5초)하도록. `pollTx`에 `timedOut`을 실어 타임아웃이 `DENY`로 접히지 않게.
+- [x] **H3** `verify-e2e.sh` 강화 ([#14](https://github.com/waiaas/a2a-auction/pull/14)) — 정산 전 seller 잠김을 매 폴링 감시(진짜 `not_settled` 분기를 최소 1회 관측해야 통과), seller↔orchestrator hash·winner 교차 대조, B 큐 등재·vault 소진 assert 추가.
+- [x] **C3** commit-reveal 서술에서 "금액 은닉" 제거 ([#15](https://github.com/waiaas/a2a-auction/pull/15)) — salt가 `sha256("a2a-salt|{role}|{auctionId}")`로 결정론적·공개값이라 누구나 `commitHash`를 재계산할 수 있다. 이 구조는 **해시 선등록**이지 은닉이 아니다.
+- **운영으로 대응**(코드 미수정): **M2** FUND_TARGET은 10라운드에 소진 → 리허설 후 **본 발표 직전 `npm run seed` 재실행**. **M5** B owner 개인키가 인메모리 생성 후 폐기라 승인 시연 불가 → "owner 승인 액션은 데모 범위 밖이며 큐 등재까지가 실물"이라는 멘트 준비.
+
 ## 알려진 이슈 (데모 후 처리, GitHub 이슈로 트래킹)
 - [ ] [#4](https://github.com/waiaas/a2a-auction/issues/4) [High] **예치금 도용** — 예치가 프로그램 밖 전송(2-tx)이라 `Bid`에 per-bidder 예치 기록이 없고 `reveal_bid`가 vault **전역 잔고**만 검증. 데모는 A만 성공하는 순서라 재현 안 됨.
 - [ ] [#5](https://github.com/waiaas/a2a-auction/issues/5) [Med] **환불 없음** — settle이 winner highest만 지급, 패자·초과 예치는 vault에 잠김.
 - 두 이슈 모두 **데모 전 근본 수정하지 않기로 결정**(2026-07-28). 근본 해소(per-bidder 예치 추적)는 2-tx 분리·token_limits 정책 설계와 얽혀 마감 전 회귀 위험이 큼. README "Production hardening"에 의도적 후순위로 명시함.
 
 ## 제출 직전 체크리스트 (D-0)
+- [ ] **본 발표 직전 `npm run seed` 재실행** (M2) — A의 USDC는 라운드당 2.80, 목표 잔고 30이라 **10라운드에 소진**된다. 리허설을 여러 번 돌린 뒤 본 발표에서 터지는 형태이므로 발표 직전 top-up이 필수.
 - [ ] **레포 PRIVATE → public 전환** (제출 요건). 커밋된 시크릿 0건 확인 완료(`deployer.json`은 `onchain/.gitignore:11`로 제외). **사용자가 "준비되면" 전환 지시 예정**
 - [ ] README 온체인 증거 표에 devnet tx signature·explorer 링크 채우기
 - [ ] `onchain/Anchor.toml`의 `wallet` 절대경로(작성자 로컬) 정리 검토
