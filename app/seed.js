@@ -11,12 +11,14 @@
  * 실행: node seed.js   ← Bash 도구는 dangerouslyDisableSandbox:true (루프백·LAN RPC 차단 회피)
  * 시크릿(마스터PW·owner키)은 화면·config에 출력하지 않는다.
  */
+import fs from 'node:fs';
 import {
   CAIP2,
   PROGRAM_ID,
   FUND_TARGET,
   TOKEN_LIMITS,
   AMOUNTS,
+  PATHS,
 } from './config.js';
 import {
   loadStateByRole,
@@ -92,6 +94,12 @@ async function main() {
   const prev = loadConfig();
 
   console.log('=== a2a-auction 시드 (멱등) ===');
+
+  // 0) 결과물 캐시 무효화: 시드 = 새 데모 사이클. 밸리데이터 리셋으로 auctionId가 낮은 값으로
+  //    다시 잡히면 이전 사이클의 result-{id}.json(gitignore·로컬 잔존)을 재사용해 stale 콘텐츠를
+  //    서빙할 수 있다(라이브 모드 hash 불일치). 셸 절차의 수동 rm 대신 여기서 자동 무효화.
+  fs.rmSync(PATHS.resultCache, { recursive: true, force: true });
+  console.log('결과물 캐시 무효화 (app/result-cache)');
 
   // 1) 데몬 health
   for (const role of ROLES) {
