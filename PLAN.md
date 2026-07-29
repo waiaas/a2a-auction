@@ -79,7 +79,8 @@
 
 > 결함 21건 중 "제출 전 반드시" 5건. 나머지는 아래 "알려진 이슈"와 README 하드닝 로드맵으로 이관.
 
-- [x] **C1** seller unlock 서술 정정 ([#11](https://github.com/waiaas/a2a-auction/pull/11), [#16](https://github.com/waiaas/a2a-auction/pull/16)) — 실제 게이트는 온체인 `Settled`·`winner`뿐인 **시간 게이트**이고, 요청자 신원 검증은 미구현이다. 정산 후에는 요청자를 가리지 않는다. 화면 문구 4곳 + 결과물 fixture + README·PLAN 정정, 실물/연출 표와 하드닝 로드맵에 명시. 근본 수정(낙찰자 서명 요구)은 마감 후.
+- [x] **C1** seller unlock 서술 정정 ([#11](https://github.com/waiaas/a2a-auction/pull/11), [#16](https://github.com/waiaas/a2a-auction/pull/16), [#18](https://github.com/waiaas/a2a-auction/pull/18)) — 실제 게이트는 온체인 `Settled`·`winner`뿐인 **시간 게이트**이고, 요청자 신원 검증은 미구현이다. 정산 후에는 요청자를 가리지 않는다. 화면 문구 4곳(hero 설명 · Receipt 3곳) + 결과물 fixture + 코드 주석 4곳 + README·PLAN 정정, 실물/연출 표와 하드닝 로드맵에 명시. 근본 수정(낙찰자 서명 요구)은 마감 후.
+  - ⚠️ **2차 교차검증에서 추가 발견(#18)**: #11·#16이 Receipt 화면 3곳을 정정하고도 **랜딩 첫 화면**(`Hero.jsx:31` "낙찰 에이전트가 … unlock 합니다")을 놓쳤다. 정정 범위를 잡을 때 화면 렌더 지점을 컴포넌트 단위로 훑지 않고 키워드 grep(`에게만`·`전용`)에 의존한 것이 원인이다. 해당 문장에는 그 키워드가 없었다.
 - [x] **C2** 클론 직후 재현 불가 2건 ([#12](https://github.com/waiaas/a2a-auction/pull/12)) — `onchain/deployer.json` 생성·airdrop을 1단계에, `app/web` 빌드를 5단계 필수 선행으로. deployer는 배포뿐 아니라 **시드의 payer**인데 `seed.js`의 airdrop 대상이 아니다.
 - [x] **H1·H2** A 예치 확정 대기 + 타임아웃을 DENY와 분리 ([#13](https://github.com/waiaas/a2a-auction/pull/13)) — **이번 대응 중 유일한 코드 수정**. `depositStop`에 `SUBMITTED`가 있어 제출 즉시 reveal로 넘어가던 것을 vault 잔고 확정까지 대기(최대 5초)하도록. `pollTx`에 `timedOut`을 실어 타임아웃이 `DENY`로 접히지 않게.
 - [x] **H3** `verify-e2e.sh` 강화 ([#14](https://github.com/waiaas/a2a-auction/pull/14)) — 정산 전 seller 잠김을 매 폴링 감시(진짜 `not_settled` 분기를 최소 1회 관측해야 통과), seller↔orchestrator hash·winner 교차 대조, B 큐 등재·vault 소진 assert 추가.
