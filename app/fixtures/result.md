@@ -1,6 +1,6 @@
 # x402 생태계 채택 현황 브리핑
 
-> Research Specialist Agent가 낙찰자에게만 제공하는 전문 리서치 결과물. (데모 폴백 캐시본)
+> Research Specialist Agent가 낙찰된 슬롯에 제공하는 전문 리서치 결과물. (데모 폴백 캐시본)
 
 ## 한 줄 요약
 
