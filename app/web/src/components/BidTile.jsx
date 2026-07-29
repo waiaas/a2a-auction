@@ -1,3 +1,4 @@
+import Icon from './Icon.jsx';
 import { fmtUsdc, verdictShort } from '../lib/derive.js';
 
 /** 입찰 타일 하나: 에이전트 · mandate · 입찰가 · 판정 pill · (B) owner 알림. */
@@ -7,7 +8,7 @@ export default function BidTile({ buyer }) {
   return (
     <div className={`bid ${highlight ? 'hl' : ''}`}>
       <div className="bidder">
-        <div className="av">{buyer.emoji}</div>
+        <div className="av"><Icon name={buyer.role} size={17} /></div>
         <div>
           <div className="nm">{buyer.name}</div>
           <div className="md">{buyer.mandateChip}</div>
@@ -16,7 +17,9 @@ export default function BidTile({ buyer }) {
       <div className="bidr">
         <div className="a tnum">{fmtUsdc(buyer.bidUsdc)}<u>USDC</u></div>
         <div className="vv"><span className={`pill ${v.cls}`}><span className="d" />{v.label}</span></div>
-        {buyer.ui === 'APPROVAL_REQUIRED' && <div className="ow"><span className="i">📱</span>owner 알림</div>}
+        {buyer.ui === 'APPROVAL_REQUIRED' && (
+          <div className="ow"><span className="i"><Icon name="phone" size={11} /></span>owner 알림</div>
+        )}
       </div>
     </div>
   );

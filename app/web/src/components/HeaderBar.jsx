@@ -1,3 +1,5 @@
+import Icon from './Icon.jsx';
+
 /** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · Connect Agent. */
 export default function HeaderBar({ onOpenReceipt }) {
   return (
@@ -9,8 +11,8 @@ export default function HeaderBar({ onOpenReceipt }) {
           onKeyDown={(e) => e.key === 'Enter' && onOpenReceipt?.()}>Receipt</span>
       </div>
       <div className="sp" />
-      <div className="icirc" aria-hidden="true">🔍</div>
-      <div className="icirc" aria-hidden="true">🔔</div>
+      <div className="icirc"><Icon name="search" size={16} /></div>
+      <div className="icirc"><Icon name="bell" size={16} /></div>
       <button className="connect">Connect Agent</button>
     </div>
   );

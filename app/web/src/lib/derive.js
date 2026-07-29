@@ -144,17 +144,17 @@ export function liveActivity(state) {
   if (state.phase === 'settled' && state.auctionState?.winnerIsA) {
     const s = state.result?.sellerUsdc;
     items.push({
-      emoji: '🏛️', who: 'Marketplace', act: `settled #${state.auctionId}`,
-      sub: `winner 📊 Analyst · vault→seller ${s != null ? Number(s).toFixed(2) : '—'}`,
+      icon: 'marketplace', who: 'Marketplace', act: `settled #${state.auctionId}`,
+      sub: `winner Analyst · vault→seller ${s != null ? Number(s).toFixed(2) : '—'}`,
     });
   }
   for (const b of orderedBuyers(state.buyers)) {
-    if (b.ui === 'ALLOW') items.push({ emoji: b.emoji, who: b.name, act: 'deposit 실행', sub: `${fmtUsdc(b.bidUsdc)} · ALLOW · 자동 실행` });
-    else if (b.ui === 'APPROVAL_REQUIRED') items.push({ emoji: b.emoji, who: b.name, act: '승인 대기', sub: `${fmtUsdc(b.bidUsdc)} · owner 폰 알림` });
-    else if (b.ui === 'DENY') items.push({ emoji: b.emoji, who: b.name, act: '정책 거부', sub: `${fmtUsdc(b.bidUsdc)} · WHITELIST 미등록` });
-    else if (b.ui === 'TIMEOUT') items.push({ emoji: b.emoji, who: b.name, act: '판정 관측 실패', sub: `${fmtUsdc(b.bidUsdc)} · 데몬 응답 타임아웃` });
+    if (b.ui === 'ALLOW') items.push({ icon: b.role, who: b.name, act: 'deposit 실행', sub: `${fmtUsdc(b.bidUsdc)} · ALLOW · 자동 실행` });
+    else if (b.ui === 'APPROVAL_REQUIRED') items.push({ icon: b.role, who: b.name, act: '승인 대기', sub: `${fmtUsdc(b.bidUsdc)} · owner 폰 알림` });
+    else if (b.ui === 'DENY') items.push({ icon: b.role, who: b.name, act: '정책 거부', sub: `${fmtUsdc(b.bidUsdc)} · WHITELIST 미등록` });
+    else if (b.ui === 'TIMEOUT') items.push({ icon: b.role, who: b.name, act: '판정 관측 실패', sub: `${fmtUsdc(b.bidUsdc)} · 데몬 응답 타임아웃` });
   }
   const committed = orderedBuyers(state.buyers).filter((b) => b.commit).length;
-  if (committed) items.push({ emoji: '🔗', who: `${committed} agents`, act: 'committed bids', sub: '입찰 해시 선등록 · reveal 전' });
+  if (committed) items.push({ icon: 'chain', who: `${committed} agents`, act: 'committed bids', sub: '입찰 해시 선등록 · reveal 전' });
   return items;
 }

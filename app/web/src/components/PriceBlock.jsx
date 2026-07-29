@@ -1,3 +1,4 @@
+import Icon from './Icon.jsx';
 import { executableWinner, rawHighest, fmtUsdc, isRunning } from '../lib/derive.js';
 
 /** 좌측 가격 블록: 낙찰가 · RAW→EXECUTABLE · Start Round · 반전 문구. */
@@ -20,10 +21,12 @@ export default function PriceBlock({ state, onStart, starting, onOpenReceipt }) 
       </div>
       <div className="actions">
         <button className="cta" onClick={onStart} disabled={running}>
-          {running ? '진행 중…' : 'Start Round ▶'}
+          {running ? '진행 중…' : <>Start Round<Icon name="play" size={15} /></>}
         </button>
-        <button className="icirc ib" onClick={onOpenReceipt} title="Receipt 열기" aria-label="Receipt 열기">🧾</button>
-        <div className="icirc" aria-hidden="true">⛓️</div>
+        <button className="icirc ib" onClick={onOpenReceipt} title="Receipt 열기" aria-label="Receipt 열기">
+          <Icon name="receipt" size={16} />
+        </button>
+        <div className="icirc"><Icon name="chain" size={16} /></div>
       </div>
       <div className="note">
         {showNote && `최고가 ${fmtUsdc(raw.bidUsdc)} USDC는 예치조차 못 했습니다. 권한 있는 bid만 실행됩니다.`}
