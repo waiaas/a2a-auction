@@ -109,6 +109,8 @@ export function verdictShort(ui) {
     case 'ALLOW': return { cls: 'ok', label: 'ALLOW' };
     case 'APPROVAL_REQUIRED': return { cls: 'warn', label: 'APPROVAL' };
     case 'DENY': return { cls: 'bad', label: 'DENY' };
+    // 정책 판정이 아니라 관측 실패(데몬 응답 타임아웃) — DENY와 같은 배지로 보이면 서사가 뒤집힌다.
+    case 'TIMEOUT': return { cls: 'pending', label: 'TIMEOUT' };
     default: return { cls: 'pending', label: '대기' };
   }
 }
@@ -150,6 +152,7 @@ export function liveActivity(state) {
     if (b.ui === 'ALLOW') items.push({ emoji: b.emoji, who: b.name, act: 'deposit 실행', sub: `${fmtUsdc(b.bidUsdc)} · ALLOW · 자동 실행` });
     else if (b.ui === 'APPROVAL_REQUIRED') items.push({ emoji: b.emoji, who: b.name, act: '승인 대기', sub: `${fmtUsdc(b.bidUsdc)} · owner 폰 알림` });
     else if (b.ui === 'DENY') items.push({ emoji: b.emoji, who: b.name, act: '정책 거부', sub: `${fmtUsdc(b.bidUsdc)} · WHITELIST 미등록` });
+    else if (b.ui === 'TIMEOUT') items.push({ emoji: b.emoji, who: b.name, act: '판정 관측 실패', sub: `${fmtUsdc(b.bidUsdc)} · 데몬 응답 타임아웃` });
   }
   const committed = orderedBuyers(state.buyers).filter((b) => b.commit).length;
   if (committed) items.push({ emoji: '🔗', who: `${committed} agents`, act: 'committed bids', sub: '해시 온체인 기록 · 금액 비공개' });
