@@ -24,6 +24,35 @@ export const NETWORK = 'solana-devnet';
 
 export const USDC_DECIMALS = 6;
 
+/**
+ * x402 결과물 unlock 접점 (플랜 B). 미설정이면 정산 후 무료 unlock 경로 그대로 — 킬 스위치다.
+ * 켜면 seller가 정산 게이트 통과 후 402를 내고, A의 데몬이 마이크로페이먼트를 서명해 다시 요청한다.
+ */
+export const X402_UNLOCK = process.env.X402_UNLOCK === '1';
+
+/**
+ * unlock 1회 결제액. 데몬이 `accepts.amount`를 `BigInt()`로 읽으므로
+ * **최소 단위 정수 문자열**이어야 한다(소수점 문자열이면 즉시 예외).
+ */
+export const X402_AMOUNT_BASE = '50000'; // 0.05 USDC (6dec)
+
+/** 402 제시의 결제 유효시간. @x402/core v2에서 필수 필드다. */
+export const X402_MAX_TIMEOUT_SECONDS = 60;
+
+/**
+ * seller의 공개 HTTPS URL (cloudflared quick tunnel). 데몬의 SSRF 가드가 사설 IP와 HTTP를
+ * 전부 막으므로 터널 없이는 데몬이 seller를 호출조차 못 한다.
+ *   cloudflared tunnel --url http://localhost:4100
+ */
+export const SELLER_PUBLIC_URL = (process.env.SELLER_PUBLIC_URL || '').replace(/\/$/, '');
+
+/**
+ * 데몬이 x402 결제를 허용할 도메인(default-deny 정책의 유일한 항목).
+ * quick tunnel은 기동마다 서브도메인이 바뀌지만 데몬은 hostname만 비교하고 `*.` 와일드카드를
+ * 지원하므로, 와일드카드 1건을 시드에 등록해 두면 터널 재기동마다 갱신할 필요가 없다.
+ */
+export const X402_ALLOWED_DOMAIN = process.env.X402_ALLOWED_DOMAIN || '*.trycloudflare.com';
+
 /** buyer별 입찰·예치 금액 (base units, 6dec). 스펙 2.3절 고정값. */
 export const AMOUNTS = {
   'buyer-a': 2_800_000n, // 2.80 USDC
@@ -68,6 +97,7 @@ export const PATHS = {
   demoConfig: path.join(ROOT, 'app/demo-config.json'), // 시드 산출 (mint·assetId·policyIds·nextAuctionId)
   fixtures: path.join(__dirname, 'fixtures'),
   resultCache: path.join(ROOT, 'app/result-cache'), // 라운드별 낙찰 결과물 확정 캐시(orchestrator↔seller hash 일관성)
+  facilitator: path.join(ROOT, 'app/facilitator-keypair.json'), // x402 feePayer 대납 키 (에이전트 지갑이 아님)
 };
 
 /** hero 경매 카탈로그 (무대 소품, 스펙 7.1). */

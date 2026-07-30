@@ -16,6 +16,10 @@
 x-daemon-common: &daemon-common
   image: ${WAIAAS_IMAGE:-waiaas-daemon:local}
   restart: unless-stopped
+  # 사내 DNS가 *.trycloudflare.com을 NXDOMAIN으로 막아 데몬이 seller 터널 호스트를 해석하지
+  # 못한다(x402 결제가 도메인 평가 전에 끊긴다). 외부 이름만 공용 리졸버로 우회한다.
+  # 밸리데이터는 IP로 접근하므로 영향 없다.
+  dns: ["1.1.1.1", "8.8.8.8"]
   healthcheck:
     test: ["CMD", "curl", "-f", "http://localhost:3100/health"]
     interval: 15s
