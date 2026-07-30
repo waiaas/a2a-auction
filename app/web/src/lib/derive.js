@@ -150,7 +150,9 @@ export function liveActivity(state) {
   }
   for (const b of orderedBuyers(state.buyers)) {
     if (b.ui === 'ALLOW') items.push({ icon: b.role, who: b.name, act: 'deposit 실행', sub: `${fmtUsdc(b.bidUsdc)} · ALLOW · 자동 실행` });
-    else if (b.ui === 'APPROVAL_REQUIRED') items.push({ icon: b.role, who: b.name, act: '승인 대기', sub: `${fmtUsdc(b.bidUsdc)} · owner 폰 알림` });
+    // 실물은 "데몬의 승인 대기 큐에 등재"까지다. 알림 외부 발송(푸시·문자)은 미구성이므로
+    // 화면이 발송된 것처럼 말하지 않는다.
+    else if (b.ui === 'APPROVAL_REQUIRED') items.push({ icon: b.role, who: b.name, act: '승인 대기', sub: `${fmtUsdc(b.bidUsdc)} · 데몬 승인 큐 등재` });
     else if (b.ui === 'DENY') items.push({ icon: b.role, who: b.name, act: '정책 거부', sub: `${fmtUsdc(b.bidUsdc)} · WHITELIST 미등록` });
     else if (b.ui === 'TIMEOUT') items.push({ icon: b.role, who: b.name, act: '판정 관측 실패', sub: `${fmtUsdc(b.bidUsdc)} · 데몬 응답 타임아웃` });
   }

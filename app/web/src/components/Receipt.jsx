@@ -116,8 +116,23 @@ export default function Receipt({ state, onBack }) {
               </div>
             </Step>
 
+            {/* x402는 X402_UNLOCK을 켠 라운드에만 실린다. 끄면 이 스텝이 사라지고 번호도 원래대로 돌아간다. */}
+            {receipt.x402 && (
+              <Step n="7" title="x402 Payment · 결과물 unlock 마이크로페이먼트">
+                <div className="trow">
+                  <span className="who">x402</span>
+                  <Tx sig={receipt.x402.onchainSignature} />
+                  <span className="amt">{fmtUsdc(receipt.x402.amountUsdc)} USDC → seller</span>
+                </div>
+                <div className="samt">
+                  데몬 req {truncTx(receipt.x402.daemonTxId, 6, 5) || '—'} · 402 → 결제 서명 → 200.
+                  결제한 요청자에게 열립니다(낙찰자 신원 검증은 아닙니다).
+                </div>
+              </Step>
+            )}
+
             {receipt.budget && (
-              <Step n="7" title="Budget · 낙찰자 A 위임 한도">
+              <Step n={receipt.x402 ? '8' : '7'} title="Budget · 낙찰자 A 위임 한도">
                 <div className="budget">
                   <span>건당 위임 한도 <b>{fmtUsdc(receipt.budget.delegatedLimitUsdc)}</b></span>
                   <span>이번 지출 <b>{fmtUsdc(receipt.budget.spentUsdc)}</b></span>
@@ -153,7 +168,7 @@ export default function Receipt({ state, onBack }) {
                   <div className="arow"><span>deposit</span>{d?.txHash ? <Tx sig={d.txHash} /> : <span className="tx dim">{d?.status || '—'}</span>}</div>
                   <div className="arow"><span>tier · status</span><span className="mono">{(d?.tier || '-')} · {(d?.status || '-')}</span></div>
                   {d?.error && <div className="aerr" title={d.error}>{friendlyDenyReason(d.error)}</div>}
-                  {d?.inPending && <div className="apend"><Icon name="phone" size={12} />owner 승인 큐 등재</div>}
+                  {d?.inPending && <div className="apend"><Icon name="clipboard" size={12} />owner 승인 대기 큐 등재</div>}
                 </div>
               );
             })}
@@ -214,10 +229,15 @@ function Unlock({ result, resultHash }) {
     );
   }
   const hashMatch = resultHash && result.result?.hash === resultHash;
+  // seller가 직접 돌려준 결제 증거. receipt(오케스트레이터)와 독립 경로라 서로 대조가 된다.
+  const paidUsdc = result.payment ? Number(result.payment.amountBase) / 1e6 : null;
   return (
     <div className="unlocked">
       <div className="uhead">
         <span className="pill ok"><span className="d" /><Icon name="unlock" size={12} />unlock · 낙찰자 {result.unlockedForBuyerId}</span>
+        {paidUsdc != null && (
+          <span className="tag ok" title={result.payment.signature}>x402 {fmtUsdc(paidUsdc)} USDC 결제</span>
+        )}
         <span className="uwin mono" title={result.winner}>winner {truncTx(result.winner, 5, 4)}</span>
       </div>
       <div className="uhash">
@@ -225,7 +245,10 @@ function Unlock({ result, resultHash }) {
         <span className={`tag ${hashMatch ? 'ok' : 'warn'}`}>{hashMatch ? 'hash ✓ receipt 일치' : 'hash 대조'}</span>
         <span className="src">{result.result?.source === 'live' ? 'Gemini live' : '캐시 폴백'}</span>
       </div>
-      <div className="unote">정산 전에는 누구에게도 열리지 않습니다. seller는 온체인 Settled·winner를 직접 확인한 뒤에만 응답합니다.</div>
+      <div className="unote">
+        정산 전에는 누구에게도 열리지 않습니다. seller는 온체인 Settled·winner를 직접 확인한 뒤에만 응답합니다.
+        {paidUsdc != null && ' 정산 후에는 x402 결제를 마친 요청자에게 열립니다.'}
+      </div>
       <div className="md">{renderMarkdown(result.result?.contentMarkdown || '')}</div>
     </div>
   );
