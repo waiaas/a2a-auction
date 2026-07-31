@@ -6,14 +6,19 @@
  *   GET  /api/auction/state   현재 상태(UI 1초 폴링)
  *   GET  /api/receipt         정산 완료 시 SettlementReceipt
  *   POST /api/auction/reset   상태 초기화(다음 라운드는 새 auction 계정)
+ *   GET  /api/owner/pending   B(Growth) 승인 대기 큐 + 위임 한도 (owner 콘솔 폴링)
+ *   POST /api/owner/reject/:txId  대기 tx 거부 — 데몬 어드민 API로 relay(마스터 인증)
  *
  * 실행: node orchestrator.js   ← 데몬/localnet 호출이 있어 Bash는 dangerouslyDisableSandbox 필요
  */
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ORCHESTRATOR_PORT, SELLER_PORT } from './config.js';
+import { ORCHESTRATOR_PORT, SELLER_PORT, TOKEN_LIMITS, PATHS, USDC_DECIMALS } from './config.js';
 import { initState, buildDeps, openAuction, runBidding, runAuction, assembleReceipt } from './auction-flow.js';
+
+const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = path.join(__dirname, 'web/dist'); // Vite 빌드 산출 (없으면 dev는 Vite proxy 사용)
@@ -99,6 +104,49 @@ app.post('/api/auction/reset', (req, res) => {
   state = initState();
   roundCtx = null;
   res.json({ reset: true, scenario });
+});
+
+// ---- Owner 콘솔 relay (B = Growth Agent의 owner 시점) ----
+// 데몬의 승인 큐·거부는 원래 어드민 UI(:3101/admin)의 기능이다. 영상에서 오리진을 오가며
+// 재로그인하는 문제를 없애려고 같은 SPA에서 쓸 수 있게 relay한다. 마스터 패스워드는
+// 오케스트레이터가 이미 보유한 것(정책 갱신에 사용)을 그대로 쓴다 — 새 권한이 아니다.
+const OWNER_ROLE = 'buyer-b';
+
+app.get('/api/owner/pending', async (_req, res) => {
+  const d = depsOrError(res);
+  if (!d) return;
+  try {
+    const items = await d.clients[OWNER_ROLE].pendingTxs();
+    res.json({
+      role: OWNER_ROLE,
+      name: actors[OWNER_ROLE].name,
+      mandateChip: actors[OWNER_ROLE].mandateChip,
+      limitUsdc: Number(TOKEN_LIMITS[OWNER_ROLE]?.delay_max ?? 0),
+      pending: items.map((t) => ({
+        id: t.id,
+        amountUsdc: t.amount != null ? Number(t.amount) / 10 ** USDC_DECIMALS : null,
+        toAddress: t.toAddress,
+        tier: t.tier,
+        status: t.status,
+        createdAt: t.createdAt,
+      })),
+    });
+  } catch (e) {
+    console.error('[orchestrator] owner pending 조회 실패:', e.message);
+    res.status(502).json({ error: 'daemon_unreachable' });
+  }
+});
+
+app.post('/api/owner/reject/:txId', async (req, res) => {
+  const d = depsOrError(res);
+  if (!d) return;
+  try {
+    const out = await d.clients[OWNER_ROLE].adminRejectTx(req.params.txId);
+    res.json(out); // { id, status: 'CANCELLED', rejectedAt }
+  } catch (e) {
+    console.error('[orchestrator] owner reject 실패:', e.message);
+    res.status(502).json({ error: 'reject_failed', message: e.message });
+  }
 });
 
 // seller 결과 unlock(:4100)을 같은 오리진으로 relay. 정적 서빙(prod)에서 프론트가 /slot을 그대로 쓰게 한다.

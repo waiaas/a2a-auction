@@ -5,6 +5,7 @@ import Catalogue from './components/Catalogue.jsx';
 import Rail from './components/Rail.jsx';
 import Receipt from './components/Receipt.jsx';
 import SellerConsole from './components/SellerConsole.jsx';
+import OwnerConsole from './components/OwnerConsole.jsx';
 
 const POLL_MS = 1000;
 const INITIAL = { phase: 'idle', auctionId: null, buyers: {}, steps: {}, item: null, addresses: {} };
@@ -12,7 +13,7 @@ const INITIAL = { phase: 'idle', auctionId: null, buyers: {}, steps: {}, item: n
 export default function App() {
   const [state, setState] = useState(INITIAL);
   const [starting, setStarting] = useState(false);
-  const [view, setView] = useState('live'); // 'live' | 'receipt' | 'seller'
+  const [view, setView] = useState('live'); // 'live' | 'receipt' | 'seller' | 'owner'
 
   // 1초 폴링. 실패해도 마지막 상태 유지(밸리데이터 블립 대비).
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function App() {
 
   const openReceipt = useCallback(() => setView('receipt'), []);
   const openSeller = useCallback(() => setView('seller'), []);
+  const openOwner = useCallback(() => setView('owner'), []);
   const openLive = useCallback(() => setView('live'), []);
 
   if (view === 'receipt') {
@@ -54,12 +56,20 @@ export default function App() {
     );
   }
 
+  if (view === 'owner') {
+    return (
+      <div className="app">
+        <OwnerConsole onBack={openLive} />
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       {state.phase === 'error' && (
         <div className="errbar">라운드 실행 오류: {state.error || '알 수 없는 오류'}</div>
       )}
-      <Hero state={state} onStart={onStart} starting={starting} onOpenReceipt={openReceipt} onOpenSeller={openSeller} />
+      <Hero state={state} onStart={onStart} starting={starting} onOpenReceipt={openReceipt} onOpenSeller={openSeller} onOpenOwner={openOwner} />
       <div className="lower">
         <Catalogue />
         <Rail state={state} />

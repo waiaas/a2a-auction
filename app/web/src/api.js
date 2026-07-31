@@ -45,6 +45,20 @@ export async function fetchReceipt() {
   return res.json();
 }
 
+/** Owner 콘솔: B(Growth)의 승인 대기 큐 + 위임 한도. 데몬 불달 시 502. */
+export async function fetchOwnerPending() {
+  const res = await fetch('/api/owner/pending', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`owner pending ${res.status}`);
+  return res.json();
+}
+
+/** Owner 콘솔: 대기 tx 거부(데몬 어드민 relay). 성공 시 { id, status:'CANCELLED' }. */
+export async function rejectOwnerTx(txId) {
+  const res = await fetch(`/api/owner/reject/${txId}`, { method: 'POST', headers: JSON_HEADERS });
+  if (!res.ok) throw new Error(`reject ${res.status}`);
+  return res.json();
+}
+
 /**
  * seller 결과 unlock. 정산 후 200 { locked:false, result, winner, unlockedForBuyerId },
  * 미정산/미존재 403 { locked:true, reason }. 그 외는 예외.

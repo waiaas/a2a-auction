@@ -141,9 +141,25 @@ export function daemonClient(wallet, masterPassword) {
     },
 
     async pendingTxIds() {
+      return (await this.pendingTxs()).map((t) => t.id);
+    },
+
+    /** 승인 대기 큐 전체(owner 콘솔 표시용 상세 포함). */
+    async pendingTxs() {
       const r = await http('GET', `${base}/v1/transactions/pending`, authHdr);
       const list = r.json.items || r.json.data || r.json.transactions || r.json || [];
-      return Array.isArray(list) ? list.map((t) => t.id) : [];
+      return Array.isArray(list) ? list : [];
+    },
+
+    /**
+     * 승인 대기 tx 거부. 어드민 경로(X-Master-Password)를 쓴다 —
+     * owner 서명 경로(/v1/transactions/:id/reject)는 owner 키가 필요한데
+     * 시드가 키를 보존하지 않기로 결정했다(kill-switch까지 열리는 과잉 권한).
+     */
+    async adminRejectTx(id) {
+      const r = await http('POST', `${base}/v1/admin/transactions/${id}/reject`, mpwHdr);
+      if (r.status >= 300) throw new Error(`tx ${id} 거부 실패 ${r.status}: ${JSON.stringify(r.json)}`);
+      return r.json; // { id, status: 'CANCELLED', rejectedAt }
     },
   };
 }
