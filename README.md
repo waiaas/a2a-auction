@@ -76,7 +76,7 @@ flowchart LR
 
 **신뢰 경계**: seller 서비스는 오케스트레이터의 말을 믿지 않습니다. 체인에서 `Settled`와 `winner`를 **직접 읽어** 정산 전 접근을 차단합니다. 오케스트레이터가 정산됐다고 거짓말을 해도 결과물은 열리지 않습니다. (요청자 신원 검증은 미구현 — [무엇이 실물이고 무엇이 연출인가](#무엇이-실물이고-무엇이-연출인가) 참조)
 
-**키 격리**: 오케스트레이터와 seller는 개인키를 갖지 않습니다. 데몬 API 호출과 읽기 전용 온체인 조회만 합니다. 서명은 전적으로 각 에이전트의 WAIaaS 데몬 안에서 일어납니다.
+**키 격리**: 오케스트레이터와 seller는 **에이전트 지갑 키를 갖지 않습니다.** 데몬 API 호출과 읽기 전용 온체인 조회만 하고, 에이전트를 대신한 서명은 전적으로 각 WAIaaS 데몬 안에서 일어납니다. 단 하나의 예외는 x402 모드([x402 결과물 unlock](#7-x402-결과물-unlock-선택))를 켰을 때 seller가 보유하는 **facilitator 키**입니다. 결제 트랜잭션의 수수료를 대납하는 인프라 키이지 에이전트 지갑이 아닙니다.
 
 ### 경매 흐름
 
@@ -89,11 +89,11 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
 
 ## WAIaaS를 control plane으로 확장하기
 
-이 프로젝트는 WAIaaS 데몬을 **수정하지 않고** 사용합니다. 기구현된 정책 엔진·서명·감사 로그를 그대로 쓰고, 그 위에 경매 도메인을 얹었습니다.
+이 프로젝트는 WAIaaS 데몬의 기구현된 정책 엔진·서명·감사 로그를 그대로 쓰고, 그 위에 경매 도메인을 얹었습니다. 경매 경로는 데몬을 수정하지 않고 완주합니다. x402 모드에서만 데몬 결함 1건을 만났고, 우회 대신 **업스트림에 수정을 제출**했습니다([waiaas/WAIaaS#406](https://github.com/waiaas/WAIaaS/pull/406): `/v1/x402/fetch`가 Solana 서명에 RPC 클라이언트를 전달하지 않아 결제가 실패하던 문제).
 
 | 레이어 | 구성 요소 | 상태 |
 | --- | --- | --- |
-| **정책·서명·감사** | WAIaaS 데몬 5개 (buyer 3 + seller + marketplace) | 기구현 — 무수정 사용 |
+| **정책·서명·감사** | WAIaaS 데몬 5개 (buyer 3 + seller + marketplace) | 기구현. 경매 경로는 무수정, x402 경로는 업스트림 수정 1건(#406) |
 | **온체인 경매** | Anchor 프로그램 (`create_auction` / `commit_bid` / `reveal_bid` / `settle`) | 신규 구축 |
 | **오케스트레이션** | 경매 상태 머신, seller 게이트 서비스, 웹 UI | 신규 구축 |
 
@@ -150,6 +150,8 @@ localnet 실측에서 독립 검증한 것: seller ATA 잔고 `+2.80 USDC`, vaul
   # WAIaaS 레포에서
   docker compose -f docker-compose.yml -f docker-compose.build.yml build
   ```
+  기본 브랜치(`dev`) 빌드로 경매 전 구간이 동작합니다. **x402 모드만 데몬 수정 1건이 필요합니다.** [#406](https://github.com/waiaas/WAIaaS/pull/406)이 머지되기 전이라면 그 브랜치(`fix/x402-solana-rpc-wiring`)로 빌드하세요. 없으면 x402 결제가 `X402_SERVER_ERROR`로 실패합니다(경매 경로는 영향 없음).
+- x402 모드를 쓸 때만: `cloudflared` (seller에 공개 HTTPS를 부여. 데몬의 SSRF 가드가 사설 IP·HTTP를 차단합니다)
 
 ### 1. 프로그램 빌드 + 로컬 밸리데이터 + 배포
 
@@ -272,6 +274,37 @@ cd <레포 루트>/app && ./verify-e2e.sh
 
 헬스체크 → seller 게이트(미정산 403) → 라운드 실행 → receipt → unlock(200) → 3분기 및 온체인 `Settled`·`winner=A` 판정까지 확인합니다.
 
+### 7. x402 결과물 unlock (선택)
+
+정산 후 결과물을 열 때 **x402 마이크로페이먼트(0.05 USDC)** 를 거치게 하는 모드입니다. 낙찰자 A의 데몬이 seller 엔드포인트에 접근 → `402` → 결제 서명 → 결과물 `200`. 게이트 순서는 `403 not_settled` → `402` → `200`이라 **온체인 정산 게이트가 여전히 먼저**입니다.
+
+끄면(기본값) 기존 무료 unlock 경로가 코드 경로째로 그대로입니다.
+
+```bash
+# 1) seller에 공개 HTTPS 부여. 데몬의 SSRF 가드가 사설 IP·HTTP를 차단하므로 터널이 필요합니다
+cloudflared tunnel --url http://localhost:4100
+#    → https://<랜덤>.trycloudflare.com 출력
+
+# 2) 시드 재실행: facilitator 키 생성 + A에 X402_ALLOWED_DOMAINS 등록
+cd <레포 루트>/app && node seed.js
+
+# 3) 서비스를 x402 모드로 기동 (두 프로세스 모두 같은 값이 필요합니다)
+X402_UNLOCK=1 SELLER_PUBLIC_URL=https://<랜덤>.trycloudflare.com npm run seller
+X402_UNLOCK=1 SELLER_PUBLIC_URL=https://<랜덤>.trycloudflare.com npm run orchestrator
+
+# 4) 검증 (x402 단언 포함)
+X402_UNLOCK=1 ./verify-e2e.sh
+```
+
+확인 포인트: Receipt 화면의 **x402 Payment** 스텝(온체인 signature·금액)과 unlock 패널의 결제 배지, `verify-e2e.sh`의 `[7]`절(receipt 결제 증거 → signature 온체인 확정 → 재조회 시 재결제 없음).
+
+**결제 증명은 접근 권한이 아닙니다.** 결제한 요청자에게 열리는 것이고 낙찰자 신원을 검증하는 것이 아닙니다(요청자 인증은 [Production hardening](#production-hardening-로드맵) 참조).
+
+주의할 점 둘:
+
+- **사내망 DNS가 `*.trycloudflare.com`을 막을 수 있습니다.** 데몬 컨테이너가 터널 호스트를 해석하지 못하면 결제가 도메인 평가 전에 끊깁니다. `infra/docker-compose.yml`은 이 때문에 컨테이너 DNS를 공용 리졸버로 지정합니다. 컨테이너 안 `curl`은 CA 번들이 없어 실패하지만 데몬의 Node fetch는 정상이니, curl 실패를 데몬 실패로 읽지 마세요.
+- **quick tunnel은 기동마다 도메인이 바뀝니다.** 정책은 `*.trycloudflare.com` 와일드카드 1건으로 등록하므로 재등록은 불필요하지만, `SELLER_PUBLIC_URL`은 다시 넘겨야 합니다.
+
 ### API
 
 **오케스트레이터** (`:4000`)
@@ -288,7 +321,7 @@ cd <레포 루트>/app && ./verify-e2e.sh
 
 | 메서드 | 경로 | 용도 |
 | --- | --- | --- |
-| `GET` | `/slot/:auctionId/result` | 온체인 `Settled`·`winner` 확인 후에만 `200`. 미정산은 `403` |
+| `GET` | `/slot/:auctionId/result` | 온체인 `Settled`·`winner` 확인 후에만 `200`. 미정산은 `403`. x402 모드에서는 결제 전 `402`(PaymentRequired v2) |
 
 `phase`는 `idle → committing → depositing → revealing → settling → settled` 순으로 진행합니다(실패 시 `error`).
 
@@ -301,6 +334,9 @@ cd <레포 루트>/app && ./verify-e2e.sh
 | `GEMINI_API_KEY` | _(미설정)_ | 미설정 시 캐시된 생성물로 폴백 |
 | `ORCHESTRATOR_PORT` | `4000` | |
 | `SELLER_PORT` | `4100` | |
+| `X402_UNLOCK` | _(미설정 = 꺼짐)_ | `1`이면 결과물 unlock에 x402 결제를 요구합니다. 오케스트레이터·seller **양쪽**에 지정해야 합니다 |
+| `SELLER_PUBLIC_URL` | _(미설정)_ | seller의 공개 HTTPS URL(cloudflared 터널). `X402_UNLOCK=1`이면 필수 |
+| `X402_ALLOWED_DOMAIN` | `*.trycloudflare.com` | 시드가 A의 `X402_ALLOWED_DOMAINS` 정책에 등록할 도메인 |
 
 > **RPC는 두 곳을 맞춰야 합니다.** 데몬은 `LOCALNET_RPC`를, 앱은 `RPC_URL`을 각각 읽습니다. **둘이 같은 체인을 가리키지 않으면** 데몬이 보낸 tx를 앱이 조회하지 못해 라운드가 멈춥니다. devnet으로 옮길 때는 두 값을 함께 바꾸고, 프로그램 재배포와 USDC mint 재생성도 필요합니다.
 
@@ -313,7 +349,8 @@ cd <레포 루트>/app && ./verify-e2e.sh
 | 구분 | 항목 |
 | --- | --- |
 | **실물** (온체인·실행 로그) | commit tx 3건, A의 예치 tx, B의 승인 대기 큐 등재(`/v1/transactions/pending`으로 확인), C의 정책 거부 기록, `settle` tx, 데몬별 판정 기록, Gemini 생성물 |
-| **미구성** | owner 알림 **외부 발송** — 데몬이 승인 알림 이벤트는 발행하지만, 이 데모의 compose에는 발송 채널(텔레그램 등)을 설정하지 않았습니다. 화면의 "owner 알림"은 큐 등재 상태의 표현입니다 |
+| **실물** (x402 모드) | A 데몬의 `X402_PAYMENT` 기록(티어 `INSTANT`), 부분 서명 → facilitator 공동 서명 → 제출까지의 실제 온체인 결제 tx, seller의 `402` 응답. 금액 0.05 USDC는 고정값입니다 |
+| **미구성** | owner 알림 **외부 발송**. 데몬이 승인 알림 이벤트는 발행하지만, 이 데모의 compose에는 발송 채널(텔레그램 등)을 설정하지 않았습니다. 그래서 화면도 "발송"이 아니라 **"승인 큐 등재"** 로 표기합니다 |
 | **미구현** (후순위) | 결과물 **요청자 신원 검증** — seller가 게이트하는 것은 온체인 `Settled`·`winner`입니다. 정산 전에는 누구에게도 열리지 않지만, 정산 후에는 요청자를 가리지 않습니다. 낙찰자 서명을 요구하는 인증은 넣지 않았습니다 |
 | **연출** (고정·간소화) | bid 금액 3개(고정), make-vs-buy 원가 수치(대표값), 경매 1건·1라운드, agent 디스커버리(하드코딩), 카탈로그 리스팅(정적 소품) |
 | **후순위** | 패자 환불, 마감 시간 온체인 강제, 유찰 처리 — 데모 경로에서 발생하지 않는 상태 |
