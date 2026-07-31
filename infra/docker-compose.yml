@@ -20,6 +20,10 @@ x-daemon-common: &daemon-common
   # 못한다(x402 결제가 도메인 평가 전에 끊긴다). 외부 이름만 공용 리졸버로 우회한다.
   # 밸리데이터는 IP로 접근하므로 영향 없다.
   dns: ["1.1.1.1", "8.8.8.8"]
+  # 호스트에서 도는 로컬 밸리데이터를 IP 없이 가리키기 위한 이름. 위 커스텀 dns가 Docker
+  # 내장 DNS를 우회하므로 /etc/hosts 주입(extra_hosts)이 필요하다 — 이게 없으면
+  # host.docker.internal이 NXDOMAIN이 된다.
+  extra_hosts: ["host.docker.internal:host-gateway"]
   healthcheck:
     test: ["CMD", "curl", "-f", "http://localhost:3100/health"]
     interval: 15s

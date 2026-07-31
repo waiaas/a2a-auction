@@ -159,8 +159,15 @@ localnet 실측에서 독립 검증한 것: seller ATA 잔고 `+2.80 USDC`, vaul
 
 ```bash
 # 밸리데이터 (0.0.0.0 바인딩은 gossip 패닉이 나므로 호스트 LAN IP 지정)
-solana-test-validator --bind-address <호스트-LAN-IP> --rpc-port 8899 --reset
+# macOS는 현재 LAN IP를 이렇게 구할 수 있습니다:
+#   HOST_IP=$(ipconfig getifaddr "$(route -n get default | awk '/interface:/{print $2}')")
+solana-test-validator --bind-address "$HOST_IP" --rpc-port 8899 --reset
 ```
+
+> **네트워크가 바뀌면 LAN IP도 바뀝니다.** 옛 IP로 바인딩하면 밸리데이터가
+> `gossip_addr bind_to port 8000: Can't assign requested address`로 즉사하므로, 재기동할 때마다
+> 위처럼 현재 IP를 다시 구하세요. 아래 `RPC_URL`도 같은 값이어야 합니다.
+> (데몬 쪽 `LOCALNET_RPC`는 `host.docker.internal`이라 IP가 바뀌어도 손댈 필요가 없습니다.)
 
 ```bash
 # deployer 키페어 생성 + SOL 확보 (별도 터미널)
@@ -205,10 +212,13 @@ solana program deploy target/deploy/onchain.so \
 
 ### 2. 데몬 5개 기동
 
-`infra/.env`에 마스터 패스워드 5개(`BUYER_A_MASTER_PASSWORD` 등)와 `LOCALNET_RPC`(위 밸리데이터 주소)를 설정한 뒤:
+`infra/.env.example`을 복사해 값을 채웁니다. 마스터 패스워드 5개만 채우면 되고, `LOCALNET_RPC`는 기본값(`host.docker.internal`)을 그대로 두면 됩니다.
 
 ```bash
 cd <레포 루트>/infra
+cp .env.example .env
+# BUYER_A_MASTER_PASSWORD 등 5개를 채운다 (생성 예: openssl rand -hex 24)
+
 docker compose --env-file .env up -d
 docker compose ps        # 5개 모두 healthy 확인
 ```
@@ -335,9 +345,10 @@ X402_UNLOCK=1 ./verify-e2e.sh
 
 | 변수 | 기본값 | 용도 |
 | --- | --- | --- |
-| `RPC_URL` | `http://192.168.0.113:8899` | **앱**(시드·오케스트레이터·seller)의 온체인 조회용 RPC. 작성자 LAN IP가 하드코딩된 값이므로 환경에 맞게 지정하세요 |
-| `LOCALNET_RPC` | _(미설정 시 데몬이 실제 devnet 사용)_ | **데몬**이 보는 체인 (`infra/.env` → `WAIAAS_RPC_SOLANA_DEVNET`) |
+| `RPC_URL` | `http://127.0.0.1:8899` | **앱**(시드·오케스트레이터·seller)의 온체인 조회용 RPC. 밸리데이터를 `--bind-address <LAN IP>`로 띄웠다면 **그 IP로 지정하세요** — 그 경우 루프백은 listen하지 않습니다 |
+| `LOCALNET_RPC` | `http://host.docker.internal:8899` (`.env.example` 기본값) | **데몬**이 보는 체인 (`infra/.env` → `WAIAAS_RPC_SOLANA_DEVNET`). 컨테이너에서 호스트를 가리키는 이름이라 LAN IP가 바뀌어도 그대로 동작합니다. 미설정 시 실제 devnet 사용 |
 | `GEMINI_API_KEY` | _(미설정)_ | 미설정 시 캐시된 생성물로 폴백 |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | **신규 발급 키는 `gemini-flash-latest`를 지정하세요.** 기본값은 신규 키에서 404가 나고 조용히 캐시로 폴백합니다 |
 | `ORCHESTRATOR_PORT` | `4000` | |
 | `SELLER_PORT` | `4100` | |
 | `X402_UNLOCK` | _(미설정 = 꺼짐)_ | `1`이면 결과물 unlock에 x402 결제를 요구합니다. 오케스트레이터·seller **양쪽**에 지정해야 합니다 |

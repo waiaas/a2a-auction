@@ -143,7 +143,7 @@ if [ "${X402_UNLOCK:-}" = "1" ]; then
   # ② 그 signature가 실제로 체인에 확정됐는가. 데몬은 이 값을 모른다(facilitator가 제출).
   X_STATUS=$(curl -s --max-time 5 -X POST -H 'Content-Type: application/json' \
     -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSignatureStatuses\",\"params\":[[\"$X_SIG\"]]}" \
-    "${RPC:-http://192.168.0.113:8899}" | jq -r '.result.value[0].confirmationStatus // empty')
+    "${RPC:-${RPC_URL:-http://127.0.0.1:8899}}" | jq -r '.result.value[0].confirmationStatus // empty')
   [ -n "$X_STATUS" ] || fail "x402 결제 signature가 체인에 없음 ($X_SIG)"
   echo "온체인 확인: $X_SIG → $X_STATUS ✅"
 
