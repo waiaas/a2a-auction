@@ -12,8 +12,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** a2a-auction/ 레포 루트 (app/의 부모). */
 export const ROOT = path.resolve(__dirname, '..');
 
-/** localnet RPC. infra/.env의 LOCALNET_RPC와 동일해야 데몬과 같은 체인을 본다. */
-export const RPC_URL = process.env.RPC_URL || 'http://192.168.0.113:8899';
+/**
+ * localnet RPC (호스트에서 도는 앱 기준).
+ *
+ * 밸리데이터를 `--bind-address <호스트 LAN IP>`로 띄웠다면 **그 IP를 RPC_URL로 지정해야 한다**
+ * — 그 경우 루프백은 listen하지 않는다. 기본값을 특정 LAN IP로 두면 다른 환경에서 조용히
+ * 실패하므로(작성자 IP 하드코딩 문제) 루프백을 기본값으로 둔다.
+ * 데몬(컨테이너)이 보는 주소는 별개다 — infra/.env의 LOCALNET_RPC(host.docker.internal).
+ */
+export const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8899';
 
 /** 배포된 경매 프로그램 (D-6 게이트 ②). */
 export const PROGRAM_ID = '9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV';
