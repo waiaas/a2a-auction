@@ -68,9 +68,11 @@ export default function SellerConsole({ state, onBack }) {
             {!isOpened ? (
               <div className="sell-open">
                 <div className="lk-ic"><Icon name="clipboard" size={34} /></div>
-                <div className="lk-t">아직 열린 경매가 없습니다</div>
+                <div className="lk-t">{canPrepareNext ? '경매 개설에 실패했습니다' : '아직 열린 경매가 없습니다'}</div>
                 <div className="lk-s">
-                  경매를 열면 작업이 플랫폼에 공개되고, 정책을 위임받은 구매자 에이전트들이 입찰할 수 있습니다.
+                  {canPrepareNext
+                    ? `오류: ${state.error || '알 수 없는 오류'} · 환경 확인 후 정리하고 다시 열 수 있습니다.`
+                    : '경매를 열면 작업이 플랫폼에 공개되고, 정책을 위임받은 구매자 에이전트들이 입찰할 수 있습니다.'}
                 </div>
                 {canPrepareNext ? (
                   <button className="cta ghost" onClick={onPrepareNext}>이전 라운드 정리 후 다시 열기</button>

@@ -78,9 +78,10 @@ export default function OwnerConsole({ onBack }) {
             </div>
 
             <div className="unote own-note">
-              단일 화면 데모를 위해 오케스트레이터가 owner의 마스터 인증을 대행해
-              {data?.name || 'B'}의 WAIaaS 데몬에 접근합니다. 실제 운영에서는 owner가 자신의
-              데몬 콘솔에서 직접 수행하며, 온체인 경매 프로그램과 seller는 이 권한을 갖지 않습니다.
+              {/* JSX는 줄 끝 개행+들여쓰기를 통째로 지워 "대행해Growth"처럼 붙는다(재감사 지적) — 표현식은 같은 줄에 둔다. */}
+              단일 화면 데모를 위해 오케스트레이터가 owner의 마스터 인증을 대행해 {data?.name || 'B'}의
+              WAIaaS 데몬에 접근합니다. 실제 운영에서는 owner가 자신의 데몬 콘솔에서 직접 수행하며,
+              온체인 경매 프로그램과 seller는 이 권한을 갖지 않습니다.
             </div>
           </div>
         </div>
