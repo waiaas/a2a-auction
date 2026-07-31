@@ -78,6 +78,8 @@ flowchart LR
 
 **키 격리**: 오케스트레이터와 seller는 **에이전트 지갑 키를 갖지 않습니다.** 데몬 API 호출과 읽기 전용 온체인 조회만 하고, 에이전트를 대신한 서명은 전적으로 각 WAIaaS 데몬 안에서 일어납니다. 단 하나의 예외는 x402 모드([x402 결과물 unlock](#7-x402-결과물-unlock-선택))를 켰을 때 seller가 보유하는 **facilitator 키**입니다. 결제 트랜잭션의 수수료를 대납하는 인프라 키이지 에이전트 지갑이 아닙니다.
 
+**owner 인증 대행 (데모 한정)**: Owner Console의 승인 대기 거부는 오케스트레이터가 **B 데몬의 마스터 인증을 대행**하는 relay(`POST /api/owner/reject/:txId`)로 동작합니다. 단일 화면에서 owner 개입 장면을 시연하기 위한 구성이며, 실제 운영이라면 owner가 자기 데몬의 콘솔에서 직접 수행합니다. 이 relay는 무인증이므로 오케스트레이터·seller는 기본 `127.0.0.1` 바인딩입니다 — 외부 노출(`HOST=0.0.0.0`)이 필요하면 relay에 인증을 먼저 붙이세요.
+
 ### 경매 흐름
 
 ```
@@ -266,7 +268,9 @@ UI를 개발할 때는 Vite dev 서버(`npm run dev`, :5173)를 쓰면 됩니다
 
 브라우저에서 **http://localhost:4000** 을 열고 **Start Round** 버튼을 누르면 전 과정이 자동으로 진행됩니다. 정산 후 **Receipt** 탭에서 증거 체인과 데몬별 트랜잭션·정책 판정 기록(tx ID·티어·상태·거부 사유)을 볼 수 있습니다.
 
-판매자 관점으로 두 단계에 나눠 진행하려면 **Seller** 탭에서 시작합니다. **경매 오픈**을 누르면 `create_auction`만 먼저 실행되어 경매가 열린 상태(`phase=open`)로 대기하고, 이어서 Live 경매의 **Start Round**가 입찰부터 정산까지를 실행합니다. 정산이 끝나면 Seller 탭에 낙찰자와 낙찰가가 표시됩니다. Start Round를 바로 누르면 개설과 입찰이 한 번에 진행되므로 기존 단일 버튼 흐름도 그대로 동작합니다.
+판매자 관점으로 두 단계에 나눠 진행하려면 **Seller** 탭에서 시작합니다. **경매 오픈**을 누르면 `create_auction`만 먼저 실행되어 경매가 열린 상태(`phase=open`)로 대기하고, 이어서 Live 경매의 **Start Round**가 입찰부터 정산까지를 실행합니다. 정산이 끝나면 Seller 탭에 낙찰자와 낙찰가가 표시되고, 같은 자리의 **다음 경매 준비** 버튼으로 새 라운드를 열 수 있습니다. Start Round를 바로 누르면 개설과 입찰이 한 번에 진행되므로 기존 단일 버튼 흐름도 그대로 동작합니다.
+
+사람의 통제 장면은 **Owner** 탭에 있습니다. Growth Agent(B)의 owner 시점으로 위임 한도(데몬의 `SPENDING_LIMIT`에서 실시간 조회)와 승인 대기 큐가 표시되고, 한도를 넘어 `QUEUED`로 잡힌 6.50 USDC 지출을 **거부** 버튼으로 실제 `CANCELLED`로 만들 수 있습니다. 거부는 데몬의 어드민 API로 실행되는 실물 동작입니다([owner 인증 대행](#아키텍처) 참조).
 
 커맨드라인으로 전 플로우를 검증하려면:
 
@@ -352,6 +356,7 @@ X402_UNLOCK=1 ./verify-e2e.sh
 | --- | --- |
 | **실물** (온체인·실행 로그) | commit tx 3건, A의 예치 tx, B의 승인 대기 큐 등재(`/v1/transactions/pending`으로 확인), C의 정책 거부 기록, `settle` tx, 데몬별 판정 기록, Gemini 생성물 |
 | **실물** (판매자 콘솔) | Seller Console의 **경매 오픈** 버튼은 marketplace 데몬을 통해 실제 `create_auction` tx를 냅니다. 화면의 경매 계정·vault·create tx는 그 라운드의 온체인 주소입니다 |
+| **실물** (Owner 콘솔) | 위임 한도는 B 데몬의 `SPENDING_LIMIT` 정책에서 실시간 조회하고, **거부** 버튼은 데몬 어드민 API로 대기 tx를 실제 `CANCELLED`로 만듭니다. 단, 이 조작은 오케스트레이터가 owner의 마스터 인증을 **대행**하는 데모 구성입니다(실운영은 owner가 자기 데몬 콘솔에서 직접) |
 | **실물** (x402 모드) | A 데몬의 `X402_PAYMENT` 기록(티어 `INSTANT`), 부분 서명 → facilitator 공동 서명 → 제출까지의 실제 온체인 결제 tx, seller의 `402` 응답. 금액 0.05 USDC는 고정값입니다 |
 | **미구성** | owner 알림 **외부 발송**. 데몬이 승인 알림 이벤트는 발행하지만, 이 데모의 compose에는 발송 채널(텔레그램 등)을 설정하지 않았습니다. 그래서 화면도 "발송"이 아니라 **"승인 큐 등재"** 로 표기합니다 |
 | **미구현** (후순위) | 결과물 **요청자 신원 검증** — seller가 게이트하는 것은 온체인 `Settled`·`winner`입니다. 정산 전에는 누구에게도 열리지 않지만, 정산 후에는 요청자를 가리지 않습니다. 낙찰자 서명을 요구하는 인증은 넣지 않았습니다 |
@@ -402,7 +407,7 @@ a2a-auction/
 │   ├── lib/                daemon(REST) · state(로더) · solana(PDA·인코딩)
 │   │                       instructions(tx 빌더) · onchain-setup(시드 전용) · gemini
 │   ├── fixtures/           actors · quotes · rationales · result.md (생성물 폴백 캐시)
-│   └── web/                React + Vite SPA (경매 스테이지 · Seller Console · Receipt 뷰)
+│   └── web/                React + Vite SPA (경매 스테이지 · Seller Console · Owner Console · Receipt 뷰)
 ├── onchain/                Anchor 경매 프로그램 (create/commit/reveal/settle)
 │   └── programs/onchain/
 │       ├── src/            lib.rs · state.rs · instructions/ · error.rs · constants.rs
