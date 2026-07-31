@@ -134,6 +134,29 @@ async function main() {
   if (slot == null) throw new Error(`localnet RPC 응답 없음`);
   console.log(`데몬 5개 health OK, localnet slot=${slot}`);
 
+  // 1.5) 잔여 승인 대기 큐 비우기: 시드는 지우지 않으면 이전 사이클의 QUEUED가 데몬에
+  //      계속 쌓여 Owner 콘솔에 같은 6.5 USDC 카드가 여러 장 뜬다(재감사 지적 — env-recover
+  //      2회 후 4건 누적 실측). 어떤 시작 상태에서도 수렴한다는 시드 목적에 맞춰 여기서 정리한다.
+  for (const role of BUYERS) {
+    const client = clientFor(role, byRole, env);
+    let stale = [];
+    try {
+      stale = await client.pendingTxs();
+    } catch (e) {
+      // 조회 실패(세션 토큰 무효 등)를 삼키면 "비워졌다"고 오판한다 — 경고를 반드시 남긴다.
+      console.log(`  경고: ${role} 승인 대기 조회 실패 (${e.message}) — 큐 정리 건너뜀`);
+      continue;
+    }
+    for (const t of stale) {
+      try {
+        await client.adminRejectTx(t.id);
+      } catch (e) {
+        console.log(`  경고: ${role} 대기 tx ${t.id} 정리 실패 (${e.message}) — 계속 진행`);
+      }
+    }
+    if (stale.length) console.log(`  ${role} 잔여 승인 대기 ${stale.length}건 정리`);
+  }
+
   // 2) 온체인 셋업
   for (const role of ROLES) {
     const sol = await ensureSol(conn, byRole[role].address);

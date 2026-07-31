@@ -10,6 +10,14 @@ export async function fetchState() {
   return res.json();
 }
 
+/** 판매자 콘솔의 경매 오픈. 이미 열렸거나 실행 중이면 409(무시). */
+export async function openAuction() {
+  const res = await fetch('/api/auction/open', { method: 'POST', headers: JSON_HEADERS });
+  if (res.status === 409) return { alreadyOpen: true };
+  if (!res.ok) throw new Error(`open ${res.status}`);
+  return res.json();
+}
+
 /** 발표자 Start 버튼. 이미 실행 중이면 409(무시). */
 export async function startAuction() {
   const res = await fetch('/api/auction/start', { method: 'POST', headers: JSON_HEADERS });
@@ -34,6 +42,20 @@ export async function fetchReceipt() {
   const res = await fetch('/api/receipt', { cache: 'no-store' });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`receipt ${res.status}`);
+  return res.json();
+}
+
+/** Owner 콘솔: B(Growth)의 승인 대기 큐 + 위임 한도. 데몬 불달 시 502. */
+export async function fetchOwnerPending() {
+  const res = await fetch('/api/owner/pending', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`owner pending ${res.status}`);
+  return res.json();
+}
+
+/** Owner 콘솔: 대기 tx 거부(데몬 어드민 relay). 성공 시 { id, status:'CANCELLED' }. */
+export async function rejectOwnerTx(txId) {
+  const res = await fetch(`/api/owner/reject/${txId}`, { method: 'POST', headers: JSON_HEADERS });
+  if (!res.ok) throw new Error(`reject ${res.status}`);
   return res.json();
 }
 

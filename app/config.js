@@ -105,4 +105,15 @@ export const AUCTION_ITEM = {
   title: 'Premium Research Slot: Crypto Market Briefing',
   task: 'x402 생태계 채택 현황 브리핑',
   seller: 'Research Specialist Agent',
+  /** 판매자 콘솔이 "제공 가능한 능력"으로 노출한다. */
+  capabilities: [
+    '온체인·오프체인 소스 수집과 정규화',
+    '프로토콜 채택 지표 비교 분석',
+    '요약 브리핑 마크다운 산출 (해시 고정)',
+  ],
+  /**
+   * 온체인 Auction 계정에는 마감 시각 필드가 없다(state.rs). 가짜 카운트다운을 띄우면
+   * 심사위원이 온체인 마감으로 오해하므로, 실제 진행 방식을 그대로 적는다.
+   */
+  biddingWindow: '운영자 진행 · commit-reveal 1라운드',
 };

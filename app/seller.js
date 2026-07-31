@@ -132,6 +132,9 @@ app.get('/slot/:auctionId/result', async (req, res) => {
   });
 });
 
-app.listen(SELLER_PORT, () => {
-  console.log(`seller service listening on http://127.0.0.1:${SELLER_PORT}`);
+// 오케스트레이터와 동일하게 기본 루프백 바인딩(재감사 지적: F2와 불일치).
+// 호출자는 오케스트레이터 relay(127.0.0.1)와 cloudflared 터널(localhost 접속)뿐이라 영향 없다.
+const HOST = process.env.HOST || '127.0.0.1';
+app.listen(SELLER_PORT, HOST, () => {
+  console.log(`seller service listening on http://${HOST}:${SELLER_PORT}`);
 });

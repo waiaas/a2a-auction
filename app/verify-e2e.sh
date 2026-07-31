@@ -113,6 +113,11 @@ echo "  A=$A_UI  B=$B_UI(큐 등재 $B_PENDING)  C=$C_UI  | auction=$STATUS winn
 [ "$B_UI" = "APPROVAL_REQUIRED" ] || fail "B가 APPROVAL_REQUIRED 아님 ($B_UI)"
 [ "$C_UI" = "DENY" ] || fail "C가 DENY 아님 ($C_UI)"
 # README가 실물 증거로 내세우는 항목 — 데몬의 승인 대기 큐에 B의 tx가 실제로 있는지
+# null = 라운드 중 큐 조회 자체가 실패한 것(관측 실패). false(큐에 없음 = 정책 경로 문제)와
+# 다른 사건이므로 문구를 가른다 — TIMEOUT/timedOut과 같은 구분 원칙.
+if [ "$B_PENDING" = "null" ]; then
+  fail "B 승인 큐 관측 실패 (라운드 중 데몬 조회 실패 — 정책 실패 아님, 데몬 상태 확인 후 재실행)"
+fi
 [ "$B_PENDING" = "true" ] || fail "B의 예치가 승인 대기 큐에 없음 (inPending=$B_PENDING)"
 [ "$STATUS" = "Settled" ] || fail "auction이 Settled 아님 ($STATUS)"
 [ "$WINNER_IS_A" = "true" ] || fail "winner가 A 아님"
