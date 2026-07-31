@@ -78,8 +78,9 @@ export default function OwnerConsole({ onBack }) {
             </div>
 
             <div className="unote own-note">
-              이 화면은 owner 권한으로 {data?.name || 'B'}의 WAIaaS 데몬에 직접 접근합니다
-              (데모 앱은 마스터 인증 relay만 하며, 경매 플랫폼에는 이 권한이 없습니다).
+              단일 화면 데모를 위해 오케스트레이터가 owner의 마스터 인증을 대행해
+              {data?.name || 'B'}의 WAIaaS 데몬에 접근합니다. 실제 운영에서는 owner가 자신의
+              데몬 콘솔에서 직접 수행하며, 온체인 경매 프로그램과 seller는 이 권한을 갖지 않습니다.
             </div>
           </div>
         </div>

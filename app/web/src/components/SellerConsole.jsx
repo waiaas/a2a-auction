@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { openAuction } from '../api.js';
+import { openAuction, resetAuction } from '../api.js';
 import Icon from './Icon.jsx';
 import { executableWinner, fmtUsdc, phaseLabel, statusPill, truncTx } from '../lib/derive.js';
 
@@ -16,12 +16,19 @@ export default function SellerConsole({ state, onBack }) {
   const sp = statusPill(state.phase);
   const isOpened = state.auctionId != null && state.phase !== 'idle' && state.phase !== 'opening';
   const isSettled = state.phase === 'settled';
+  // 라운드가 끝났거나(settled) 죽었으면(error) reset 없이는 새 경매를 못 연다 —
+  // /api/auction/open이 idle 외 상태를 409로 거절하기 때문(감사 F3: 버튼이 무반응으로 죽음).
+  const canPrepareNext = state.phase === 'settled' || state.phase === 'error';
   const winner = executableWinner(state);
 
   const onOpen = useCallback(async () => {
     setOpening(true);
     try { await openAuction(); } catch { /* 폴링이 상태를 갱신한다 */ }
     finally { setOpening(false); }
+  }, []);
+
+  const onPrepareNext = useCallback(async () => {
+    try { await resetAuction(); } catch { /* 폴링이 상태를 갱신한다 */ }
   }, []);
 
   return (
@@ -65,9 +72,13 @@ export default function SellerConsole({ state, onBack }) {
                 <div className="lk-s">
                   경매를 열면 작업이 플랫폼에 공개되고, 정책을 위임받은 구매자 에이전트들이 입찰할 수 있습니다.
                 </div>
-                <button className="cta" onClick={onOpen} disabled={opening || state.phase === 'opening'}>
-                  {opening || state.phase === 'opening' ? '개설 중…' : <>경매 오픈<Icon name="play" size={15} /></>}
-                </button>
+                {canPrepareNext ? (
+                  <button className="cta ghost" onClick={onPrepareNext}>이전 라운드 정리 후 다시 열기</button>
+                ) : (
+                  <button className="cta" onClick={onOpen} disabled={opening || state.phase === 'opening'}>
+                    {opening || state.phase === 'opening' ? '개설 중…' : <>경매 오픈<Icon name="play" size={15} /></>}
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -93,6 +104,12 @@ export default function SellerConsole({ state, onBack }) {
                     <div className="lk-s">
                       최고 입찰가가 아니라 정책을 통과한 최고 입찰가가 낙찰됐습니다. 상세 증거는 Receipt에서 확인합니다.
                     </div>
+                    <button className="cta ghost" onClick={onPrepareNext}>다음 경매 준비 (새 라운드)</button>
+                  </div>
+                ) : canPrepareNext ? (
+                  <div className="sell-wait">
+                    <div className="lk-s">라운드가 오류로 종료됐습니다. 정리 후 새 경매를 열 수 있습니다.</div>
+                    <button className="cta ghost" onClick={onPrepareNext}>이전 라운드 정리 후 다시 열기</button>
                   </div>
                 ) : (
                   <div className="sell-wait">

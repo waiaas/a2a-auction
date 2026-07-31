@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ORCHESTRATOR_PORT, SELLER_PORT, TOKEN_LIMITS, PATHS, USDC_DECIMALS } from './config.js';
+import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS } from './config.js';
 import { initState, buildDeps, openAuction, runBidding, runAuction, assembleReceipt } from './auction-flow.js';
 
 const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
@@ -112,16 +112,31 @@ app.post('/api/auction/reset', (req, res) => {
 // 오케스트레이터가 이미 보유한 것(정책 갱신에 사용)을 그대로 쓴다 — 새 권한이 아니다.
 const OWNER_ROLE = 'buyer-b';
 
+/**
+ * B의 SPENDING_LIMIT 위임 한도를 데몬에서 실제로 읽는다. 화면이 "데몬에 등록됨"이라고
+ * 말하므로 config 상수를 돌려주면 거짓이 된다(감사 F1 — 데몬 정책을 바꿔도 화면이 5를
+ * 유지하는 것으로 적발). 정책이 없으면 null → 화면은 '—'.
+ */
+async function fetchOwnerLimitUsdc(d) {
+  const policies = await d.clients[OWNER_ROLE].listPolicies();
+  const sl = policies.find((p) => p.type === 'SPENDING_LIMIT');
+  const limits = sl?.rules?.token_limits?.[d.config.assetId];
+  return limits?.delay_max != null ? Number(limits.delay_max) : null;
+}
+
 app.get('/api/owner/pending', async (_req, res) => {
   const d = depsOrError(res);
   if (!d) return;
   try {
-    const items = await d.clients[OWNER_ROLE].pendingTxs();
+    const [items, limitUsdc] = await Promise.all([
+      d.clients[OWNER_ROLE].pendingTxs(),
+      fetchOwnerLimitUsdc(d),
+    ]);
     res.json({
       role: OWNER_ROLE,
       name: actors[OWNER_ROLE].name,
       mandateChip: actors[OWNER_ROLE].mandateChip,
-      limitUsdc: Number(TOKEN_LIMITS[OWNER_ROLE]?.delay_max ?? 0),
+      limitUsdc,
       pending: items.map((t) => ({
         id: t.id,
         amountUsdc: t.amount != null ? Number(t.amount) / 10 ** USDC_DECIMALS : null,
@@ -166,6 +181,10 @@ app.get('/slot/:auctionId/result', async (req, res) => {
 // dev는 Vite(5173)가 /api·/slot을 프록시하므로 dist가 없어도 무방하다.
 app.use(express.static(WEB_DIST));
 
-app.listen(ORCHESTRATOR_PORT, () => {
-  console.log(`orchestrator listening on http://127.0.0.1:${ORCHESTRATOR_PORT}`);
+// 기본 루프백 바인딩: /api/owner/reject 등이 무인증이라 LAN에 열면 같은 망의 누구든
+// B의 승인 대기를 거부하거나 라운드를 조작할 수 있다(감사 F2). 클라우드 배포처럼
+// 외부 바인딩이 필요할 때만 HOST=0.0.0.0을 명시한다.
+const HOST = process.env.HOST || '127.0.0.1';
+app.listen(ORCHESTRATOR_PORT, HOST, () => {
+  console.log(`orchestrator listening on http://${HOST}:${ORCHESTRATOR_PORT}`);
 });
