@@ -443,7 +443,8 @@ export function assembleReceipt(state) {
       tier: b[r]?.deposit?.tier,
       txHash: b[r]?.deposit?.txHash || null,
       txId: b[r]?.deposit?.txId || null,
-      inPending: b[r]?.deposit?.inPending ?? undefined,
+      // null(관측 실패)을 undefined로 접으면 JSON에서 필드가 사라져 e2e가 원인을 구분 못 한다.
+      inPending: b[r]?.deposit?.inPending,
       error: b[r]?.deposit?.error || null,
     })),
     createAuctionTx: state.steps.createAuction?.txHash || null,

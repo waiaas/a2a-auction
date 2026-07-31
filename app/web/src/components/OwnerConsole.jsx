@@ -89,7 +89,18 @@ export default function OwnerConsole({ onBack }) {
         <div className="panel glass">
           <div className="ph"><Icon name="clipboard" size={14} />승인 대기 큐</div>
           <div className="sell-body">
-            {!hasQueue ? (
+            {/* 로드가 한 번도 성공하지 못했으면 "큐가 비었다"고 말하면 안 된다(4차 감사) —
+                조회 실패와 빈 큐는 다른 사건이고, 위 오류 배너와 본문이 정반대를 말하게 된다. */}
+            {!data && loadErr ? (
+              <div className="sell-open">
+                <div className="lk-ic"><Icon name="offline" size={34} /></div>
+                <div className="lk-t">큐 상태를 확인할 수 없습니다</div>
+                <div className="lk-s">
+                  데몬 조회에 실패해 대기 중인 요청이 있는지 알 수 없습니다.
+                  데몬·오케스트레이터 상태를 확인해 주세요.
+                </div>
+              </div>
+            ) : !hasQueue ? (
               <div className="sell-open">
                 <div className="lk-ic"><Icon name="clipboard" size={34} /></div>
                 <div className="lk-t">대기 중인 승인 요청이 없습니다</div>
