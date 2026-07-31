@@ -51,9 +51,10 @@ const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json
 /** 오케스트레이터가 보관하는 초기 상태. */
 export function initState() {
   return {
-    phase: 'idle', // idle|committing|depositing|revealing|settling|settled|error
+    phase: 'idle', // idle|open|committing|depositing|revealing|settling|settled|error
     auctionId: null,
     startedAt: null,
+    openedAt: null, // 경매 개설 완료 시각(판매자 콘솔)
     settledAt: null,
     error: null,
     item: AUCTION_ITEM,
@@ -98,10 +99,10 @@ async function pickFreeAuctionId(conn, marketplace, start) {
 }
 
 /**
- * 한 라운드 전체 실행. state를 단계마다 갱신한다.
- * 실패해도 되는 단계(B QUEUED, C DENIED)는 오류로 보지 않는다.
+ * 경매 개설까지만 실행한다 (판매자 콘솔의 "경매 오픈"). 입찰·정산은 runBidding이 이어받는다.
+ * 반환한 ctx를 오케스트레이터가 보관했다가 그대로 넘긴다 — state에는 표시용 문자열만 싣는다.
  */
-export async function runAuction(state, deps) {
+export async function openAuction(state, deps) {
   const { conn, config, clients } = deps;
   const marketplace = config.marketplace;
   const seller = config.seller;
@@ -110,6 +111,7 @@ export async function runAuction(state, deps) {
   const sellerTokenAccount = config.sellerTokenAccount;
 
   state.startedAt = new Date().toISOString();
+  state.phase = 'opening';
 
   // ---- 셋업: auction_id 확정 + 주소 유도 ----
   const auctionId = await pickFreeAuctionId(conn, marketplace, config.nextAuctionId);
@@ -132,6 +134,35 @@ export async function runAuction(state, deps) {
     bidB: bidPda['buyer-b'].toBase58(),
     bidC: bidPda['buyer-c'].toBase58(),
   };
+  pushLog(state, `auction_id=${auctionId} auctionPda=${auctionPda.toBase58()}`);
+
+  // ---- Step 1: create_auction (marketplace) ----
+  {
+    const body = buildCreateAuction({ marketplace, seller, mint, auctionPda, vault, auctionId });
+    const id = await clients['marketplace'].sendTx(body);
+    const fin = await clients['marketplace'].pollTx(id, ['CONFIRMED', 'SUBMITTED', 'FAILED', 'CANCELLED']);
+    const onchain = await confirmSig(conn, fin.txHash);
+    state.steps.createAuction = { status: fin.status, txHash: fin.txHash || null, onchain };
+    if (!TX_OK.includes(fin.status)) throw new Error(`create_auction 실패: ${JSON.stringify(fin)}`);
+    pushLog(state, `create_auction ${fin.status} onchain=${onchain}`);
+  }
+
+  state.openedAt = new Date().toISOString();
+  state.phase = 'open';
+  return { auctionId, auctionPda, vault, bidPda };
+}
+
+/**
+ * 개설된 경매에 입찰~정산~결과물 unlock을 실행한다. ctx는 openAuction의 반환값이다.
+ * 실패해도 되는 단계(B QUEUED, C DENIED)는 오류로 보지 않는다.
+ */
+export async function runBidding(state, deps, ctx) {
+  const { conn, config, clients } = deps;
+  const marketplace = config.marketplace;
+  const mint = config.mint;
+  const assetId = config.assetId;
+  const sellerTokenAccount = config.sellerTokenAccount;
+  const { auctionId, auctionPda, vault, bidPda } = ctx;
 
   // buyer 상태 초기화 + Gemini 견적·rationale
   for (const role of BUYERS) {
@@ -152,9 +183,8 @@ export async function runAuction(state, deps) {
       ui: null, // ALLOW | APPROVAL_REQUIRED | DENY
     };
   }
-  pushLog(state, `auction_id=${auctionId} auctionPda=${auctionPda.toBase58()}`);
 
-  // ---- Step 1: A·B WHITELIST에 이번 라운드 auction_pda 추가 (C는 그대로) ----
+  // ---- Step 2: A·B WHITELIST에 이번 라운드 auction_pda 추가 (C는 그대로) ----
   state.phase = 'committing';
   for (const role of ['buyer-a', 'buyer-b']) {
     const wlId = config.policies[role].whitelist;
@@ -166,17 +196,6 @@ export async function runAuction(state, deps) {
     await clients[role].updatePolicy(wlId, { allowed_addresses: allowed });
   }
   pushLog(state, 'WHITELIST 갱신: A = [programId, auctionPda, seller], B = [programId, auctionPda], C = [programId]');
-
-  // ---- Step 2: create_auction (marketplace) ----
-  {
-    const body = buildCreateAuction({ marketplace, seller, mint, auctionPda, vault, auctionId });
-    const id = await clients['marketplace'].sendTx(body);
-    const fin = await clients['marketplace'].pollTx(id, ['CONFIRMED', 'SUBMITTED', 'FAILED', 'CANCELLED']);
-    const onchain = await confirmSig(conn, fin.txHash);
-    state.steps.createAuction = { status: fin.status, txHash: fin.txHash || null, onchain };
-    if (!TX_OK.includes(fin.status)) throw new Error(`create_auction 실패: ${JSON.stringify(fin)}`);
-    pushLog(state, `create_auction ${fin.status} onchain=${onchain}`);
-  }
 
   // ---- Step 3: commit × 3 (정책 무관, 3자 모두 성공) ----
   for (const role of BUYERS) {
@@ -308,6 +327,15 @@ export async function runAuction(state, deps) {
   state.phase = 'settled';
   pushLog(state, `settled: seller=${sellerUsdc} vault=${vaultUsdc} winner=${state.auctionState?.winner}`);
   return state;
+}
+
+/**
+ * 개설과 입찰을 연속 실행한다(발표자 버튼 1개 경로). 판매자 콘솔을 거치지 않는 기존 흐름과
+ * `verify-e2e.sh`가 이 함수를 쓴다.
+ */
+export async function runAuction(state, deps) {
+  const ctx = await openAuction(state, deps);
+  return runBidding(state, deps, ctx);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -10,6 +10,14 @@ export async function fetchState() {
   return res.json();
 }
 
+/** 판매자 콘솔의 경매 오픈. 이미 열렸거나 실행 중이면 409(무시). */
+export async function openAuction() {
+  const res = await fetch('/api/auction/open', { method: 'POST', headers: JSON_HEADERS });
+  if (res.status === 409) return { alreadyOpen: true };
+  if (!res.ok) throw new Error(`open ${res.status}`);
+  return res.json();
+}
+
 /** 발표자 Start 버튼. 이미 실행 중이면 409(무시). */
 export async function startAuction() {
   const res = await fetch('/api/auction/start', { method: 'POST', headers: JSON_HEADERS });

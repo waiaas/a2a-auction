@@ -98,9 +98,9 @@ export function pipelineSteps(phase) {
   });
 }
 
-/** 라운드가 실행 중(로딩)인지: idle/settled/error가 아니면 진행 중. */
+/** 라운드가 실행 중(로딩)인지. 'open'은 개설이 끝나고 입찰을 기다리는 상태라 제외한다. */
 export function isRunning(phase) {
-  return ['committing', 'depositing', 'revealing', 'settling'].includes(phase);
+  return ['opening', 'committing', 'depositing', 'revealing', 'settling'].includes(phase);
 }
 
 /** v4 판정 pill (짧은 라벨). */
@@ -121,6 +121,7 @@ export function statusPill(phase) {
     case 'settled': return { cls: 'gold', label: 'SETTLED ★' };
     case 'error': return { cls: 'bad', label: '오류' };
     case 'idle': return { cls: 'pending', label: '준비' };
+    case 'open': return { cls: 'pending', label: 'OPEN · 입찰 대기' };
     default: return { cls: 'live', label: 'LIVE' }; // 진행 중
   }
 }
@@ -128,6 +129,8 @@ export function statusPill(phase) {
 /** hero 메타의 상태 문구. */
 export function phaseLabel(phase) {
   return {
+    opening: '경매 개설 중',
+    open: '입찰 대기',
     committing: '입찰 커밋 중',
     depositing: '예치 · 정책 판정 중',
     revealing: 'reveal 중',

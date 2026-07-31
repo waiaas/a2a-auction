@@ -1,7 +1,8 @@
 /**
  * 경매 오케스트레이터 (스펙 5.1). 데모 상태 머신을 HTTP로 노출한다.
  *
- *   POST /api/auction/start   라운드 시작(비동기 실행, 즉시 202) — 발표자 버튼 1개
+ *   POST /api/auction/open    경매 개설만(판매자 콘솔) — 이후 phase='open'에서 입찰을 기다린다
+ *   POST /api/auction/start   입찰 시작(비동기 실행, 즉시 202). 아직 개설 전이면 개설부터 이어서 돈다
  *   GET  /api/auction/state   현재 상태(UI 1초 폴링)
  *   GET  /api/receipt         정산 완료 시 SettlementReceipt
  *   POST /api/auction/reset   상태 초기화(다음 라운드는 새 auction 계정)
@@ -12,43 +13,75 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { ORCHESTRATOR_PORT, SELLER_PORT } from './config.js';
-import { initState, buildDeps, runAuction, assembleReceipt } from './auction-flow.js';
+import { initState, buildDeps, openAuction, runBidding, runAuction, assembleReceipt } from './auction-flow.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = path.join(__dirname, 'web/dist'); // Vite 빌드 산출 (없으면 dev는 Vite proxy 사용)
 
 let state = initState();
 let running = false;
+let roundCtx = null; // openAuction 산출물(auctionPda·vault·bidPda) — 입찰 시작이 이어받는다
 
 const app = express();
 app.use(express.json());
 
+/** 라운드 실행 공통 래퍼: 실패를 phase='error'로 표면화하고 running을 되돌린다. */
+function runInBackground(promise, label) {
+  running = true;
+  promise
+    .catch((e) => {
+      state.phase = 'error';
+      state.error = e.message;
+      console.error(`[orchestrator] ${label} 실패:`, e.message);
+    })
+    .finally(() => {
+      running = false;
+    });
+}
+
+/** 매 요청마다 config를 새로 읽는다(시드 재실행으로 정책 ID·nextAuctionId가 바뀌어도 안전). */
+function depsOrError(res) {
+  try {
+    return buildDeps();
+  } catch (e) {
+    res.status(400).json({ error: 'not_seeded', message: e.message });
+    return null;
+  }
+}
+
 app.get('/health', (_req, res) => res.json({ status: 'ok', phase: state.phase }));
+
+app.post('/api/auction/open', (_req, res) => {
+  if (running) return res.status(409).json({ error: 'already_running', phase: state.phase });
+  if (state.phase !== 'idle') return res.status(409).json({ error: 'already_open', phase: state.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  state = initState();
+  roundCtx = null;
+  runInBackground(
+    openAuction(state, d).then((ctx) => {
+      roundCtx = ctx;
+    }),
+    'openAuction',
+  );
+  return res.status(202).json({ opening: true });
+});
 
 app.post('/api/auction/start', (_req, res) => {
   if (running) {
     return res.status(409).json({ error: 'already_running', phase: state.phase });
   }
-  // 매 라운드 config를 새로 읽는다(시드 재실행으로 정책 ID·nextAuctionId가 바뀌어도 안전).
-  let d;
-  try {
-    d = buildDeps();
-  } catch (e) {
-    return res.status(400).json({ error: 'not_seeded', message: e.message });
+  const d = depsOrError(res);
+  if (!d) return;
+  // 판매자 콘솔이 먼저 개설했으면 입찰만 이어서 실행한다. 개설 전이면 개설부터 한 번에 돈다
+  // (기존 단일 버튼 경로 · verify-e2e.sh가 이쪽을 쓴다).
+  if (roundCtx && state.phase === 'open') {
+    runInBackground(runBidding(state, d, roundCtx), 'runBidding');
+  } else {
+    state = initState();
+    roundCtx = null;
+    runInBackground(runAuction(state, d), 'runAuction');
   }
-  // 새 라운드 상태로 초기화 후 비동기 실행
-  state = initState();
-  state.phase = 'committing';
-  running = true;
-  runAuction(state, d)
-    .catch((e) => {
-      state.phase = 'error';
-      state.error = e.message;
-      console.error('[orchestrator] runAuction 실패:', e.message);
-    })
-    .finally(() => {
-      running = false;
-    });
   return res.status(202).json({ started: true, phase: state.phase });
 });
 
@@ -64,6 +97,7 @@ app.post('/api/auction/reset', (req, res) => {
   if (running) return res.status(409).json({ error: 'running', phase: state.phase });
   const scenario = req.body?.scenario || 'default';
   state = initState();
+  roundCtx = null;
   res.json({ reset: true, scenario });
 });
 
