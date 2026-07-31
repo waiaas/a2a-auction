@@ -69,13 +69,14 @@ export default function SellerConsole({ state, onBack }) {
               <div className="sell-open">
                 <div className="lk-ic"><Icon name="clipboard" size={34} /></div>
                 <div className="lk-t">{canPrepareNext ? '경매 개설에 실패했습니다' : '아직 열린 경매가 없습니다'}</div>
-                <div className="lk-s">
+                {/* 오류 원문(RPC 에러 등)은 화면에 그대로 내지 않는다(3차 감사) — title로 보존, 상세는 Live 뷰 errbar·서버 로그. */}
+                <div className="lk-s" title={canPrepareNext ? state.error || '' : undefined}>
                   {canPrepareNext
-                    ? `오류: ${state.error || '알 수 없는 오류'} · 환경 확인 후 정리하고 다시 열 수 있습니다.`
+                    ? '밸리데이터·데몬 연결 상태를 확인한 뒤, 정리하고 다시 열 수 있습니다.'
                     : '경매를 열면 작업이 플랫폼에 공개되고, 정책을 위임받은 구매자 에이전트들이 입찰할 수 있습니다.'}
                 </div>
                 {canPrepareNext ? (
-                  <button className="cta ghost" onClick={onPrepareNext}>이전 라운드 정리 후 다시 열기</button>
+                  <button className="cta ghost" onClick={onPrepareNext}>정리하고 다시 열기</button>
                 ) : (
                   <button className="cta" onClick={onOpen} disabled={opening || state.phase === 'opening'}>
                     {opening || state.phase === 'opening' ? '개설 중…' : <>경매 오픈<Icon name="play" size={15} /></>}
@@ -110,8 +111,8 @@ export default function SellerConsole({ state, onBack }) {
                   </div>
                 ) : canPrepareNext ? (
                   <div className="sell-wait">
-                    <div className="lk-s">라운드가 오류로 종료됐습니다. 정리 후 새 경매를 열 수 있습니다.</div>
-                    <button className="cta ghost" onClick={onPrepareNext}>이전 라운드 정리 후 다시 열기</button>
+                    <div className="lk-s" title={state.error || ''}>라운드가 오류로 종료됐습니다. 정리 후 새 경매를 열 수 있습니다.</div>
+                    <button className="cta ghost" onClick={onPrepareNext}>정리하고 다시 열기</button>
                   </div>
                 ) : (
                   <div className="sell-wait">

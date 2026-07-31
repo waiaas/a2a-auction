@@ -234,10 +234,17 @@ export async function runBidding(state, deps, ctx) {
     state.buyers[role].ui = decision; // ALLOW(A) / APPROVAL_REQUIRED(B) / DENY(C)
     pushLog(state, `${role} deposit ${fin.status} tier=${fin.tier || '-'} → ${decision}`);
   }
-  // B가 승인 대기 큐에 실제로 있는지 확인
+  // B가 승인 대기 큐에 실제로 있는지 확인. 조회 실패는 "큐에 없음(false)"과 다른 사건이라
+  // null로 남기고 라운드는 계속한다(pendingTxs가 이제 401 등에서 throw하므로).
   {
-    const ids = await clients['buyer-b'].pendingTxIds();
-    state.buyers['buyer-b'].deposit.inPending = ids.includes(state.buyers['buyer-b'].deposit.txId);
+    const dep = state.buyers['buyer-b'].deposit;
+    try {
+      const ids = await clients['buyer-b'].pendingTxIds();
+      dep.inPending = ids.includes(dep.txId);
+    } catch (e) {
+      dep.inPending = null;
+      pushLog(state, `B 승인 큐 조회 실패: ${e.message}`);
+    }
   }
 
   // A의 예치가 온체인에 실제로 반영될 때까지 대기한 뒤 reveal로 넘어간다.

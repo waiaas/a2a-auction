@@ -139,7 +139,14 @@ async function main() {
   //      2회 후 4건 누적 실측). 어떤 시작 상태에서도 수렴한다는 시드 목적에 맞춰 여기서 정리한다.
   for (const role of BUYERS) {
     const client = clientFor(role, byRole, env);
-    const stale = await client.pendingTxs();
+    let stale = [];
+    try {
+      stale = await client.pendingTxs();
+    } catch (e) {
+      // 조회 실패(세션 토큰 무효 등)를 삼키면 "비워졌다"고 오판한다 — 경고를 반드시 남긴다.
+      console.log(`  경고: ${role} 승인 대기 조회 실패 (${e.message}) — 큐 정리 건너뜀`);
+      continue;
+    }
     for (const t of stale) {
       try {
         await client.adminRejectTx(t.id);

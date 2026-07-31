@@ -144,9 +144,14 @@ export function daemonClient(wallet, masterPassword) {
       return (await this.pendingTxs()).map((t) => t.id);
     },
 
-    /** 승인 대기 큐 전체(owner 콘솔 표시용 상세 포함). */
+    /**
+     * 승인 대기 큐 전체(owner 콘솔 표시용 상세 포함).
+     * status를 검사하지 않으면 401 응답 본문이 빈 배열로 접혀 "큐가 비었다"로 오판된다
+     * (3차 감사 — seed의 큐 정리가 토큰 무효 시 경고 없이 스킵되던 원인).
+     */
     async pendingTxs() {
       const r = await http('GET', `${base}/v1/transactions/pending`, authHdr);
+      if (r.status >= 300) throw new Error(`pending 조회 실패 ${r.status}: ${JSON.stringify(r.json)}`);
       const list = r.json.items || r.json.data || r.json.transactions || r.json || [];
       return Array.isArray(list) ? list : [];
     },
