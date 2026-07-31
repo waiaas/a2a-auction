@@ -19,6 +19,7 @@ import {
   TOKEN_LIMITS,
   AMOUNTS,
   PATHS,
+  X402_ALLOWED_DOMAIN,
 } from './config.js';
 import {
   loadStateByRole,
@@ -67,7 +68,30 @@ async function reseedPolicies(role, client, { mint, assetId }) {
       token_limits: { [assetId]: TOKEN_LIMITS[role] },
     });
   }
+  // x402 결제 대상 도메인(default-deny — 정책이 없으면 데몬이 전부 거부한다).
+  // 결과물 unlock을 결제하는 것은 낙찰자 A뿐이라 A에만 등록한다. 데몬은 hostname만 비교하고
+  // `*.` 와일드카드를 지원하므로 터널 재기동마다 갱신할 필요가 없다.
+  if (role === 'buyer-a') {
+    ids.x402Domains = await client.createPolicy('X402_ALLOWED_DOMAINS', {
+      domains: [X402_ALLOWED_DOMAIN],
+    });
+  }
   return ids;
+}
+
+/**
+ * x402 facilitator(feePayer 대납) 키 확보. 에이전트 지갑이 아니라 인프라 키다 —
+ * seller 에이전트의 지갑 키는 데몬 안에 있고 앱은 그것을 갖지 않는다.
+ */
+function ensureFacilitatorKeypair() {
+  if (fs.existsSync(PATHS.facilitator)) {
+    return Keypair.fromSecretKey(
+      Uint8Array.from(JSON.parse(fs.readFileSync(PATHS.facilitator, 'utf8'))),
+    );
+  }
+  const kp = Keypair.generate();
+  fs.writeFileSync(PATHS.facilitator, JSON.stringify(Array.from(kp.secretKey)), { mode: 0o600 });
+  return kp;
 }
 
 /** B owner를 verified 상태로 보장(멱등). 이미 verified면 스킵. */
@@ -123,6 +147,12 @@ async function main() {
   const sellerAta = (await ensureAta(conn, deployer, mint, byRole['seller'].address)).toBase58();
   console.log(`  seller ATA = ${sellerAta}`);
 
+  // x402 facilitator: 결제 tx의 수수료를 대납하므로 SOL만 필요하다(USDC는 받는 쪽 = seller 지갑).
+  const facilitator = ensureFacilitatorKeypair();
+  const facilitatorAddr = facilitator.publicKey.toBase58();
+  const facilitatorSol = await ensureSol(conn, facilitatorAddr);
+  console.log(`  x402 facilitator = ${facilitatorAddr} (SOL ${facilitatorSol})`);
+
   for (const role of BUYERS) {
     const { balanceBase } = await ensureTokenBalance(
       conn,
@@ -156,6 +186,7 @@ async function main() {
     sellerTokenAccount: sellerAta,
     marketplace: byRole['marketplace'].address,
     seller: byRole['seller'].address,
+    facilitator: facilitatorAddr,
     addresses: Object.fromEntries(ROLES.map((r) => [r, byRole[r].address])),
     policies,
     bOwnerAddress: bOwner.ownerAddress,

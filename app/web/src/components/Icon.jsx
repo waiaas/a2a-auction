@@ -1,7 +1,7 @@
 import {
   ArrowLeft, ArrowRight, BarChart3, Bell, Bot, ClipboardList, Coins, FlaskConical,
   FolderOpen, Globe, Landmark, Link2, Lock, LockOpen, Microscope, Play, Plus, Radio,
-  Receipt, Rocket, Search, ShieldCheck, Smartphone, TrendingUp, Trophy, Unplug,
+  Receipt, Rocket, Search, ShieldCheck, TrendingUp, Trophy, Unplug,
 } from 'lucide-react';
 
 /**
@@ -20,7 +20,6 @@ const ICONS = {
   bell: Bell,
   receipt: Receipt,
   chain: Link2,
-  phone: Smartphone,
   play: Play,
   back: ArrowLeft,
   next: ArrowRight,

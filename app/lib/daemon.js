@@ -126,6 +126,20 @@ export function daemonClient(wallet, masterPassword) {
       }
       return { ...last, timedOut: true };
     },
+    /**
+     * x402 자동 결제 프록시. 402를 받으면 데몬이 정책 평가 후 결제하고 재요청한다.
+     * 응답의 `payment`는 402를 실제로 거쳤을 때만 실린다(passthrough 200이면 없다).
+     */
+    async x402Fetch(url, method = 'GET') {
+      const r = await http('POST', `${base}/v1/x402/fetch`, authHdr, {
+        walletId: wallet.walletId,
+        url,
+        method,
+      });
+      if (r.status >= 300) throw new Error(`x402 fetch 실패 ${r.status}: ${JSON.stringify(r.json)}`);
+      return r.json; // { status, headers, body, payment? }
+    },
+
     async pendingTxIds() {
       const r = await http('GET', `${base}/v1/transactions/pending`, authHdr);
       const list = r.json.items || r.json.data || r.json.transactions || r.json || [];

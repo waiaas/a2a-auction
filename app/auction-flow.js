@@ -13,7 +13,15 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { AMOUNTS, AUCTION_ITEM, PROGRAM_ID, PATHS, TOKEN_LIMITS } from './config.js';
+import {
+  AMOUNTS,
+  AUCTION_ITEM,
+  PROGRAM_ID,
+  PATHS,
+  TOKEN_LIMITS,
+  X402_UNLOCK,
+  SELLER_PUBLIC_URL,
+} from './config.js';
 import {
   connection,
   deriveAuctionPda,
@@ -150,9 +158,14 @@ export async function runAuction(state, deps) {
   state.phase = 'committing';
   for (const role of ['buyer-a', 'buyer-b']) {
     const wlId = config.policies[role].whitelist;
-    await clients[role].updatePolicy(wlId, { allowed_addresses: [PROGRAM_ID, auctionPda.toBase58()] });
+    // A만 seller 주소를 추가한다: 정산 후 결과물 unlock의 x402 결제가 payTo=seller 지갑인
+    // TRANSFER로 평가되므로 WHITELIST에 없으면 POLICY_DENIED로 막힌다. 이 PUT이 라운드마다
+    // 전체를 덮어쓰므로 시드에만 넣어두면 유지되지 않는다.
+    const allowed = [PROGRAM_ID, auctionPda.toBase58()];
+    if (role === 'buyer-a') allowed.push(config.seller);
+    await clients[role].updatePolicy(wlId, { allowed_addresses: allowed });
   }
-  pushLog(state, 'WHITELIST 갱신: A·B = [programId, auctionPda], C = [programId]');
+  pushLog(state, 'WHITELIST 갱신: A = [programId, auctionPda, seller], B = [programId, auctionPda], C = [programId]');
 
   // ---- Step 2: create_auction (marketplace) ----
   {
@@ -279,6 +292,13 @@ export async function runAuction(state, deps) {
   const result = await getResult(AUCTION_ITEM, auctionId);
   state.resultMeta = { hash: result.hash, source: result.source, unlockedFor: 'buyer-a' };
 
+  // ---- x402 결과물 unlock (X402_UNLOCK) ----
+  // phase='settled' 이전에 끝내야 UI가 Receipt를 열 때 seller의 결제 마커가 준비돼 있다.
+  if (X402_UNLOCK) {
+    state.x402 = await unlockViaX402(clients['buyer-a'], auctionId, state);
+    pushLog(state, `x402 unlock: ${state.x402.amountUsdc} USDC sig=${state.x402.onchainSignature}`);
+  }
+
   // nextAuctionId 영속화(다음 라운드는 +1부터 스캔)
   const cfg = loadConfig();
   cfg.nextAuctionId = auctionId + 1;
@@ -291,6 +311,43 @@ export async function runAuction(state, deps) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * A의 데몬으로 seller 결과물을 x402 결제해 unlock한다.
+ *
+ * 데몬 응답의 `payment` 존재가 "402를 거쳐 실제로 결제했다"는 증거다 — 무료로 열렸다면
+ * passthrough 200이라 payment가 없다. 실패 시 무료 unlock으로 조용히 넘어가지 않는다
+ * (그러면 "x402 실사용" 주장이 거짓이 된다). 재시도 1회 후 라운드를 error로 표면화한다.
+ */
+async function unlockViaX402(clientA, auctionId, state) {
+  if (!SELLER_PUBLIC_URL) {
+    throw new Error('X402_UNLOCK=1인데 SELLER_PUBLIC_URL이 없다 (cloudflared 터널 URL 필요)');
+  }
+  const url = `${SELLER_PUBLIC_URL}/slot/${auctionId}/result`;
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const r = await clientA.x402Fetch(url);
+      if (!r.payment) throw new Error('데몬 응답에 payment 없음 — 402를 거치지 않았다');
+      const body = JSON.parse(r.body);
+      if (body.locked !== false) throw new Error(`결제 후에도 잠김: ${JSON.stringify(body)}`);
+      return {
+        amountBase: r.payment.amount,
+        amountUsdc: Number(r.payment.amount) / 1e6,
+        daemonTxId: r.payment.txId,
+        payTo: r.payment.payTo,
+        // 온체인 signature는 제출자(seller의 facilitator)만 안다. 데몬 txHash는 빈 값이다.
+        onchainSignature: body.payment?.signature ?? null,
+        resultHash: body.result?.hash ?? null,
+        attempts: attempt,
+      };
+    } catch (e) {
+      lastError = e;
+      pushLog(state, `x402 unlock 시도 ${attempt} 실패: ${e.message}`);
+    }
+  }
+  throw new Error(`x402 unlock 실패(2회): ${lastError.message}`);
+}
 
 /**
  * A의 예치가 온체인에 반영될 때까지 짧게 재시도한다.
@@ -362,6 +419,16 @@ export function assembleReceipt(state) {
     settlement: state.result,
     resultHash: state.resultMeta?.hash || null,
     resultSource: state.resultMeta?.source || null,
+    // x402 결제는 경매 예치와 별개 tx다. SPENDING_LIMIT의 수량 티어는 CAIP-19 키로만 잡히고
+    // x402는 TRANSFER로 평가되므로 위 budget 수치에는 잡히지 않는다 — 별도 필드로 싣는다.
+    x402: state.x402
+      ? {
+          amountUsdc: state.x402.amountUsdc,
+          daemonTxId: state.x402.daemonTxId,
+          onchainSignature: state.x402.onchainSignature,
+          payTo: state.x402.payTo,
+        }
+      : null,
     startedAt: state.startedAt,
     settledAt: state.settledAt,
   };

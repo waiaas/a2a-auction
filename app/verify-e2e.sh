@@ -9,6 +9,7 @@
 #   4) GET /api/receipt (증거 체인)
 #   5) 낙찰 auction seller 조회 → 200 unlock + hash·winner를 receipt와 교차 대조
 #   6) 3분기(A ALLOW / B APPROVAL / C DENY) + B 승인 큐 등재 + 온체인 Settled·winner=A + vault 소진
+#   7) X402_UNLOCK=1일 때만 — receipt의 x402 결제 증거 + 그 signature의 온체인 확정 + 재조회 재결제 없음
 set -uo pipefail
 
 ORCH=${ORCH:-http://127.0.0.1:4000}
@@ -118,6 +119,43 @@ echo "  A=$A_UI  B=$B_UI(큐 등재 $B_PENDING)  C=$C_UI  | auction=$STATUS winn
 # 정산 후 vault는 비어야 한다(낙찰액 전부 seller로). 남으면 잠긴 예치금이 있다는 뜻.
 [ "$VAULT_USDC" = "0" ] || fail "정산 후 vault가 비지 않음 ($VAULT_USDC)"
 
+if [ "${X402_UNLOCK:-}" = "1" ]; then
+  echo ""
+  echo "=== [7] x402 결과물 unlock (X402_UNLOCK=1) ==="
+  # ① receipt에 결제 증거가 있는가.
+  #    "정산 후 첫 요청이 402"는 사후 관측이 불가능하다 — flow가 settled 전에 결제를 끝내므로
+  #    스크립트 시점의 seller는 항상 캐시된 200이다. 대신 데몬 응답에 payment가 실렸다는 사실
+  #    (= 402를 거쳐 결제했다는 증거)을 flow가 receipt에 실어두고 여기서 검사한다.
+  X_AMOUNT=$(echo "$R" | jq -r '.x402.amountUsdc // empty')
+  X_TXID=$(echo "$R" | jq -r '.x402.daemonTxId // empty')
+  X_SIG=$(echo "$R" | jq -r '.x402.onchainSignature // empty')
+  [ -n "$X_AMOUNT" ] || fail "receipt에 x402 결제 증거 없음 (402를 거치지 않았다)"
+  [ "$X_AMOUNT" = "0.05" ] || fail "x402 결제액이 0.05 USDC 아님 ($X_AMOUNT)"
+  [ -n "$X_TXID" ] || fail "receipt에 데몬 x402 txId 없음"
+  [ -n "$X_SIG" ] || fail "receipt에 온체인 signature 없음 (seller가 돌려주지 않았다)"
+  echo "receipt: ${X_AMOUNT} USDC · 데몬 txId=$(echo "$X_TXID" | cut -c1-12)… · sig=$(echo "$X_SIG" | cut -c1-16)…"
+
+  # ② 그 signature가 실제로 체인에 확정됐는가. 데몬은 이 값을 모른다(facilitator가 제출).
+  X_STATUS=$(curl -s --max-time 5 -X POST -H 'Content-Type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getSignatureStatuses\",\"params\":[[\"$X_SIG\"]]}" \
+    "${RPC:-http://192.168.0.113:8899}" | jq -r '.result.value[0].confirmationStatus // empty')
+  [ -n "$X_STATUS" ] || fail "x402 결제 signature가 체인에 없음 ($X_SIG)"
+  echo "온체인 확인: $X_SIG → $X_STATUS ✅"
+
+  # ③ 결제 완료 후 재조회가 재결제 없이 200인가(중복 결제 방어 = 결제 마커).
+  RE=$(curl -s --max-time 10 -w '\n%{http_code}' "$SELLER/slot/$AUCTION_ID/result")
+  RE_CODE=$(echo "$RE" | tail -1)
+  RE_SIG=$(echo "$RE" | sed '$d' | jq -r '.payment.signature // empty')
+  [ "$RE_CODE" = "200" ] || fail "결제 후 재조회가 200이 아님 (got $RE_CODE) — 결제 마커 미작동"
+  [ "$RE_SIG" = "$X_SIG" ] || fail "재조회 signature 불일치: $RE_SIG != $X_SIG (재결제 발생)"
+  echo "재조회 200 + 같은 signature (재결제 없음 ✅)"
+  echo "  (정산 전 403 회귀 없음은 [3b]에서 이미 확인됨 — 프로브 ${MID_PROBES}회 전부 403)"
+fi
+
 echo ""
 echo "✅ PASS — 3분기 판정(A 실행 / B 승인대기+큐 등재 / C 거부) · 정산 전 seller 잠김 ${MID_PROBES}회 관측"
 echo "         · 온체인 Settled·winner=A · vault 소진 · seller↔orchestrator hash·winner 일치"
+# 마지막 문장의 종료 코드가 스크립트 종료 코드가 되므로 if로 감싼다(false면 실패로 보인다).
+if [ "${X402_UNLOCK:-}" = "1" ]; then
+  echo "         · x402 unlock 0.05 USDC 온체인 확정 · 재조회 재결제 없음"
+fi
