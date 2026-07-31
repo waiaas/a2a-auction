@@ -17,6 +17,7 @@ export default function OwnerConsole({ onBack }) {
   const [data, setData] = useState(null);
   const [loadErr, setLoadErr] = useState(null);
   const [rejected, setRejected] = useState({}); // txId → true (폴링에서 사라진 뒤에도 결과 표시)
+  const [rejectFail, setRejectFail] = useState({}); // txId → true (거부 요청 실패 — 조용히 삼키면 죽은 버튼이 된다)
   const [busy, setBusy] = useState(null); // 거부 요청 중인 txId
 
   useEffect(() => {
@@ -39,8 +40,11 @@ export default function OwnerConsole({ onBack }) {
     try {
       await rejectOwnerTx(txId);
       setRejected((m) => ({ ...m, [txId]: true }));
-    } catch { /* 폴링이 실제 상태를 보여준다 */ }
-    finally { setBusy(null); }
+      setRejectFail((m) => ({ ...m, [txId]: false }));
+    } catch {
+      // 실패를 삼키면 카드가 그대로라 촬영자가 버튼만 반복 클릭하게 된다(5차 감사) — 카드에 표시한다.
+      setRejectFail((m) => ({ ...m, [txId]: true }));
+    } finally { setBusy(null); }
   }, []);
 
   const pending = data?.pending || [];
@@ -124,9 +128,15 @@ export default function OwnerConsole({ onBack }) {
                       {' · '}위임 한도 {data ? fmtUsdc(data.limitUsdc) : '—'} USDC 초과
                     </div>
                     {!rejected[t.id] && (
-                      <button className="cta bad" onClick={() => onReject(t.id)} disabled={busy === t.id}>
-                        {busy === t.id ? '거부 중…' : '거부 (실행 금지)'}
-                      </button>
+                      <>
+                        {/* 폴링이 실패 중이면(데몬 다운) 거부도 못 간다 — 비활성화로 알린다. */}
+                        <button className="cta bad" onClick={() => onReject(t.id)} disabled={busy === t.id || !!loadErr}>
+                          {busy === t.id ? '거부 중…' : loadErr ? '데몬 연결 끊김' : '거부 (실행 금지)'}
+                        </button>
+                        {rejectFail[t.id] && (
+                          <div className="aerr">거부 요청이 데몬에 닿지 못했습니다. 데몬·오케스트레이터 상태를 확인한 뒤 다시 눌러 주세요.</div>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}

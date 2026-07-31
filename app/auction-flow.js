@@ -147,6 +147,21 @@ export async function openAuction(state, deps) {
     pushLog(state, `create_auction ${fin.status} onchain=${onchain}`);
   }
 
+  // 데몬의 SUBMITTED는 제출이지 확정이 아니다. auction 계정이 실제로 생길 때까지 짧게
+  // 대기하지 않으면 갓 기동한 밸리데이터의 첫 라운드에서 commit_bid가 아직 없는 계정을
+  // 참조해 AccountNotInitialized(3012)로 죽는다(5차 감사 — env-recover 직후 1/1 재현).
+  // waitForVaultDeposit과 같은 원칙: 확정 실패로 라운드를 죽이지 않고 commit의 온체인
+  // 검증에 판단을 맡긴다.
+  {
+    const wait = await waitForAuctionAccount(conn, auctionPda);
+    pushLog(
+      state,
+      wait.found
+        ? `auction 계정 확정 (${wait.waitedMs}ms 대기)`
+        : `auction 계정 확인 대기 초과(${wait.waitedMs}ms) — commit은 그대로 시도`,
+    );
+  }
+
   state.openedAt = new Date().toISOString();
   state.phase = 'open';
   return { auctionId, auctionPda, vault, bidPda };
@@ -382,6 +397,15 @@ async function unlockViaX402(clientA, auctionId, state) {
     }
   }
   throw new Error(`x402 unlock 실패(2회): ${lastError.message}`);
+}
+
+/** create 직후 auction 계정이 조회될 때까지 짧게 재시도한다(위 주석 참조). */
+async function waitForAuctionAccount(conn, auctionPda, intervalMs = 500, tries = 10) {
+  for (let i = 0; i < tries; i++) {
+    if (await fetchAuction(conn, auctionPda)) return { found: true, waitedMs: i * intervalMs };
+    await sleep(intervalMs);
+  }
+  return { found: false, waitedMs: tries * intervalMs };
 }
 
 /**
