@@ -4,7 +4,7 @@
 >
 > Payment rails prove the payment happened. **WAIaaS proves the agent was allowed to pay.**
 
-에이전트끼리 일을 사고파는 온체인 경매 데모입니다. 각 에이전트는 **자기만의 self-hosted 정책 지갑([WAIaaS](https://github.com/waiaas) 데몬)** 을 가지고, 사람은 미리 위임한 예산·권한(mandate)만 정해둡니다. 그 다음부터 입찰·예치·정산은 사람 개입 없이 진행되고, **위임 범위를 벗어난 지출은 에이전트가 아무리 원해도 체결되지 않습니다.**
+에이전트끼리 일을 사고파는 온체인 경매 데모입니다. 각 에이전트는 **자기만의 self-hosted 정책 지갑([WAIaaS](https://github.com/waiaas/WAIaaS) 데몬)** 을 가지고, 사람은 미리 위임한 예산·권한(mandate)만 정해둡니다. 그 다음부터 입찰·예치·정산은 사람 개입 없이 진행되고, **위임 범위를 벗어난 지출은 에이전트가 아무리 원해도 체결되지 않습니다.**
 
 이 데모의 킬러 장면은 결제가 성공하는 것이 아니라 **최고가 입찰이 예치조차 하지 못하는 것**입니다.
 
@@ -160,7 +160,7 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
 
 - Node.js ≥ 20, Docker (compose v2), `jq`
 - Solana CLI (localnet 검증용), Anchor / Rust 1.89 (프로그램 재빌드 시)
-- **WAIaaS 데몬 이미지** `waiaas-daemon:local` — 이 레포에는 포함되지 않습니다. [WAIaaS 레포](https://github.com/waiaas)에서 빌드하세요:
+- **WAIaaS 데몬 이미지** `waiaas-daemon:local` — 이 레포에는 포함되지 않습니다. [WAIaaS 레포](https://github.com/waiaas/WAIaaS)에서 빌드하세요:
   ```bash
   # WAIaaS 레포에서
   docker compose -f docker-compose.yml -f docker-compose.build.yml build
@@ -461,4 +461,4 @@ cargo test
 
 - **Gemini (Vertex AI)** powers the agents (bid rationale · 결과물 생성)
 - **Solana** settles on-chain (commit · 예치 · 정산)
-- **[WAIaaS](https://github.com/waiaas)** proves the agent was allowed to pay
+- **[WAIaaS](https://github.com/waiaas/WAIaaS)** proves the agent was allowed to pay
