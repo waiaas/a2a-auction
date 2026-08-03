@@ -20,7 +20,7 @@ export default function Hero({ state, onStart, starting, onOpenReceipt, onOpenSe
           <div className="status">
             <span className={`pill ${sp.cls}`}><span className="d" />{sp.label}</span>
             <span className="meta">
-              Auction {state.auctionId != null ? `#${state.auctionId}` : '—'} · on-chain · localnet · {phaseLabel(state.phase)}
+              Auction {state.auctionId != null ? `#${state.auctionId}` : '—'} · on-chain · {state.network || '—'} · {phaseLabel(state.phase)}
             </span>
           </div>
           <h1 className="title">{item?.title || 'Premium Research Slot: Crypto Market Briefing'}</h1>

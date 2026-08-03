@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS } from './config.js';
+import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS, NETWORK_LABEL } from './config.js';
 import { initState, buildDeps, openAuction, runBidding, runAuction, assembleReceipt } from './auction-flow.js';
 
 const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
@@ -91,7 +91,8 @@ app.post('/api/auction/start', (_req, res) => {
   return res.status(202).json({ started: true, phase: state.phase });
 });
 
-app.get('/api/auction/state', (_req, res) => res.json(state));
+// network는 상태 머신의 값이 아니라 서버 환경(RPC_URL)에서 오는 표시용 상수라 응답에서 병합한다.
+app.get('/api/auction/state', (_req, res) => res.json({ ...state, network: NETWORK_LABEL }));
 
 app.get('/api/receipt', (_req, res) => {
   const receipt = assembleReceipt(state);

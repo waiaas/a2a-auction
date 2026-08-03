@@ -22,6 +22,20 @@ export const ROOT = path.resolve(__dirname, '..');
  */
 export const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8899';
 
+/**
+ * 화면에 표시할 체인 이름. **RPC 주소에서 판정한다.**
+ * 프론트에 문자열을 박아 두면 어느 체인에 배포하든 같은 값이 찍혀 화면이 거짓을 말한다
+ * (devnet 배포본이 "localnet"이라고 표기하던 문제). 표시용이므로 판정에는 쓰지 않는다.
+ */
+function networkLabelFrom(rpcUrl) {
+  if (/127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]/.test(rpcUrl)) return 'localnet';
+  if (/devnet/.test(rpcUrl)) return 'devnet';
+  if (/testnet/.test(rpcUrl)) return 'testnet';
+  if (/mainnet/.test(rpcUrl)) return 'mainnet';
+  return 'custom';
+}
+export const NETWORK_LABEL = networkLabelFrom(RPC_URL);
+
 /** 배포된 경매 프로그램 (D-6 게이트 ②). */
 export const PROGRAM_ID = '9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV';
 
