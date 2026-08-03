@@ -159,7 +159,7 @@ async function main() {
 
   // 2) 온체인 셋업
   for (const role of ROLES) {
-    const sol = await ensureSol(conn, byRole[role].address);
+    const sol = await ensureSol(conn, byRole[role].address, 1, 2, deployer);
     console.log(`  SOL ${role}: ${sol}`);
   }
   const mint = await ensureMint(conn, deployer, prev?.mint);
@@ -173,7 +173,7 @@ async function main() {
   // x402 facilitator: 결제 tx의 수수료를 대납하므로 SOL만 필요하다(USDC는 받는 쪽 = seller 지갑).
   const facilitator = ensureFacilitatorKeypair();
   const facilitatorAddr = facilitator.publicKey.toBase58();
-  const facilitatorSol = await ensureSol(conn, facilitatorAddr);
+  const facilitatorSol = await ensureSol(conn, facilitatorAddr, 1, 2, deployer);
   console.log(`  x402 facilitator = ${facilitatorAddr} (SOL ${facilitatorSol})`);
 
   for (const role of BUYERS) {

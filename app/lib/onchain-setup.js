@@ -10,16 +10,39 @@ import {
   mintTo,
   getAccount,
 } from '@solana/spl-token';
+import {
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+} from '@solana/web3.js';
 import { LAMPORTS_PER_SOL, PublicKey } from './solana.js';
 import { USDC_DECIMALS } from '../config.js';
 
-/** 주소의 SOL 잔고가 minSol 미만이면 airdrop으로 채운다. */
-export async function ensureSol(conn, address, minSol = 1, topUpSol = 2) {
+/**
+ * 주소의 SOL 잔고가 minSol 미만이면 채운다.
+ *
+ * 로컬 밸리데이터는 airdrop이 무제한이라 그대로 통한다. **devnet 공용 faucet은 사실상 항상
+ * 한도에 걸려 실패하므로**(429 `airdrop limit today or faucet has run dry`) payer가 주어지면
+ * 그 지갑에서 직접 송금한다. payer = deployer(mint authority 겸 payer)를 그대로 쓴다.
+ */
+export async function ensureSol(conn, address, minSol = 1, topUpSol = 2, payer = null) {
   const pk = new PublicKey(address);
   const bal = await conn.getBalance(pk);
-  if (bal < minSol * LAMPORTS_PER_SOL) {
+  if (bal >= minSol * LAMPORTS_PER_SOL) return bal / LAMPORTS_PER_SOL;
+
+  try {
     const sig = await conn.requestAirdrop(pk, topUpSol * LAMPORTS_PER_SOL);
     await conn.confirmTransaction(sig, 'confirmed');
+  } catch (e) {
+    if (!payer) throw new Error(`SOL airdrop 실패(${e.message}) — payer 없이는 충전할 수 없습니다`);
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: pk,
+        lamports: topUpSol * LAMPORTS_PER_SOL,
+      }),
+    );
+    await sendAndConfirmTransaction(conn, tx, [payer], { commitment: 'confirmed' });
   }
   return (await conn.getBalance(pk)) / LAMPORTS_PER_SOL;
 }

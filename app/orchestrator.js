@@ -11,11 +11,12 @@
  *
  * 실행: node orchestrator.js   ← 데몬/localnet 호출이 있어 Bash는 dangerouslyDisableSandbox 필요
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS } from './config.js';
+import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS, NETWORK_LABEL } from './config.js';
 import { initState, buildDeps, openAuction, runBidding, runAuction, assembleReceipt } from './auction-flow.js';
 
 const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
@@ -90,7 +91,8 @@ app.post('/api/auction/start', (_req, res) => {
   return res.status(202).json({ started: true, phase: state.phase });
 });
 
-app.get('/api/auction/state', (_req, res) => res.json(state));
+// network는 상태 머신의 값이 아니라 서버 환경(RPC_URL)에서 오는 표시용 상수라 응답에서 병합한다.
+app.get('/api/auction/state', (_req, res) => res.json({ ...state, network: NETWORK_LABEL }));
 
 app.get('/api/receipt', (_req, res) => {
   const receipt = assembleReceipt(state);
@@ -113,6 +115,36 @@ app.post('/api/auction/reset', (req, res) => {
 const OWNER_ROLE = 'buyer-b';
 
 /**
+ * 바인딩 주소. 루프백이 아니면 owner relay가 인터넷에 열린다는 뜻이다.
+ * (아래 listen에서 그대로 쓴다. 라우트 등록 판단에 필요해 여기서 정한다.)
+ */
+const HOST = process.env.HOST || '127.0.0.1';
+const IS_LOOPBACK_BIND = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
+
+/**
+ * owner relay 인증 토큰. **로컬은 루프백 바인딩이 방어막이었지만 클라우드에는 그게 없다**
+ * (독립 감사 F2의 미결분 — 공개 배포 시 누구나 승인 대기 건을 거부할 수 있다).
+ * 토큰이 있으면 요구하고, 없으면 통과시킨다 — 기존 로컬 실행 절차를 바꾸지 않기 위해서다.
+ * 대신 공개 바인딩 + 토큰 없음 조합은 아래에서 라우트 자체를 등록하지 않는다(fail-safe).
+ */
+const OWNER_TOKEN = process.env.OWNER_TOKEN || '';
+
+function ownerGuard(req, res, next) {
+  // 공개 바인딩 + 토큰 없음 = 무인증 노출. 이 조합에서는 owner 기능 자체를 닫는다.
+  if (!IS_LOOPBACK_BIND && !OWNER_TOKEN) {
+    return res.status(404).json({ error: 'owner_routes_disabled' });
+  }
+  if (!OWNER_TOKEN) return next();
+  const got = Buffer.from(String(req.get('x-owner-token') || req.query.t || ''));
+  const want = Buffer.from(OWNER_TOKEN);
+  // timingSafeEqual은 길이가 다르면 예외를 던지므로 길이를 먼저 본다(길이 노출은 감수).
+  if (got.length !== want.length || !crypto.timingSafeEqual(got, want)) {
+    return res.status(401).json({ error: 'owner_unauthorized' });
+  }
+  return next();
+}
+
+/**
  * B의 SPENDING_LIMIT 위임 한도를 데몬에서 실제로 읽는다. 화면이 "데몬에 등록됨"이라고
  * 말하므로 config 상수를 돌려주면 거짓이 된다(감사 F1 — 데몬 정책을 바꿔도 화면이 5를
  * 유지하는 것으로 적발). 정책이 없으면 null → 화면은 '—'.
@@ -124,7 +156,7 @@ async function fetchOwnerLimitUsdc(d) {
   return limits?.delay_max != null ? Number(limits.delay_max) : null;
 }
 
-app.get('/api/owner/pending', async (_req, res) => {
+app.get('/api/owner/pending', ownerGuard, async (_req, res) => {
   const d = depsOrError(res);
   if (!d) return;
   try {
@@ -152,7 +184,7 @@ app.get('/api/owner/pending', async (_req, res) => {
   }
 });
 
-app.post('/api/owner/reject/:txId', async (req, res) => {
+app.post('/api/owner/reject/:txId', ownerGuard, async (req, res) => {
   const d = depsOrError(res);
   if (!d) return;
   try {
@@ -181,10 +213,14 @@ app.get('/slot/:auctionId/result', async (req, res) => {
 // dev는 Vite(5173)가 /api·/slot을 프록시하므로 dist가 없어도 무방하다.
 app.use(express.static(WEB_DIST));
 
-// 기본 루프백 바인딩: /api/owner/reject 등이 무인증이라 LAN에 열면 같은 망의 누구든
-// B의 승인 대기를 거부하거나 라운드를 조작할 수 있다(감사 F2). 클라우드 배포처럼
-// 외부 바인딩이 필요할 때만 HOST=0.0.0.0을 명시한다.
-const HOST = process.env.HOST || '127.0.0.1';
+// 기본 루프백 바인딩(HOST는 위 owner relay 절에서 정의). LAN·인터넷에 열면 같은 망의 누구든
+// B의 승인 대기를 거부하거나 라운드를 조작할 수 있다(감사 F2). 클라우드 배포처럼 외부
+// 바인딩이 필요할 때만 HOST=0.0.0.0을 명시하고, 그때는 OWNER_TOKEN을 함께 준다.
 app.listen(ORCHESTRATOR_PORT, HOST, () => {
-  console.log(`orchestrator listening on http://${HOST}:${ORCHESTRATOR_PORT}`);
+  const ownerMode = !IS_LOOPBACK_BIND && !OWNER_TOKEN
+    ? 'owner=disabled (공개 바인딩인데 OWNER_TOKEN 없음)'
+    : OWNER_TOKEN
+      ? 'owner=token'
+      : 'owner=open (루프백 전용)';
+  console.log(`orchestrator listening on http://${HOST}:${ORCHESTRATOR_PORT}  [${ownerMode}]`);
 });

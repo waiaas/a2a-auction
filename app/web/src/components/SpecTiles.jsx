@@ -18,7 +18,7 @@ export default function SpecTiles({ state }) {
       <Spec ic="trend" l="Raw Highest" v={raw ? fmtUsdc(raw.bidUsdc) : '—'} dim={!raw} />
       <Spec ic="bank" l="Settlement" v={settled ? 'vault→seller' : '대기'} dim={!settled} />
       <Spec ic="chain" l="Program" v={program} mn dim={program === '—'} />
-      <Spec ic="globe" l="Network" v="localnet" />
+      <Spec ic="globe" l="Network" v={state.network || '—'} dim={!state.network} />
     </div>
   );
 }

@@ -4,6 +4,36 @@
  */
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
+/**
+ * Owner relay 토큰. 공개 배포본은 오케스트레이터가 `OWNER_TOKEN`을 요구한다 — 루프백
+ * 바인딩이 없어지면 승인 대기 건 거부가 무인증으로 인터넷에 열리기 때문이다(감사 F2).
+ * 최초 진입 시 `?t=<토큰>`으로 받아 sessionStorage에 옮기고 주소창에서는 지운다(녹화 노출 감소).
+ * 로컬 실행은 토큰이 없어도 그대로 동작한다.
+ */
+const OWNER_TOKEN_KEY = 'a2a.ownerToken';
+
+function ownerToken() {
+  try {
+    const url = new URL(window.location.href);
+    const fromUrl = url.searchParams.get('t');
+    if (fromUrl) {
+      sessionStorage.setItem(OWNER_TOKEN_KEY, fromUrl);
+      url.searchParams.delete('t');
+      window.history.replaceState({}, '', url.toString());
+      return fromUrl;
+    }
+    return sessionStorage.getItem(OWNER_TOKEN_KEY) || '';
+  } catch {
+    return ''; // sessionStorage 차단 환경 — 토큰 없이 보내고 401을 그대로 표면화한다
+  }
+}
+
+/** owner 라우트 전용 헤더. 토큰이 없으면 헤더를 붙이지 않는다(로컬 경로 무영향). */
+function ownerHeaders(extra = {}) {
+  const t = ownerToken();
+  return t ? { ...extra, 'x-owner-token': t } : extra;
+}
+
 export async function fetchState() {
   const res = await fetch('/api/auction/state', { cache: 'no-store' });
   if (!res.ok) throw new Error(`state ${res.status}`);
@@ -47,14 +77,14 @@ export async function fetchReceipt() {
 
 /** Owner 콘솔: B(Growth)의 승인 대기 큐 + 위임 한도. 데몬 불달 시 502. */
 export async function fetchOwnerPending() {
-  const res = await fetch('/api/owner/pending', { cache: 'no-store' });
+  const res = await fetch('/api/owner/pending', { cache: 'no-store', headers: ownerHeaders() });
   if (!res.ok) throw new Error(`owner pending ${res.status}`);
   return res.json();
 }
 
 /** Owner 콘솔: 대기 tx 거부(데몬 어드민 relay). 성공 시 { id, status:'CANCELLED' }. */
 export async function rejectOwnerTx(txId) {
-  const res = await fetch(`/api/owner/reject/${txId}`, { method: 'POST', headers: JSON_HEADERS });
+  const res = await fetch(`/api/owner/reject/${txId}`, { method: 'POST', headers: ownerHeaders(JSON_HEADERS) });
   if (!res.ok) throw new Error(`reject ${res.status}`);
   return res.json();
 }
