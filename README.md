@@ -4,7 +4,7 @@
 >
 > Payment rails prove the payment happened. **WAIaaS proves the agent was allowed to pay.**
 
-에이전트끼리 일을 사고파는 온체인 경매 데모입니다. 각 에이전트는 **자기만의 self-hosted 정책 지갑([WAIaaS](https://github.com/waiaas/WAIaaS) 데몬)** 을 가지고, 사람은 미리 위임한 예산·권한(mandate)만 정해둡니다. 그 다음부터 입찰·예치·정산은 사람 개입 없이 진행되고, **위임 범위를 벗어난 지출은 에이전트가 아무리 원해도 체결되지 않습니다.**
+에이전트끼리 일을 사고파는 온체인 경매 데모입니다. 각 에이전트는 **자기만의 self-hosted 정책 지갑([WAIaaS](https://github.com/waiaas/WAIaaS) 데몬)** 을 가지고, 사람은 미리 위임한 예산·권한(mandate)만 정해둡니다. 그 다음부터 입찰과 예치, 정산은 사람 개입 없이 진행됩니다. **위임 범위를 벗어난 지출은 에이전트가 아무리 원해도 체결되지 않습니다.**
 
 이 데모의 킬러 장면은 결제가 성공하는 것이 아니라 **최고가 입찰이 예치조차 하지 못하는 것**입니다.
 
@@ -12,10 +12,10 @@
 
 **<https://a2a-house.8-230-9-237.nip.io>**
 
-Solana **devnet** 실동작 배포본입니다. 화면의 경매 개설·입찰·정산은 전부 실제 온체인 트랜잭션이고, 아래 [온체인 증거](#온체인-증거)의 explorer 링크로 대조할 수 있습니다.
+Solana **devnet**에 배포해 실제로 돌립니다. 화면의 경매 개설과 입찰, 정산은 전부 실제 온체인 트랜잭션입니다. 아래 [온체인 증거](#온체인-증거)의 explorer 링크로 대조할 수 있습니다.
 
 - `Seller` 탭에서 **경매 오픈** → `Live` 탭에서 **Start Round**를 누르면 한 라운드가 끝까지 돕니다(약 20초).
-- `Owner` 탭은 데모 진행자용입니다(`OWNER_TOKEN` 필요). 승인 대기 큐 조회와 **거부** 버튼이 여기에 해당하고, 나머지 장면은 전부 토큰 없이 동작합니다.
+- `Owner` 탭은 데모 진행자가 씁니다(`OWNER_TOKEN` 필요). 승인 대기 큐 조회와 **거부** 버튼이 여기에 해당하고 나머지 장면은 전부 토큰 없이 동작합니다.
 
 > 구성: GCP VM 1대에 WAIaaS 데몬 5개(docker compose) + 오케스트레이터·seller(호스트 Node) + Caddy 자동 HTTPS. 라이브 배포본의 Gemini 호출은 **Vertex AI** 백엔드로 나갑니다.
 
@@ -35,7 +35,7 @@ Solana **devnet** 실동작 배포본입니다. 화면의 경매 개설·입찰�
 
 에이전트도 외주를 줍니다. 직접 하면 토큰 50만 개와 2시간이 드는 리서치를, 그걸 원가 10만 토큰에 더 잘하는 전문 에이전트에게 **2.80 USDC**에 시킬 수 있다면 사는 게 합리적입니다.
 
-문제는 **그 돈이 회사 돈**이라는 점입니다. 에이전트에게 지갑을 쥐여주는 순간 질문이 바뀝니다.
+그런데 **그 돈이 회사 돈**입니다. 에이전트에게 지갑을 쥐여주는 순간 질문이 바뀝니다.
 
 | 기존 결제 인프라가 답하는 것 | 답하지 못하는 것 |
 | --- | --- |
@@ -47,7 +47,7 @@ Solana **devnet** 실동작 배포본입니다. 화면의 경매 개설·입찰�
 
 ## 무엇을 보여주는가
 
-buyer 에이전트 3개가 같은 리서치 슬롯 하나를 두고 경매에 참여합니다. 세 에이전트 모두 입찰 해시를 온체인에 commit하는 데는 **성공**합니다. 갈리는 지점은 금액을 공개하며 USDC를 예치하는 순간입니다.
+buyer 에이전트 3개가 같은 리서치 슬롯 하나를 두고 경매에 참여합니다. 세 에이전트 모두 입찰 해시를 온체인에 commit하는 데는 **성공**합니다. 금액을 공개하며 USDC를 예치하는 순간 셋이 갈립니다.
 
 | Buyer | Bid | 위임된 mandate | 예치 판정 | 왜 |
 | --- | --- | --- | --- | --- |
@@ -55,9 +55,9 @@ buyer 에이전트 3개가 같은 리서치 슬롯 하나를 두고 경매에 �
 | 🚀 **B** Growth | **6.50 USDC** (최고가) | 한도 5 USDC 초과는 owner 승인 필요 | ⏸️ **APPROVAL_REQUIRED** | 한도 초과 → 승인 대기 큐 등재 |
 | 🧪 **C** Experimental | 2.20 USDC | 경매 프로그램 commit만 허용, vault 지출 미위임 | ⛔ **DENY** | 수신처 WHITELIST 미등록 |
 
-**일반 경매라면 최고가 B가 이깁니다.** 여기서는 B의 돈이 vault에 도달조차 못 하고, 한도 안에 있던 A가 낙찰됩니다. 컨트랙트가 vault에서 seller에게 정산하면, **온체인 정산이 확인된 뒤에만** 결과물이 열립니다.
+**일반 경매라면 최고가 B가 이깁니다.** 여기서는 B의 돈이 vault에 도달조차 못 하고 한도 안에 있던 A가 낙찰됩니다. 컨트랙트가 vault에서 seller에게 정산하면 **온체인 정산이 확인된 뒤에만** 결과물이 열립니다.
 
-세 판정이 **서로 다른 정책 게이트**에 걸린다는 점이 핵심입니다. B는 금액 한도(`SPENDING_LIMIT`), C는 수신처 권한(`WHITELIST`)입니다.
+핵심은 세 판정이 **서로 다른 정책 게이트**에 걸린다는 데 있습니다. B는 금액 한도(`SPENDING_LIMIT`), C는 수신처 권한(`WHITELIST`)입니다.
 
 ## 아키텍처
 
@@ -84,13 +84,13 @@ flowchart LR
     UI -->|결과물 unlock 요청<br/>오케스트레이터가 relay| SELLER
 ```
 
-점선은 **정책 심사에서 막혀 온체인에 도달하지 못한** 경로입니다. buyer 데몬끼리는 서로 통신하지 않습니다. 브라우저는 항상 오케스트레이터(`:4000`) 단일 오리진만 호출하고, `/slot` 요청은 오케스트레이터가 seller로 relay합니다.
+점선은 **정책 심사에서 막혀 온체인에 도달하지 못한** 경로입니다. buyer 데몬끼리는 서로 통신하지 않습니다. 브라우저는 항상 오케스트레이터(`:4000`) 단일 오리진만 호출하고 `/slot` 요청은 오케스트레이터가 seller로 relay합니다.
 
 **신뢰 경계**: seller 서비스는 오케스트레이터의 말을 믿지 않습니다. 체인에서 `Settled`와 `winner`를 **직접 읽어** 정산 전 접근을 차단합니다. 오케스트레이터가 정산됐다고 거짓말을 해도 결과물은 열리지 않습니다. (요청자 신원 검증은 미구현, [무엇이 실물이고 무엇이 연출인가](#무엇이-실물이고-무엇이-연출인가) 참조)
 
-**키 격리**: 오케스트레이터와 seller는 **에이전트 지갑 키를 갖지 않습니다.** 데몬 API 호출과 읽기 전용 온체인 조회만 하고, 에이전트를 대신한 서명은 전적으로 각 WAIaaS 데몬 안에서 일어납니다. 단 하나의 예외는 x402 모드([x402 결과물 unlock](#7-x402-결과물-unlock-선택))를 켰을 때 seller가 보유하는 **facilitator 키**입니다. 결제 트랜잭션의 수수료를 대납하는 인프라 키이지 에이전트 지갑이 아닙니다.
+**키 격리**: 오케스트레이터와 seller는 **에이전트 지갑 키를 갖지 않습니다.** 데몬 API 호출과 읽기 전용 온체인 조회만 하고 에이전트를 대신한 서명은 전적으로 각 WAIaaS 데몬 안에서 일어납니다. 단 하나의 예외는 x402 모드([x402 결과물 unlock](#7-x402-결과물-unlock-선택))를 켰을 때 seller가 보유하는 **facilitator 키**입니다. 결제 트랜잭션의 수수료를 대납하는 인프라 키입니다. 에이전트 지갑과는 별개입니다.
 
-**owner 인증 대행 (데모 한정)**: Owner Console의 승인 대기 거부는 오케스트레이터가 **B 데몬의 마스터 인증을 대행**하는 relay(`POST /api/owner/reject/:txId`)로 동작합니다. 단일 화면에서 owner 개입 장면을 시연하기 위한 구성이며, 실제 운영이라면 owner가 자기 데몬의 콘솔에서 직접 수행합니다. 이 relay는 `OWNER_TOKEN`으로 인증합니다. 오케스트레이터·seller는 기본 `127.0.0.1` 바인딩이고, 외부 노출(`HOST=0.0.0.0`) 시 토큰이 없으면 owner 라우트 자체가 닫힙니다(404, fail-safe). 라이브 배포본도 이 토큰 인증으로 보호됩니다.
+**owner 인증 대행 (데모 한정)**: Owner Console의 승인 대기 거부는 relay(`POST /api/owner/reject/:txId`)로 동작합니다. 여기서 오케스트레이터가 **B 데몬의 마스터 인증을 대행**합니다. 단일 화면에서 owner 개입 장면을 시연하기 위한 구성이며 실제 운영이라면 owner가 자기 데몬의 콘솔에서 직접 수행합니다. 이 relay는 `OWNER_TOKEN`으로 인증합니다. 오케스트레이터·seller는 기본 `127.0.0.1` 바인딩이고 외부 노출(`HOST=0.0.0.0`) 시 토큰이 없으면 owner 라우트 자체가 닫힙니다(404, fail-safe). 라이브 배포본도 이 토큰 인증으로 보호됩니다.
 
 ### 경매 흐름
 
@@ -99,11 +99,11 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
     (marketplace)   (buyer A/B/C)      (정책 심사가 걸리는 지점)     (marketplace)
 ```
 
-`commit_bid`는 금액이 아니라 **입찰 해시를 먼저 온체인에 올립니다**(commit-reveal 구조). 예치 단계에서 실제 USDC가 움직이고, **바로 여기서 각 에이전트의 정책 엔진이 판정을 내립니다.**
+이 단계에서 `commit_bid`는 금액을 올리지 않습니다. **입찰 해시를 먼저 온체인에 올립니다**(commit-reveal 구조). 예치 단계에서 실제 USDC가 움직이고 **바로 여기서 각 에이전트의 정책 엔진이 판정을 내립니다.**
 
 ## WAIaaS를 control plane으로 확장하기
 
-이 프로젝트는 WAIaaS 데몬의 기구현된 정책 엔진·서명·감사 로그를 그대로 쓰고, 그 위에 경매 도메인을 얹었습니다. 경매 경로는 데몬을 수정하지 않고 완주합니다. x402 모드에서만 데몬 결함 1건을 만났고, 우회 대신 **업스트림에 수정을 제출**했습니다([waiaas/WAIaaS#406](https://github.com/waiaas/WAIaaS/pull/406): `/v1/x402/fetch`가 Solana 서명에 RPC 클라이언트를 전달하지 않아 결제가 실패하던 문제).
+이 프로젝트는 WAIaaS 데몬의 기구현된 정책 엔진과 서명, 감사 로그를 그대로 쓰고 그 위에 경매 도메인을 얹었습니다. 경매 경로는 데몬을 수정하지 않고 완주합니다. x402 모드에서만 데몬 결함 1건을 만났고 우회 대신 **업스트림에 수정을 제출**했습니다([waiaas/WAIaaS#406](https://github.com/waiaas/WAIaaS/pull/406): `/v1/x402/fetch`가 Solana 서명에 RPC 클라이언트를 전달하지 않아 결제가 실패하던 문제).
 
 | 레이어 | 구성 요소 | 상태 |
 | --- | --- | --- |
@@ -126,13 +126,13 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
 
 ### 구현하며 코드로 확인한 것들
 
-문서가 아니라 **동작하는 코드에서** 확인한 사실들입니다. 같은 것을 만들려는 분께 유용할 겁니다.
+**동작하는 코드에서** 확인한 사실만 적었습니다. 문서를 옮겨 적은 게 아닙니다. 같은 것을 만들려는 분께 유용할 겁니다.
 
 1. **컨트랙트 호출 단독으로는 지출 한도가 안 걸립니다.** `CONTRACT_CALL`의 amount는 Solana에 `value` 필드가 없어 0으로 평가됩니다. 그래서 예치를 **별도의 단독 `TOKEN_TRANSFER`** 로 분리했습니다. 그래야 전송 금액에 정책이 온전히 걸립니다.
-2. **`SPENDING_LIMIT`의 `token_limits`는 단독 전송에만 적용됩니다.** batch(여러 instruction 묶음) 안의 `TOKEN_TRANSFER`는 수량 임계값을 무시하므로, 예치는 반드시 2개 트랜잭션으로 분리해야 합니다.
-3. **예치 수신처는 vault의 ATA가 아니라 `auction_pda`(vault owner)입니다.** WAIaaS가 owner 주소에서 ATA를 유도합니다. `WHITELIST`에 등록할 주소도 `auction_pda`입니다.
+2. **`SPENDING_LIMIT`의 `token_limits`는 단독 전송에만 적용됩니다.** batch(여러 instruction 묶음) 안의 `TOKEN_TRANSFER`는 수량 임계값을 무시하므로 예치는 반드시 2개 트랜잭션으로 분리해야 합니다.
+3. **예치 수신처로는 `auction_pda`(vault owner)를 씁니다. vault의 ATA가 아닙니다.** WAIaaS가 owner 주소에서 ATA를 유도합니다. `WHITELIST`에 등록할 주소도 `auction_pda`입니다.
 4. **`commit_bid`도 `WHITELIST` 평가를 거칩니다.** 그래서 C의 `WHITELIST`에 프로그램 ID만 넣고 `auction_pda`를 제외해야 "commit은 통과 + 예치는 거부"가 성립합니다. 주의: **`WHITELIST` 정책을 아예 등록하지 않으면** 심사 자체가 생략되어 예치가 그냥 실행됩니다(정책 부재 = 통과). 반대로 빈 배열로 두는 건 해법이 아닙니다. 스키마가 최소 1개를 요구해 트랜잭션이 실패합니다.
-5. **owner가 등록되지 않으면(`ownerAddress` 없음) `APPROVAL`이 `DELAY`로 강등됩니다.** 등록만 하고 verify하지 않은 상태(`GRACE`)는 강등되지 않지만, 데모는 시드에서 Ed25519 서명으로 verify까지 해 `LOCKED`로 고정합니다.
+5. **owner가 등록되지 않으면(`ownerAddress` 없음) `APPROVAL`이 `DELAY`로 강등됩니다.** 등록만 하고 verify하지 않은 상태(`GRACE`)는 강등되지 않지만 데모는 시드에서 Ed25519 서명으로 verify까지 해 `LOCKED`로 고정합니다.
 6. **오라클이 환산하지 못하는 토큰은 최소 `NOTIFY`로 격상됩니다.** 로컬/devnet USDC는 가격 오라클에 없어 A도 `INSTANT`가 아닌 `NOTIFY`로 통과합니다. 자동 실행이라 사람 개입은 0회로 동일합니다.
 
 ## 온체인 증거
@@ -180,7 +180,7 @@ solana-test-validator --bind-address "$HOST_IP" --rpc-port 8899 --reset
 ```
 
 > **네트워크가 바뀌면 LAN IP도 바뀝니다.** 옛 IP로 바인딩하면 밸리데이터가
-> `gossip_addr bind_to port 8000: Can't assign requested address`로 즉사하므로, 재기동할 때마다
+> `gossip_addr bind_to port 8000: Can't assign requested address`로 즉사합니다. 재기동할 때마다
 > 위처럼 현재 IP를 다시 구하세요. 아래 `RPC_URL`도 같은 값이어야 합니다.
 > (데몬 쪽 `LOCALNET_RPC`는 `host.docker.internal`이라 IP가 바뀌어도 손댈 필요가 없습니다.)
 
@@ -200,7 +200,7 @@ solana program deploy target/deploy/onchain.so \
 
 컨테이너 안의 데몬이 이 주소로 접근하므로 루프백(`127.0.0.1`)이 아닌 LAN IP여야 합니다.
 
-> **deployer는 직접 채워야 합니다.** `onchain/deployer.json`은 `.gitignore` 대상이라 레포에 없고, 프로그램 배포뿐 아니라 **4단계 시드의 payer**(USDC mint 생성 · ATA 생성 · buyer 잔고 top-up)이기도 합니다. 시드 스크립트의 airdrop은 **데몬 지갑 5개만** 대상이라 deployer를 채워주지 않으므로, 위 airdrop을 건너뛰면 시드가 mint 생성에서 실패합니다.
+> **deployer는 직접 채워야 합니다.** `onchain/deployer.json`은 `.gitignore` 대상이라 레포에 없고, 프로그램 배포뿐 아니라 **4단계 시드의 payer**(USDC mint 생성 · ATA 생성 · buyer 잔고 top-up)이기도 합니다. 시드 스크립트의 airdrop은 **데몬 지갑 5개만** 대상이라 deployer를 채워주지 않습니다. 위 airdrop을 건너뛰면 시드가 mint 생성에서 실패합니다.
 
 > **Program ID 주의 (클론하면 반드시 겪습니다)**: 빌드 산출물(`onchain/target/`)은 `.gitignore` 대상이라 레포에 포함되지 않습니다. 따라서 `anchor build`가 **새 키페어를 생성**하고, 그 Program ID는 소스의 `declare_id!`(`9nUhQ…`)와 어긋납니다.
 >
@@ -227,7 +227,7 @@ solana program deploy target/deploy/onchain.so \
 
 ### 2. 데몬 5개 기동
 
-`infra/.env.example`을 복사해 값을 채웁니다. 마스터 패스워드 5개만 채우면 되고, `LOCALNET_RPC`는 기본값(`host.docker.internal`)을 그대로 두면 됩니다.
+`infra/.env.example`을 복사해 값을 채웁니다. 마스터 패스워드 5개만 채우면 되고 `LOCALNET_RPC`는 기본값(`host.docker.internal`)을 그대로 두면 됩니다.
 
 ```bash
 cd <레포 루트>/infra
@@ -246,7 +246,7 @@ docker compose ps        # 5개 모두 healthy 확인
 | seller | `a2a-seller` | `127.0.0.1:3103` |
 | marketplace | `a2a-marketplace` | `127.0.0.1:3104` |
 
-지갑·정책·owner 상태는 named volume에 persist되므로 재기동해도 유지됩니다.
+지갑과 정책, owner 상태는 named volume에 persist되므로 재기동해도 유지됩니다.
 
 ### 3. 지갑 프로비저닝 (최초 1회)
 
@@ -291,11 +291,11 @@ UI를 개발할 때는 Vite dev 서버(`npm run dev`, :5173)를 쓰면 됩니다
 
 ### 6. 데모 실행
 
-브라우저에서 **http://localhost:4000** 을 열고 **Start Round** 버튼을 누르면 전 과정이 자동으로 진행됩니다. 정산 후 **Receipt** 탭에서 증거 체인과 데몬별 트랜잭션·정책 판정 기록(tx ID·티어·상태·거부 사유)을 볼 수 있습니다.
+브라우저에서 **http://localhost:4000** 을 열고 **Start Round** 버튼을 누르면 전 과정이 자동으로 진행됩니다. 정산 후 **Receipt** 탭에서 증거 체인과 데몬별 트랜잭션과 정책 판정 기록(tx ID·티어·상태·거부 사유)을 볼 수 있습니다.
 
-판매자 관점으로 두 단계에 나눠 진행하려면 **Seller** 탭에서 시작합니다. **경매 오픈**을 누르면 `create_auction`만 먼저 실행되어 경매가 열린 상태(`phase=open`)로 대기하고, 이어서 Live 경매의 **Start Round**가 입찰부터 정산까지를 실행합니다. 정산이 끝나면 Seller 탭에 낙찰자와 낙찰가가 표시되고, 같은 자리의 **다음 경매 준비** 버튼으로 새 라운드를 열 수 있습니다. Start Round를 바로 누르면 개설과 입찰이 한 번에 진행되므로 기존 단일 버튼 흐름도 그대로 동작합니다.
+판매자 관점으로 두 단계에 나눠 진행하려면 **Seller** 탭에서 시작합니다. **경매 오픈**을 누르면 `create_auction`만 먼저 실행되어 경매가 열린 상태(`phase=open`)로 대기합니다. 이어서 Live 경매의 **Start Round**가 입찰부터 정산까지를 실행합니다. 정산이 끝나면 Seller 탭에 낙찰자와 낙찰가가 표시되고 같은 자리의 **다음 경매 준비** 버튼으로 새 라운드를 열 수 있습니다. Start Round를 바로 누르면 개설과 입찰이 한 번에 진행되므로 기존 단일 버튼 흐름도 그대로 동작합니다.
 
-사람의 통제 장면은 **Owner** 탭에 있습니다. Growth Agent(B)의 owner 시점으로 위임 한도(데몬의 `SPENDING_LIMIT`에서 실시간 조회)와 승인 대기 큐가 표시되고, 한도를 넘어 `QUEUED`로 잡힌 6.50 USDC 지출을 **거부** 버튼으로 실제 `CANCELLED`로 만들 수 있습니다. 거부는 데몬의 어드민 API로 실행되는 실물 동작입니다([owner 인증 대행](#아키텍처) 참조).
+사람의 통제 장면은 **Owner** 탭에 있습니다. Growth Agent(B)의 owner 시점으로 위임 한도(데몬의 `SPENDING_LIMIT`에서 실시간 조회)와 승인 대기 큐가 표시됩니다. 한도를 넘어 `QUEUED`로 잡힌 6.50 USDC 지출은 **거부** 버튼으로 실제 `CANCELLED`로 만들 수 있습니다. 거부는 데몬의 어드민 API로 실행되는 실물 동작입니다([owner 인증 대행](#아키텍처) 참조).
 
 커맨드라인으로 전 플로우를 검증하려면:
 
@@ -307,7 +307,7 @@ cd <레포 루트>/app && ./verify-e2e.sh
 
 ### 7. x402 결과물 unlock (선택)
 
-정산 후 결과물을 열 때 **x402 마이크로페이먼트(0.05 USDC)** 를 거치게 하는 모드입니다. 낙찰자 A의 데몬이 seller 엔드포인트에 접근 → `402` → 결제 서명 → 결과물 `200`. 게이트 순서는 `403 not_settled` → `402` → `200`이라 **온체인 정산 게이트가 여전히 먼저**입니다.
+이 모드를 켜면 정산 후 결과물을 열 때 **x402 마이크로페이먼트(0.05 USDC)** 를 거칩니다. 낙찰자 A의 데몬이 seller 엔드포인트에 접근 → `402` → 결제 서명 → 결과물 `200`. 게이트 순서는 `403 not_settled` → `402` → `200`이라 **온체인 정산 게이트가 여전히 먼저**입니다.
 
 끄면(기본값) 기존 무료 unlock 경로가 코드 경로째로 그대로입니다.
 
@@ -329,12 +329,12 @@ X402_UNLOCK=1 ./verify-e2e.sh
 
 확인 포인트: Receipt 화면의 **x402 Payment** 스텝(온체인 signature·금액)과 unlock 패널의 결제 배지, `verify-e2e.sh`의 `[7]`절(receipt 결제 증거 → signature 온체인 확정 → 재조회 시 재결제 없음).
 
-**결제 증명은 접근 권한이 아닙니다.** 결제한 요청자에게 열리는 것이고 낙찰자 신원을 검증하는 것이 아닙니다(요청자 인증은 [Production hardening](#production-hardening-로드맵) 참조).
+**결제 증명은 접근 권한이 아닙니다.** 결제한 요청자에게 열릴 뿐 낙찰자 신원까지 검증하지는 않습니다(요청자 인증은 [Production hardening](#production-hardening-로드맵) 참조).
 
 주의할 점 둘:
 
-- **사내망 DNS가 `*.trycloudflare.com`을 막을 수 있습니다.** 데몬 컨테이너가 터널 호스트를 해석하지 못하면 결제가 도메인 평가 전에 끊깁니다. `infra/docker-compose.yml`은 이 때문에 컨테이너 DNS를 공용 리졸버로 지정합니다. 컨테이너 안 `curl`은 CA 번들이 없어 실패하지만 데몬의 Node fetch는 정상이니, curl 실패를 데몬 실패로 읽지 마세요.
-- **quick tunnel은 기동마다 도메인이 바뀝니다.** 정책은 `*.trycloudflare.com` 와일드카드 1건으로 등록하므로 재등록은 불필요하지만, `SELLER_PUBLIC_URL`은 다시 넘겨야 합니다.
+- **사내망 DNS가 `*.trycloudflare.com`을 막을 수 있습니다.** 데몬 컨테이너가 터널 호스트를 해석하지 못하면 결제가 도메인 평가 전에 끊깁니다. `infra/docker-compose.yml`은 이 때문에 컨테이너 DNS를 공용 리졸버로 지정합니다. 컨테이너 안 `curl`은 CA 번들이 없어 실패하지만 데몬의 Node fetch는 정상이니 curl 실패를 데몬 실패로 읽지 마세요.
+- **quick tunnel은 기동마다 도메인이 바뀝니다.** 정책은 `*.trycloudflare.com` 와일드카드 1건으로 등록하므로 재등록은 불필요하지만 `SELLER_PUBLIC_URL`은 다시 넘겨야 합니다.
 
 ### API
 
@@ -377,7 +377,7 @@ X402_UNLOCK=1 ./verify-e2e.sh
 | `X402_ALLOWED_DOMAIN` | `*.trycloudflare.com` | 시드가 A의 `X402_ALLOWED_DOMAINS` 정책에 등록할 도메인 |
 | `OWNER_TOKEN` | _(미설정 = 인증 없음)_ | owner relay(`/api/owner/*`) 인증 토큰. **`HOST`를 루프백 밖으로 열 때는 반드시 지정하세요.** 없으면 해당 라우트가 404로 닫힙니다. 프론트는 최초 진입 시 `?t=<토큰>`으로 받습니다 |
 
-> **RPC는 두 곳을 맞춰야 합니다.** 데몬은 `LOCALNET_RPC`를, 앱은 `RPC_URL`을 각각 읽습니다. **둘이 같은 체인을 가리키지 않으면** 데몬이 보낸 tx를 앱이 조회하지 못해 라운드가 멈춥니다. devnet으로 옮길 때는 두 값을 함께 바꾸고, 프로그램 재배포와 USDC mint 재생성도 필요합니다.
+> **RPC는 두 곳을 맞춰야 합니다.** 데몬은 `LOCALNET_RPC`를, 앱은 `RPC_URL`을 각각 읽습니다. **둘이 같은 체인을 가리키지 않으면** 데몬이 보낸 tx를 앱이 조회하지 못해 라운드가 멈춥니다. devnet으로 옮길 때는 두 값을 함께 바꾸고 프로그램 재배포와 USDC mint 재생성도 필요합니다.
 
 시크릿(`infra/.env`, `demo-state.json`, `onchain/deployer.json`)은 `.gitignore` 대상입니다.
 
@@ -399,29 +399,29 @@ X402_UNLOCK=1 ./verify-e2e.sh
 
 심사가 요구하는 "실동작"인 **통제·예치·정산 루프는 전부 실물**입니다.
 
-Gemini는 실제로 호출됩니다. API 키가 없으면 이전에 생성된 결과물 캐시로 폴백하는데, 이는 목업이 아니라 **실제 생성물의 캐시**입니다.
+Gemini는 실제로 호출됩니다. API 키가 없으면 이전에 생성된 결과물 캐시로 폴백하는데, 이때 나가는 것도 **실제 생성물의 캐시**입니다. 목업이 아닙니다.
 
 ## Production hardening (로드맵)
 
-데모에서 **의도적으로 후순위로 미룬** 항목들입니다. 실사용에는 아래가 필요합니다.
+데모에서 **의도적으로 후순위로 미룬** 항목을 아래에 모았습니다. 실사용에는 이것들이 필요합니다.
 
 ### 경매 컨트랙트
 
 - **패자·초과 예치금 환불** ([#5](https://github.com/waiaas/a2a-auction/issues/5)): 현재 `settle`은 낙찰자 금액만 seller에게 지급하고 나머지는 vault에 남습니다
-- **per-bidder 예치 추적** ([#4](https://github.com/waiaas/a2a-auction/issues/4)): 예치가 프로그램 밖 전송이라 `Bid` 계정에 예치 기록이 없고, `reveal_bid`가 vault 전역 잔고만 검증합니다. 데모 경로에서는 재현되지 않지만 실사용에는 필수입니다
-- **입찰 금액 은닉**: 온체인 검증식(`sha256(amount_le ‖ salt)`)은 정상이지만, 앱이 고르는 salt가 `sha256("a2a-salt|{role}|{auctionId}")`로 결정론적입니다. role 3개와 `auctionId`가 모두 공개라 누구나 `commitHash`를 재계산할 수 있으므로, 이 데모의 commit-reveal은 **해시 선등록이지 금액 은닉이 아닙니다.** 실사용에는 입찰자별 랜덤 salt 생성과 reveal 시점까지의 보관이 필요합니다
-- commit·reveal 데드라인 온체인 강제, reveal 미제출·해시 불일치 처리, 동점 규칙, 유찰 취소 경로
-- `settle` 권한 설계(permissionless crank 여부), 계정 rent 회수, 업그레이드 권한 관리(멀티시그/immutable), 외부 코드 리뷰
+- **per-bidder 예치 추적** ([#4](https://github.com/waiaas/a2a-auction/issues/4)): 예치가 프로그램 밖 전송이라 `Bid` 계정에 예치 기록이 없고 `reveal_bid`가 vault 전역 잔고만 검증합니다. 데모 경로에서는 재현되지 않지만 실사용에는 필수입니다
+- **입찰 금액 은닉**: 온체인 검증식(`sha256(amount_le ‖ salt)`)은 정상이지만, 앱이 고르는 salt가 `sha256("a2a-salt|{role}|{auctionId}")`로 결정론적입니다. role 3개와 `auctionId`가 모두 공개라 누구나 `commitHash`를 재계산할 수 있습니다. 이 데모의 commit-reveal은 **해시 선등록이지 금액 은닉이 아닙니다.** 실사용에는 입찰자별 랜덤 salt 생성과 reveal 시점까지의 보관이 필요합니다
+- commit·reveal 데드라인 온체인 강제, reveal 미제출·해시 불일치 처리, 동점 규칙, 유찰 취소 경로가 필요합니다
+- `settle` 권한 설계(permissionless crank 여부), 계정 rent 회수, 업그레이드 권한 관리(멀티시그/immutable), 외부 코드 리뷰도 해야 합니다
 
 ### WAIaaS 제품 갭
 
-- **dApp 어댑터**: 등록된 프로그램의 호출 내용을 해석해 금액을 정책 심사에 태우는 기능. 현재는 예치를 별도 전송으로 분리해 우회합니다. 없으면 에이전트가 "예치" 명목으로 한도를 우회할 여지가 있습니다
+- **dApp 어댑터**: 등록된 프로그램의 호출 내용을 해석하는 기능. 호출에 담긴 금액을 정책 심사에 태웁니다. 현재는 예치를 별도 전송으로 분리해 우회합니다. 없으면 에이전트가 "예치" 명목으로 한도를 우회할 여지가 있습니다
 - **승인 타임아웃 ↔ 경매 마감 정합**: owner가 마감 후 승인하면 자금 이동과 경매 종료가 어긋납니다. `approval timeout ≤ reveal 마감` 강제 또는 늦은 예치 환불 경로가 필요합니다
 
 ### 마켓플레이스 운영
 
 - **결과물 요청자 인증**: 현재 seller는 온체인 정산 여부만 확인하고 요청자가 누구인지는 검증하지 않습니다. 낙찰자 지갑의 서명(nonce 챌린지)을 요구해야 정산 후에도 낙찰자만 결과물을 받습니다
-- seller 결과 미제공·품질 분쟁 처리, take-rate 분배의 `settle` 내장, 참가자별 데몬 온보딩·버전 호환
+- seller 결과 미제공·품질 분쟁 처리, take-rate 분배의 `settle` 내장, 참가자별 데몬 온보딩·버전 호환도 남았습니다
 
 ---
 
@@ -457,7 +457,7 @@ anchor build      # 테스트가 컴파일 타임에 .so를 읽으므로 빌드 
 cargo test
 ```
 
-`happy_path.rs`가 litesvm 인프로세스 SVM에서 create → commit → 예치 → reveal → settle 전 구간을 돌리고 seller payout·vault 잔고·`Settled` 상태를 검증합니다.
+`happy_path.rs`가 litesvm 인프로세스 SVM에서 create → commit → 예치 → reveal → settle 전 구간을 돌리고 seller payout과 vault 잔고, `Settled` 상태를 검증합니다.
 
 ## 라이선스 · 크레딧
 
