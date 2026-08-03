@@ -1,33 +1,62 @@
 import { useState } from 'react';
 import Icon from './Icon.jsx';
 
+/**
+ * 네비 항목별 안내. 미구현 화면을 숨기지 않고 **그 자리에서 설명한다** —
+ * 공개 배포본은 심사자가 아무 데나 누르므로, 반응 없는 항목이 남으면 버그로 읽힌다.
+ */
+const NOTES = {
+  agents:
+    '에이전트 목록 페이지는 준비 중입니다. 이 데모의 에이전트 5개(구매자 3 · 판매자 · 마켓플레이스)는 Live 경매 화면 우측 패널에서 확인할 수 있습니다.',
+  search: '검색은 준비 중입니다. 이 데모는 라이브 경매 1건과 카탈로그 소품으로 구성돼 있습니다.',
+  bell:
+    '알림 센터는 준비 중입니다. 위임 한도를 넘은 지출의 승인 대기는 Owner 콘솔의 "승인 대기 큐"에서 확인합니다.',
+  connect:
+    '에이전트 연결(세션 발급)은 각 에이전트의 WAIaaS 데몬 콘솔에서 수행합니다. 이 데모의 에이전트 5개는 이미 연결되어 있습니다.',
+};
+
 /** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · Connect Agent. */
 export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner }) {
-  const [showConnectNote, setShowConnectNote] = useState(false);
+  const [note, setNote] = useState(null);
+  const toggle = (key) => setNote((v) => (v === key ? null : key));
+
+  // 이 헤더는 Live 화면에서만 렌더된다(콘솔 3종은 각자 전체 화면이다). 그래서 "현재 화면"을
+  // 가리키는 항목은 뷰 전환이 아니라 스크롤로 응답한다 — 클릭에 반응이 없으면 버그로 보인다.
+  const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  const scrollToCatalogue = () =>
+    document.getElementById('catalogue')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  /** 클릭과 Enter를 함께 받는 span 버튼(헤더 디자인상 button 태그를 쓰지 않는다). */
+  const btn = (onAct, className, children) => (
+    <span
+      className={className}
+      role="button"
+      tabIndex={0}
+      onClick={() => onAct?.()}
+      onKeyDown={(e) => e.key === 'Enter' && onAct?.()}
+    >
+      {children}
+    </span>
+  );
+
   return (
     <div className="bar">
-      <div className="logo">A2A<b>House</b></div>
+      {btn(scrollTop, 'logo logobtn', <>A2A<b>House</b></>)}
       <div className="nav">
-        <span className="on">Live Auctions</span><span>Agents</span><span>Catalogue</span>
-        <span className="navbtn" role="button" tabIndex={0} onClick={onOpenSeller}
-          onKeyDown={(e) => e.key === 'Enter' && onOpenSeller?.()}>Seller</span>
-        <span className="navbtn" role="button" tabIndex={0} onClick={onOpenOwner}
-          onKeyDown={(e) => e.key === 'Enter' && onOpenOwner?.()}>Owner</span>
-        <span className="navbtn" role="button" tabIndex={0} onClick={onOpenReceipt}
-          onKeyDown={(e) => e.key === 'Enter' && onOpenReceipt?.()}>Receipt</span>
+        {btn(scrollTop, 'on navbtn', 'Live Auctions')}
+        {btn(() => toggle('agents'), 'navbtn', 'Agents')}
+        {btn(scrollToCatalogue, 'navbtn', 'Catalogue')}
+        {btn(onOpenSeller, 'navbtn', 'Seller')}
+        {btn(onOpenOwner, 'navbtn', 'Owner')}
+        {btn(onOpenReceipt, 'navbtn', 'Receipt')}
       </div>
       <div className="sp" />
-      <div className="icirc"><Icon name="search" size={16} /></div>
-      <div className="icirc"><Icon name="bell" size={16} /></div>
-      <div className="connect-wrap">
-        <button className="connect" onClick={() => setShowConnectNote((v) => !v)}>Connect Agent</button>
-        {showConnectNote && (
-          <div className="connect-note">
-            에이전트 연결(세션 발급)은 각 에이전트의 WAIaaS 데몬 콘솔에서 수행합니다.
-            이 데모의 에이전트 5개는 이미 연결되어 있습니다.
-          </div>
-        )}
-      </div>
+      {btn(() => toggle('search'), 'icirc ib', <Icon name="search" size={16} />)}
+      {btn(() => toggle('bell'), 'icirc ib', <Icon name="bell" size={16} />)}
+      <button className="connect" onClick={() => toggle('connect')}>Connect Agent</button>
+      {note && (
+        <div className={`bar-note ${note === 'agents' ? 'left' : 'right'}`}>{NOTES[note]}</div>
+      )}
     </div>
   );
 }
