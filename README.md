@@ -8,8 +8,18 @@
 
 이 데모의 킬러 장면은 결제가 성공하는 것이 아니라 **최고가 입찰이 예치조차 하지 못하는 것**입니다.
 
+## 라이브 데모
+
+**<https://8-230-9-237.nip.io>** — Solana **devnet** 실동작 배포본입니다. 화면의 경매 개설·입찰·정산은 전부 실제 온체인 트랜잭션이고, 아래 [온체인 증거](#온체인-증거)의 explorer 링크로 대조할 수 있습니다.
+
+- `Seller` 탭에서 **경매 오픈** → `Live` 탭에서 **Start Round**를 누르면 한 라운드가 끝까지 돕니다(약 20초).
+- `Owner` 탭의 **거부** 버튼은 데모 진행자용이라 토큰이 필요합니다. 나머지 전 장면은 토큰 없이 동작합니다.
+
+> 구성: GCP VM 1대에 WAIaaS 데몬 5개(docker compose) + 오케스트레이터·seller(호스트 Node) + Caddy 자동 HTTPS.
+
 ## 목차
 
+- [라이브 데모](#라이브-데모)
 - [문제 정의](#문제-정의)
 - [무엇을 보여주는가](#무엇을-보여주는가)
 - [아키텍처](#아키텍처)
@@ -125,21 +135,24 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
 
 ## 온체인 증거
 
-> **TODO (devnet 공개 배포 후 채움)** — 현재는 localnet에서 전 구간 실측 완료. devnet SOL 확보 후 아래를 고정 링크로 갱신합니다.
+**devnet 라운드 1건(Auction #3)의 전 구간 트랜잭션입니다.** 아래는 라이브 배포본이 실제로 낸 것으로, explorer에서 그대로 열립니다.
 
 | 단계 | tx signature | explorer |
 | --- | --- | --- |
-| `create_auction` | _(devnet 배포 후)_ | |
-| `commit_bid` (A) | _(devnet 배포 후)_ | |
-| `commit_bid` (B) | _(devnet 배포 후)_ | |
-| `commit_bid` (C) | _(devnet 배포 후)_ | |
-| A 예치 `TOKEN_TRANSFER` | _(devnet 배포 후)_ | |
-| `reveal_bid` (A) | _(devnet 배포 후)_ | |
-| `settle` | _(devnet 배포 후)_ | |
+| `create_auction` | `PTrpzhX7…5gxkdsX` | [보기](https://explorer.solana.com/tx/PTrpzhX7bvs2abUADpzFhckWiBMnvBdEKWofYWhj1PE8qawxyaJeB5MkktQecYAuXtPX8jM58Q6B8FJy5gxkdsX?cluster=devnet) |
+| `commit_bid` (A) | `3tLke1uR…dhRAkJLN` | [보기](https://explorer.solana.com/tx/3tLke1uRusuuL8GAupppymHK3epsxfziDbK68nVbUCmxg9GKHBefqyD8GZLhBXPHz5BpFj2zedeZ75PgdhRAkJLN?cluster=devnet) |
+| `commit_bid` (B) | `2idN3t4M…QmLWznaV` | [보기](https://explorer.solana.com/tx/2idN3t4MDFzVHqV9Gfz7yzo8T1puPGypcRazJkFPN8zXYixq7FrkeUHeRdsqmEhFt4i2PyviBrJyGxWwQmLWznaV?cluster=devnet) |
+| `commit_bid` (C) | `4Sjv9G5x…y9Jn7sae` | [보기](https://explorer.solana.com/tx/4Sjv9G5xgHExUbJAFAduAHNQp8wLAHT4caeZiDSfzzrB2dhSWaiwZQmCDjX2YN3zZLRX8p7CNuDdunpNy9Jn7sae?cluster=devnet) |
+| A 예치 `TOKEN_TRANSFER` | `2NS6n4x5…avyvfLQf` | [보기](https://explorer.solana.com/tx/2NS6n4x5eE2TexgeyaZanBtxmUwUq8XhNL2ZuNu8gSfB1uXKJHJQHAt85Dmq67TCyMDiu7Ai14ZL2a82avyvfLQf?cluster=devnet) |
+| `reveal_bid` (A) | `5JRZkqqE…X5DG4Xq2` | [보기](https://explorer.solana.com/tx/5JRZkqqEc5Cp3ccvbqQvfSRXnvtCasziAAFMqYdt7Cv1uwKf4GZsJqMkfQCtamhi8UfPCL5gdirpb8B9X5DG4Xq2?cluster=devnet) |
+| `settle` | `5atmku3M…1BvjMcWr` | [보기](https://explorer.solana.com/tx/5atmku3MJ7LbEWuKfCvoB5riVdsw9RgfVX5SmoaNNsK6267BhqVsknxwBwALUDgVUDqwrHxTionFSNXp1BvjMcWr?cluster=devnet) |
+| x402 unlock 결제 | `28YWHRZG…gcUab59a` | [보기](https://explorer.solana.com/tx/28YWHRZGyzvEdcgtgvPBpz9jkK1zsxb1kr22GGDYRWiR28GNfu7yf4BNHFfebw7qg3CWyRWxGFwVRNzTgcUab59a?cluster=devnet) |
 
-**Program ID** (localnet 검증본): `9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV`
+**Program ID**: [`9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV`](https://explorer.solana.com/address/9nUhQbyNxmeZWpfxTmfP3U3fQ9GYtVnyP5WW1CVCYctV?cluster=devnet) — localnet·devnet 동일(같은 프로그램 키페어로 배포).
 
-localnet 실측에서 독립 검증한 것: seller ATA 잔고 `+2.80 USDC`, vault 잔고 `0`, auction 계정 상태 `Settled`·`winner=A`.
+**USDC mint** (데모 전용, deployer가 mint authority): `43bqQ2pRkQZrvAH9s6MwT4aqeYCNw1VLz8mg9iqBof7K`
+
+독립 검증한 것: seller ATA 잔고 `+2.80 USDC`, vault 잔고 `0`, auction 계정 상태 `Settled`·`winner=A`. localnet·devnet 양쪽에서 동일하게 확인했습니다.
 
 ## 실행 방법
 
@@ -354,6 +367,7 @@ X402_UNLOCK=1 ./verify-e2e.sh
 | `X402_UNLOCK` | _(미설정 = 꺼짐)_ | `1`이면 결과물 unlock에 x402 결제를 요구합니다. 오케스트레이터·seller **양쪽**에 지정해야 합니다 |
 | `SELLER_PUBLIC_URL` | _(미설정)_ | seller의 공개 HTTPS URL(cloudflared 터널). `X402_UNLOCK=1`이면 필수 |
 | `X402_ALLOWED_DOMAIN` | `*.trycloudflare.com` | 시드가 A의 `X402_ALLOWED_DOMAINS` 정책에 등록할 도메인 |
+| `OWNER_TOKEN` | _(미설정 = 인증 없음)_ | owner relay(`/api/owner/*`) 인증 토큰. **`HOST`를 루프백 밖으로 열 때는 반드시 지정하세요** — 없으면 해당 라우트가 404로 닫힙니다. 프론트는 최초 진입 시 `?t=<토큰>`으로 받습니다 |
 
 > **RPC는 두 곳을 맞춰야 합니다.** 데몬은 `LOCALNET_RPC`를, 앱은 `RPC_URL`을 각각 읽습니다. **둘이 같은 체인을 가리키지 않으면** 데몬이 보낸 tx를 앱이 조회하지 못해 라운드가 멈춥니다. devnet으로 옮길 때는 두 값을 함께 바꾸고, 프로그램 재배포와 USDC mint 재생성도 필요합니다.
 
