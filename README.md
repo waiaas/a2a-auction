@@ -360,8 +360,11 @@ X402_UNLOCK=1 ./verify-e2e.sh
 | --- | --- | --- |
 | `RPC_URL` | `http://127.0.0.1:8899` | **앱**(시드·오케스트레이터·seller)의 온체인 조회용 RPC. 밸리데이터를 `--bind-address <LAN IP>`로 띄웠다면 **그 IP로 지정하세요** — 그 경우 루프백은 listen하지 않습니다 |
 | `LOCALNET_RPC` | `http://host.docker.internal:8899` (`.env.example` 기본값) | **데몬**이 보는 체인 (`infra/.env` → `WAIAAS_RPC_SOLANA_DEVNET`). 컨테이너에서 호스트를 가리키는 이름이라 LAN IP가 바뀌어도 그대로 동작합니다. 미설정 시 실제 devnet 사용 |
-| `GEMINI_API_KEY` | _(미설정)_ | 미설정 시 캐시된 생성물로 폴백 |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | **신규 발급 키는 `gemini-flash-latest`를 지정하세요.** 기본값은 신규 키에서 404가 나고 조용히 캐시로 폴백합니다 |
+| `GEMINI_API_KEY` | _(미설정)_ | AI Studio 백엔드용 키. 미설정 시 캐시된 생성물로 폴백 |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | **AI Studio에서 신규 발급 키는 `gemini-flash-latest`를 지정하세요.** 기본값은 신규 키에서 404가 나고 조용히 캐시로 폴백합니다 |
+| `VERTEX_PROJECT` | _(미설정 = AI Studio 사용)_ | 지정하면 **Vertex AI**로 호출해 해당 GCP 프로젝트 크레딧에서 과금합니다. AI Studio 선불 크레딧과는 별개 지갑입니다 |
+| `VERTEX_LOCATION` | `global` | Vertex 리전. **`global`은 `gemini-flash-latest` 같은 별칭도 받지만, 리전 엔드포인트(`asia-northeast3` 등)는 정확한 버전 ID를 요구해 별칭이면 404입니다** |
+| `GOOGLE_APPLICATION_CREDENTIALS` | _(미설정 = GCE 메타데이터 사용)_ | 서비스 계정 키(JSON) 경로. **미설정 시 GCE 메타데이터 서버로 토큰을 받는데, 인스턴스 scope에 `cloud-platform`이 없으면 403(`ACCESS_TOKEN_SCOPE_INSUFFICIENT`)입니다.** scope 변경은 인스턴스 중지가 필요하므로, 운영 중인 VM에서는 키 파일 쪽이 안전합니다 |
 | `ORCHESTRATOR_PORT` | `4000` | |
 | `SELLER_PORT` | `4100` | |
 | `X402_UNLOCK` | _(미설정 = 꺼짐)_ | `1`이면 결과물 unlock에 x402 결제를 요구합니다. 오케스트레이터·seller **양쪽**에 지정해야 합니다 |
