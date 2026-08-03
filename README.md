@@ -1,4 +1,4 @@
-# Policy-Bound A2A Auction
+# A2AHouse: Policy-Bound A2A Auction
 
 > **가장 높은 bid가 아니라, 권한 있는 bid가 실행됩니다.**
 >
@@ -156,6 +156,27 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
 
 독립 검증한 것: seller ATA 잔고 `+2.80 USDC`, vault 잔고 `0`, auction 계정 상태 `Settled`·`winner=A`. localnet·devnet 양쪽에서 동일하게 확인했습니다.
 
+### 발표 자료 라운드 (localnet Auction #76)
+
+발표 장표·데모 영상의 화면과 장표 부록 C의 실측값은 **localnet 라운드 Auction #76**의 것입니다. 장표에는 UI 축약 표기로 실렸으므로 대조용 전체값을 여기에 게재합니다. localnet은 로컬 밸리데이터라 explorer 대조는 불가능합니다. 독립 검증에는 위 devnet 세트를 쓰세요. Program ID는 두 라운드가 동일합니다.
+
+| 항목 | 값 |
+| --- | --- |
+| 경매 계정 / 에스크로 vault | `EW6EUmJCYGALpaqQbu3Fs58dsXUsqqaBQkkwWLwi2G3o` / `5ky1xShcAc2HviKTEiyrEeBihjvM1kRSBCXMMWwLzT8x` |
+| `create_auction` | `n5pHq2rC69CaFycbnC3inSZWwoJpxFTbTdxxFKfvruv9F6tMNmndjxebphheUtjK328nGJytQJQu4PXbw2oTxdP` |
+| `commit_bid` (A) | `5JTnntY4f97UYyagNd69HtEvFcbLzrwAV7ZGszHSeqvEZCkz6By1NaWpZQj4xaQC57VUzkJcC5jYx6Lm49FoD7Yp` |
+| `commit_bid` (B) | `45RRkJ3DvGmpMnijEx6rSUXxkEYCDrXG6BxZ4sstYaHg3x88GXdJ9dm2teF16T81fuAjpwqK59FyYdkswekVCsG7` |
+| `commit_bid` (C) | `4387e6itFePULghBsfTvG1A7hKpKLqH1cQHhcFK3CYUC4Zjpa4w11UXEtkvswSHxGLnbZz8izrUvcuP55xoUWyLb` |
+| 정책 판정 (A · `ALLOW`) | 데몬 tx `019fc553-ec80-7409-8984-853dd4ee3b61` (자동 실행) |
+| 정책 판정 (B · `APPROVAL_REQUIRED`) | 데몬 tx `019fc553-f26c-768d-9448-e552fe21e133` (`QUEUED`, owner 거부로 `CANCELLED`) |
+| 정책 판정 (C · `DENY`) | 데몬 tx `019fc553-f272-7996-8089-c45f07da4c5b` (`CANCELLED`) |
+| A 예치 `TOKEN_TRANSFER` | `3CqpgQfa7C2MgjdYVt65cD4mHPVapZvf8YkQgRE3txLNhqVAsqjSGZ3x1vczNAFrUV3yWGcBS1sk6rUr61zGWt6W` |
+| `reveal_bid` (A) | `5jvmfpHBokvTHbzprTDvfZJANhGHnpG6qETK1HnR8dEdamArr2Fzy95D17qJ6DWimE3bfBjzqVGgFFUyS5JYb1S4` |
+| `settle` | `4UtjhmeMXZxMs3ZUq7UGLn8nPnheg5bV6spaWp1VV9aJ1bpgYD1GJYrueRNJ45xpZw9dAePJwAyogpDSYr8GJLtV` |
+| 정산 결과 | vault → seller `2.80 USDC` · vault 잔액 `0` · winner Analyst(A) `6Za38618o7XZ8z3SCPSx299A3RVbxsoEhKSpno4FtTwU` |
+| result hash | `7852853bcdf3b2b4d021673b314054d80404220660b767111707cd8ee3af5af7` |
+| x402 unlock 결제 | `4BQW2wZ6WTda61sCD2kDWdekddBnpPrDT1rDiMq5fFKXR8E8Y9apFJAH3iP4RTn4Gy2oFECVY1wuJqEPAY6AjeBH` · `0.05 USDC` (데몬 요청 `019fc554-01c4-7366-a854-55ee50998a17`) |
+
 ## 실행 방법
 
 ### 요구사항
@@ -291,7 +312,7 @@ UI를 개발할 때는 Vite dev 서버(`npm run dev`, :5173)를 쓰면 됩니다
 
 ### 6. 데모 실행
 
-브라우저에서 **http://localhost:4000** 을 열고 **Start Round** 버튼을 누르면 전 과정이 자동으로 진행됩니다. 정산 후 **Receipt** 탭에서 증거 체인과 데몬별 트랜잭션과 정책 판정 기록(tx ID·티어·상태·거부 사유)을 볼 수 있습니다.
+브라우저에서 **http://localhost:4000** 을 열고 **Start Round** 버튼을 누르면 전 과정이 자동으로 진행됩니다. 정산 후 **Receipt** 탭에서 증거 체인과 데몬별 트랜잭션·정책 판정 기록(tx ID·티어·상태·거부 사유)을 볼 수 있습니다.
 
 판매자 관점으로 두 단계에 나눠 진행하려면 **Seller** 탭에서 시작합니다. **경매 오픈**을 누르면 `create_auction`만 먼저 실행되어 경매가 열린 상태(`phase=open`)로 대기합니다. 이어서 Live 경매의 **Start Round**가 입찰부터 정산까지를 실행합니다. 정산이 끝나면 Seller 탭에 낙찰자와 낙찰가가 표시되고 같은 자리의 **다음 경매 준비** 버튼으로 새 라운드를 열 수 있습니다. Start Round를 바로 누르면 개설과 입찰이 한 번에 진행되므로 기존 단일 버튼 흐름도 그대로 동작합니다.
 
@@ -461,6 +482,7 @@ cargo test
 
 ## 라이선스 · 크레딧
 
+- **MIT License** ([LICENSE](LICENSE))
 - **Gemini (Vertex AI)** powers the agents (bid rationale · 결과물 생성)
 - **Solana** settles on-chain (commit · 예치 · 정산)
 - **[WAIaaS](https://github.com/waiaas/WAIaaS)** proves the agent was allowed to pay
