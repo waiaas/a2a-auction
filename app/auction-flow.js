@@ -303,6 +303,9 @@ export async function runBidding(state, deps, ctx) {
 
   // ---- Step 6: settle (marketplace → winner A, vault→seller) ----
   state.phase = 'settling';
+  // 정산 반영을 판정할 기준선. devnet은 settle이 confirmed여도 토큰 잔고 조회가 한 박자
+  // 늦어 곧바로 읽으면 정산 전 값이 나온다(로컬 밸리데이터는 단일 노드라 즉시 보인다).
+  const sellerBefore = await tokenUiBalance(conn, sellerTokenAccount);
   {
     const body = buildSettle({ marketplace, auctionPda, vault, sellerTokenAccount });
     const id = await clients['marketplace'].sendTx(body);
@@ -314,7 +317,12 @@ export async function runBidding(state, deps, ctx) {
   }
 
   // ---- 마감: 온체인 확인 + 결과 생성 ----
-  const sellerUsdc = await tokenUiBalance(conn, sellerTokenAccount);
+  // 낙찰가만큼 늘어날 때까지 짧게 기다린다. 기다려도 안 늘면 읽힌 값을 그대로 쓴다 —
+  // waitForVaultDeposit과 같은 원칙으로, 조회가 늦은 것을 정산 실패로 접지 않는다.
+  const winningUsdc = state.buyers['buyer-a']?.bidUsdc ?? null;
+  const expectedSeller =
+    sellerBefore != null && winningUsdc != null ? sellerBefore + winningUsdc : null;
+  const sellerUsdc = await waitForTokenBalance(conn, sellerTokenAccount, expectedSeller);
   const vaultUsdc = await tokenUiBalance(conn, vault);
   state.result = { sellerUsdc, vaultUsdc };
 
@@ -415,6 +423,21 @@ async function waitForAuctionAccount(conn, auctionPda, intervalMs = 500, tries =
  * 확정되지 않아도 throw하지 않는다 — 조회가 늦었을 뿐 실제로는 반영됐을 수 있고,
  * 여기서 라운드를 죽이면 기존 동작보다 더 나빠진다. 판단은 reveal의 온체인 검증에 맡긴다.
  */
+/**
+ * 토큰 계정 잔고가 목표치 이상이 될 때까지 짧게 재시도한다(정산 반영 대기).
+ * minUiAmount가 null이면 즉시 1회 조회로 끝낸다. 도달하지 못해도 마지막에 읽은 값을
+ * 그대로 돌려준다 — 판정은 온체인 Auction 계정(Settled·winner)이 이미 담당한다.
+ */
+async function waitForTokenBalance(conn, account, minUiAmount, intervalMs = 500, tries = 10) {
+  let balance = await tokenUiBalance(conn, account);
+  if (minUiAmount == null) return balance;
+  for (let i = 0; i < tries && !(balance != null && balance >= minUiAmount); i++) {
+    await sleep(intervalMs);
+    balance = await tokenUiBalance(conn, account);
+  }
+  return balance;
+}
+
 async function waitForVaultDeposit(conn, vault, txHash, minUiAmount, intervalMs = 500, tries = 10) {
   let status = 'unknown';
   let balance = null;
