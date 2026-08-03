@@ -10,12 +10,12 @@
 
 ## 라이브 데모
 
-**<https://8-230-9-237.nip.io>** — Solana **devnet** 실동작 배포본입니다. 화면의 경매 개설·입찰·정산은 전부 실제 온체인 트랜잭션이고, 아래 [온체인 증거](#온체인-증거)의 explorer 링크로 대조할 수 있습니다.
+**<https://a2a-house.8-230-9-237.nip.io>** — Solana **devnet** 실동작 배포본입니다. 화면의 경매 개설·입찰·정산은 전부 실제 온체인 트랜잭션이고, 아래 [온체인 증거](#온체인-증거)의 explorer 링크로 대조할 수 있습니다.
 
 - `Seller` 탭에서 **경매 오픈** → `Live` 탭에서 **Start Round**를 누르면 한 라운드가 끝까지 돕니다(약 20초).
-- `Owner` 탭의 **거부** 버튼은 데모 진행자용이라 토큰이 필요합니다. 나머지 전 장면은 토큰 없이 동작합니다.
+- `Owner` 탭은 데모 진행자용입니다(`OWNER_TOKEN` 필요). 승인 대기 큐 조회와 **거부** 버튼이 여기에 해당하고, 나머지 장면은 전부 토큰 없이 동작합니다.
 
-> 구성: GCP VM 1대에 WAIaaS 데몬 5개(docker compose) + 오케스트레이터·seller(호스트 Node) + Caddy 자동 HTTPS.
+> 구성: GCP VM 1대에 WAIaaS 데몬 5개(docker compose) + 오케스트레이터·seller(호스트 Node) + Caddy 자동 HTTPS. 라이브 배포본의 Gemini 호출은 **Vertex AI** 백엔드로 나갑니다.
 
 ## 목차
 
@@ -62,7 +62,7 @@ buyer 에이전트 3개가 같은 리서치 슬롯 하나를 두고 경매에 �
 ```mermaid
 flowchart LR
     UI[웹 앱<br/>경매 스테이지 · Receipt] -->|1s polling| ORCH[오케스트레이터<br/>:4000]
-    ORCH -->|견적·rationale·결과물| GEMINI[Gemini API]
+    ORCH -->|bid rationale·결과물| GEMINI["Gemini (Vertex AI)"]
 
     subgraph Compose["docker-compose — 에이전트마다 자기 데몬"]
         BA[Buyer A 데몬<br/>:3100]
@@ -88,7 +88,7 @@ flowchart LR
 
 **키 격리**: 오케스트레이터와 seller는 **에이전트 지갑 키를 갖지 않습니다.** 데몬 API 호출과 읽기 전용 온체인 조회만 하고, 에이전트를 대신한 서명은 전적으로 각 WAIaaS 데몬 안에서 일어납니다. 단 하나의 예외는 x402 모드([x402 결과물 unlock](#7-x402-결과물-unlock-선택))를 켰을 때 seller가 보유하는 **facilitator 키**입니다. 결제 트랜잭션의 수수료를 대납하는 인프라 키이지 에이전트 지갑이 아닙니다.
 
-**owner 인증 대행 (데모 한정)**: Owner Console의 승인 대기 거부는 오케스트레이터가 **B 데몬의 마스터 인증을 대행**하는 relay(`POST /api/owner/reject/:txId`)로 동작합니다. 단일 화면에서 owner 개입 장면을 시연하기 위한 구성이며, 실제 운영이라면 owner가 자기 데몬의 콘솔에서 직접 수행합니다. 이 relay는 무인증이므로 오케스트레이터·seller는 기본 `127.0.0.1` 바인딩입니다 — 외부 노출(`HOST=0.0.0.0`)이 필요하면 relay에 인증을 먼저 붙이세요.
+**owner 인증 대행 (데모 한정)**: Owner Console의 승인 대기 거부는 오케스트레이터가 **B 데몬의 마스터 인증을 대행**하는 relay(`POST /api/owner/reject/:txId`)로 동작합니다. 단일 화면에서 owner 개입 장면을 시연하기 위한 구성이며, 실제 운영이라면 owner가 자기 데몬의 콘솔에서 직접 수행합니다. 이 relay는 `OWNER_TOKEN`으로 인증합니다. 오케스트레이터·seller는 기본 `127.0.0.1` 바인딩이고, 외부 노출(`HOST=0.0.0.0`) 시 토큰이 없으면 owner 라우트 자체가 닫힙니다(404, fail-safe). 라이브 배포본도 이 토큰 인증으로 보호됩니다.
 
 ### 경매 흐름
 
@@ -340,10 +340,13 @@ X402_UNLOCK=1 ./verify-e2e.sh
 
 | 메서드 | 경로 | 용도 |
 | --- | --- | --- |
-| `POST` | `/api/auction/start` | 라운드 시작(비동기, `202`). 실행 중이면 `409`, 시드 안 됐으면 `400` |
+| `POST` | `/api/auction/open` | 경매 개설만(Seller 콘솔). 이후 `phase=open`으로 입찰을 기다립니다 |
+| `POST` | `/api/auction/start` | 라운드 시작(비동기, `202`). 개설 전이면 개설부터 이어서 실행. 실행 중이면 `409`, 시드 안 됐으면 `400` |
 | `GET` | `/api/auction/state` | 현재 상태 (UI가 1초 폴링) |
 | `GET` | `/api/receipt` | 정산 증거 체인. 미정산이면 `404` |
 | `POST` | `/api/auction/reset` | 상태 초기화 (다음 라운드는 새 auction 계정) |
+| `GET` | `/api/owner/pending` | B의 승인 대기 큐 + 위임 한도 (Owner 콘솔 폴링). `OWNER_TOKEN` 인증 |
+| `POST` | `/api/owner/reject/:txId` | 대기 tx 거부 (데몬 어드민 relay). `OWNER_TOKEN` 인증 |
 | `GET` | `/slot/:auctionId/result` | seller로 relay (단일 오리진 유지) |
 
 **seller** (`:4100`)
@@ -352,7 +355,7 @@ X402_UNLOCK=1 ./verify-e2e.sh
 | --- | --- | --- |
 | `GET` | `/slot/:auctionId/result` | 온체인 `Settled`·`winner` 확인 후에만 `200`. 미정산은 `403`. x402 모드에서는 결제 전 `402`(PaymentRequired v2) |
 
-`phase`는 `idle → committing → depositing → revealing → settling → settled` 순으로 진행합니다(실패 시 `error`).
+`phase`는 `idle → opening → open → committing → depositing → revealing → settling → settled` 순으로 진행합니다(실패 시 `error`). Seller 콘솔로 개설만 한 경우 `open`에서 입찰 시작을 기다립니다.
 
 ### 환경 변수
 
@@ -456,6 +459,6 @@ cargo test
 
 ## 라이선스 · 크레딧
 
-- **Gemini** powers the agents (견적 · bid rationale · 결과물 생성)
+- **Gemini (Vertex AI)** powers the agents (bid rationale · 결과물 생성)
 - **Solana** settles on-chain (commit · 예치 · 정산)
 - **[WAIaaS](https://github.com/waiaas)** proves the agent was allowed to pay
