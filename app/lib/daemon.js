@@ -166,5 +166,17 @@ export function daemonClient(wallet, masterPassword) {
       if (r.status >= 300) throw new Error(`tx ${id} 거부 실패 ${r.status}: ${JSON.stringify(r.json)}`);
       return r.json; // { id, status: 'CANCELLED', rejectedAt }
     },
+
+    /**
+     * 유예(DELAY) tx 취소. **승인 거부와 경로가 다르다** — DELAY는 승인 요청이 아니라
+     * 유예 큐 대기라 `adminRejectTx`를 쓰면 `APPROVAL_NOT_FOUND`(404)로 실패한다(실측).
+     * 이 구분을 놓치면 DELAY 건이 큐에 계속 남고, 남은 대기 건은 이후 판정을 전부
+     * APPROVAL로 밀어올려 데모의 티어 대조를 무너뜨린다.
+     */
+    async cancelDelayedTx(id) {
+      const r = await http('POST', `${base}/v1/transactions/${id}/cancel`, authHdr, {});
+      if (r.status >= 300) throw new Error(`tx ${id} 유예 취소 실패 ${r.status}: ${JSON.stringify(r.json)}`);
+      return r.json; // { id, status: 'CANCELLED' }
+    },
   };
 }

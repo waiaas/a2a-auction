@@ -17,6 +17,7 @@ import {
   PROGRAM_ID,
   FUND_TARGET,
   TOKEN_LIMITS,
+  DELAY_SECONDS,
   AMOUNTS,
   PATHS,
   X402_ALLOWED_DOMAIN,
@@ -46,7 +47,7 @@ function clientFor(role, byRole, env) {
 }
 
 /** buyer 정책을 전부 삭제하고 원하는 세트를 재등록. WHITELIST id를 돌려준다(오케스트레이터가 라운드별 PUT). */
-async function reseedPolicies(role, client, { mint, assetId }) {
+async function reseedPolicies(role, client, { mint, assetId, seller }) {
   const existing = await client.listPolicies();
   for (const p of existing) {
     if (p.id) await client.deletePolicy(p.id);
@@ -57,8 +58,10 @@ async function reseedPolicies(role, client, { mint, assetId }) {
     contracts: [{ address: PROGRAM_ID, name: 'a2a-auction' }],
   });
   // 베이스라인: commit(CONTRACT_CALL to=programId)만 통과. deposit용 auction_pda는 라운드마다 오케스트레이터가 추가.
+  // buyer-b(콘티 v3의 주인공 바이어)만 셀러를 함께 연다 — 새 시나리오는 셀러에게 지불하는
+  // 구조이고, 티어 대조 검증(verify-tiers.js)도 이 수신처로 판정을 확인한다.
   ids.whitelist = await client.createPolicy('WHITELIST', {
-    allowed_addresses: [PROGRAM_ID],
+    allowed_addresses: role === 'buyer-b' ? [PROGRAM_ID, seller] : [PROGRAM_ID],
   });
   ids.allowedTokens = await client.createPolicy('ALLOWED_TOKENS', {
     tokens: [{ address: mint, symbol: 'USDC', assetId }],
@@ -66,6 +69,7 @@ async function reseedPolicies(role, client, { mint, assetId }) {
   if (TOKEN_LIMITS[role]) {
     ids.spendingLimit = await client.createPolicy('SPENDING_LIMIT', {
       token_limits: { [assetId]: TOKEN_LIMITS[role] },
+      delay_seconds: DELAY_SECONDS,
     });
   }
   // x402 결제 대상 도메인(default-deny — 정책이 없으면 데몬이 전부 거부한다).
@@ -149,12 +153,14 @@ async function main() {
     }
     for (const t of stale) {
       try {
-        await client.adminRejectTx(t.id);
+        // DELAY와 APPROVAL은 대기 큐가 다르다 — 경로를 잘못 고르면 404로 남는다.
+        if (t.tier === 'DELAY') await client.cancelDelayedTx(t.id);
+        else await client.adminRejectTx(t.id);
       } catch (e) {
         console.log(`  경고: ${role} 대기 tx ${t.id} 정리 실패 (${e.message}) — 계속 진행`);
       }
     }
-    if (stale.length) console.log(`  ${role} 잔여 승인 대기 ${stale.length}건 정리`);
+    if (stale.length) console.log(`  ${role} 잔여 대기 ${stale.length}건 정리`);
   }
 
   // 2) 온체인 셋업
@@ -191,7 +197,11 @@ async function main() {
   // 3) 정책 재등록 (결정론적)
   const policies = {};
   for (const role of BUYERS) {
-    policies[role] = await reseedPolicies(role, clientFor(role, byRole, env), { mint: mintStr, assetId });
+    policies[role] = await reseedPolicies(role, clientFor(role, byRole, env), {
+      mint: mintStr,
+      assetId,
+      seller: byRole['seller'].address,
+    });
     console.log(`  ${role} 정책 재등록: ${Object.keys(policies[role]).join(', ')}`);
   }
 

@@ -8,7 +8,7 @@
  *  ① 예치 to=auction_pda(vault ATA 아님) → 데몬이 vault ATA 유도
  *  ② commit_bid도 WHITELIST 평가 → C는 [programId]만, A·B는 [programId, auction_pda]
  *  ③ deposit TOKEN_TRANSFER에 token.assetId(CAIP-19) 필수
- *  ④ A는 tier NOTIFY(자동 실행) → UI는 ALLOW
+ *  ④ 화면 판정은 데몬이 내린 티어 이름(INSTANT·NOTIFY·DELAY·APPROVAL)을 그대로 쓴다
  *  ⑤ B owner는 Ed25519 verify로 LOCKED → APPROVAL 유지(시드가 보장)
  */
 import fs from 'node:fs';
@@ -195,7 +195,7 @@ export async function runBidding(state, deps, ctx) {
       quoteSource: source,
       commit: null,
       deposit: null,
-      ui: null, // ALLOW | APPROVAL_REQUIRED | DENY
+      ui: null, // INSTANT | NOTIFY | DELAY | APPROVAL | DENY | TIMEOUT
     };
   }
 
@@ -246,7 +246,7 @@ export async function runBidding(state, deps, ctx) {
       decision,
       error: fin.error || fin.errorMessage || null,
     };
-    state.buyers[role].ui = decision; // ALLOW(A) / APPROVAL_REQUIRED(B) / DENY(C)
+    state.buyers[role].ui = decision; // 데몬 티어 그대로 (또는 DENY·TIMEOUT)
     pushLog(state, `${role} deposit ${fin.status} tier=${fin.tier || '-'} → ${decision}`);
   }
   // B가 승인 대기 큐에 실제로 있는지 확인. 조회 실패는 "큐에 없음(false)"과 다른 사건이라
@@ -266,7 +266,7 @@ export async function runBidding(state, deps, ctx) {
   // 데몬은 tx를 제출하면 SUBMITTED를 반환하는데, reveal_bid는 vault 잔고가 reveal 금액
   // 이상일 것을 요구한다(DepositNotFound). 이 간극을 흡수하지 않으면 라운드 전체가 죽는다.
   const depA = state.buyers['buyer-a'].deposit;
-  if (depA.decision === 'ALLOW' || depA.decision === 'TIMEOUT') {
+  if (isExecutedDecision(depA.decision) || depA.decision === 'TIMEOUT') {
     const wait = await waitForVaultDeposit(conn, vault, depA.txHash, state.buyers['buyer-a'].bidUsdc);
     depA.onchainConfirmed = wait.confirmed;
     state.vaultAfterDeposit = wait.balance;
@@ -454,14 +454,27 @@ async function waitForVaultDeposit(conn, vault, txHash, minUiAmount, intervalMs 
 }
 
 /**
- * 예치 결과를 데모 판정(UI)으로 매핑. A=NOTIFY지만 실행됨 → ALLOW.
- * 타임아웃은 DENY로 접지 않는다 — 정책이 거부한 것(C)과 관측하지 못한 것은 다른 사건이다.
+ * 예치 결과를 화면 판정으로 매핑. **데몬이 내린 티어를 그대로 쓴다** —
+ * 자체 용어(ALLOW 등)로 접으면 화면 라벨과 정책 엔진의 실제 판정이 어긋난다(콘티 v3 컷 4).
+ *
+ * 티어보다 먼저 걸러야 하는 것이 둘 있다. 관측 실패(timedOut)는 정책이 거부한 것과 다른
+ * 사건이라 DENY로 접지 않고, 정책 거부는 애초에 티어가 매겨지지 않는다.
  */
 function classifyDeposit(fin) {
-  if (TX_OK.includes(fin.status)) return 'ALLOW'; // A: NOTIFY 자동 실행
-  if (fin.status === 'QUEUED' || fin.status === 'DELAYED' || fin.tier === 'APPROVAL') return 'APPROVAL_REQUIRED'; // B
-  if (fin.timedOut) return 'TIMEOUT'; // 정지 상태에 도달하지 못함 = 정책 거부가 아니라 관측 실패
-  return 'DENY'; // C: CANCELLED/POLICY_DENIED
+  if (fin.timedOut) return 'TIMEOUT'; // 정지 상태 미도달 = 정책 거부가 아니라 관측 실패
+  if (fin.status === 'POLICY_DENIED') return 'DENY';
+  if (fin.tier) return fin.tier; // INSTANT | NOTIFY | DELAY | APPROVAL
+  if (TX_OK.includes(fin.status)) return 'INSTANT';
+  return 'DENY'; // 티어 없이 끝난 건(CANCELLED 등)
+}
+
+/**
+ * 파이프라인을 통과해 실제로 실행된 판정인지. INSTANT와 NOTIFY만 통과하고
+ * DELAY·APPROVAL은 대기 큐로 간다(`stage4-wait.ts:19`). **NOTIFY가 "알림은 가되 실행은
+ * 통과"라는 점**이 이 데모에서 가장 미묘한 지점이라 판정 이름 나열 대신 함수로 고정한다.
+ */
+export function isExecutedDecision(decision) {
+  return decision === 'INSTANT' || decision === 'NOTIFY' || decision === 'ALLOW';
 }
 
 /** receipt 조립(스펙 4 SettlementReceipt). state가 settled일 때만 유효. */
