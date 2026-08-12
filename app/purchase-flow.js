@@ -15,21 +15,22 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { PROGRAM_ID, PATHS, TOKEN_LIMITS, DELAY_SECONDS } from './config.js';
+import { PROGRAM_ID, PATHS, TOKEN_LIMITS, DELAY_SECONDS, MAIN_BUYER } from './config.js';
 import {
   deriveAuctionPda,
   deriveVault,
   deriveBidPda,
   commitHash,
   confirmSig,
+  signEd25519,
 } from './lib/solana.js';
 import { buildCreateAuction, buildCommitBid, buildDeposit } from './lib/instructions.js';
 import { pickFreeAuctionId, waitForAuctionAccount } from './lib/onchain-wait.js';
 import { loadListings, loadRequests, chooseListing } from './lib/decision.js';
-import { saveConfig } from './lib/state.js';
+import { saveConfig, loadOwnerKeypair } from './lib/state.js';
 
 /** 이 시나리오의 주인공 바이어. owner가 verified라 APPROVAL이 실제로 큐에 걸린다. */
-export const BUYER = 'buyer-b';
+export const BUYER = MAIN_BUYER;
 
 const TX_OK = ['CONFIRMED', 'SUBMITTED'];
 const DEPOSIT_STOP = ['CONFIRMED', 'SUBMITTED', 'QUEUED', 'DELAYED', 'CANCELLED', 'FAILED', 'POLICY_DENIED'];
@@ -250,6 +251,47 @@ async function purchaseAll(state, deps) {
 
   // 대기 건이 남았는지에 따라 다음 장면이 갈린다(승인·유예가 있으면 컷 5로).
   state.phase = state.purchases.some((p) => isQueuedDecision(p.ui)) ? 'awaiting' : 'settling';
+}
+
+/**
+ * 컷 5: 승인 대기 건을 사람이 승인한다. 스토리의 정점.
+ *
+ * **owner 서명이 유일한 경로다** — 거부와 달리 어드민 우회가 없어서, 지금은 시드가 보존한
+ * owner 키로 서명한다. 익스텐션 승인 경로가 준비되면 서명만 지갑에서 받아 그대로 이 자리에
+ * 끼우면 된다(콘티 §6의 "웹이 서명받고 오케스트레이터가 중계"와 같은 모양).
+ *
+ * @param {string} requestId - 승인할 구매 건
+ */
+export async function approvePurchase(state, deps, requestId) {
+  const { clients } = deps;
+  const purchase = state.purchases.find((p) => p.requestId === requestId);
+  if (!purchase) throw new Error(`구매 건을 찾을 수 없다: ${requestId}`);
+  if (purchase.ui !== 'APPROVAL') throw new Error(`승인 대상이 아니다: ${requestId} (${purchase.ui})`);
+  if (!purchase.txId) throw new Error(`승인할 tx가 없다: ${requestId}`);
+
+  const kp = loadOwnerKeypair();
+  const ownerAddress = kp.publicKey.toBase58();
+  // 승인 메시지는 즉시 소비되고 재현이 필요 없다. tx를 특정하고 유일성만 확보한다.
+  const message = `approve-tx:${purchase.txId}:${Date.now()}`;
+  const signature = signEd25519(kp.secretKey, message).toString('base64');
+
+  await clients[BUYER].approveTx(purchase.txId, ownerAddress, message, signature);
+  pushLog(state, `승인 ${purchase.listing.id} ${purchase.amountUsdc} USDC (owner 서명)`);
+
+  // 승인은 큐에서 풀어줄 뿐이고 실행은 파이프라인이 이어서 한다 — 정지 상태까지 따라간다.
+  const fin = await clients[BUYER].pollTx(purchase.txId, ['CONFIRMED', 'SUBMITTED', 'FAILED', 'CANCELLED'], 30000);
+  purchase.steps.deposit = {
+    ...purchase.steps.deposit,
+    status: fin.status,
+    txHash: fin.txHash || purchase.steps.deposit?.txHash || null,
+    onchain: await confirmSig(deps.conn, fin.txHash),
+    approvedAt: new Date().toISOString(),
+  };
+  purchase.ui = TX_OK.includes(fin.status) ? 'APPROVED' : classifyDeposit(fin);
+  pushLog(state, `승인 후 실행 ${purchase.listing.id} → ${fin.status}`);
+
+  if (!state.purchases.some((p) => isQueuedDecision(p.ui))) state.phase = 'settling';
+  return purchase;
 }
 
 /**

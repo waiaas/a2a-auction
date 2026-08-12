@@ -88,8 +88,8 @@ export const AMOUNTS = {
  * 쓰므로(20은 승인 후 실행) 여러 라운드분을 확보한다.
  */
 export const FUND_TARGET = {
-  'buyer-a': 30_000_000n, // 30 USDC (≈10라운드)
-  'buyer-b': 150_000_000n, // 150 USDC (라운드당 35 → ≈4라운드)
+  'buyer-a': 200_000_000n, // 200 USDC (라운드당 35 → ≈5라운드)
+  'buyer-b': 30_000_000n, // 30 USDC (구 시나리오용)
   'buyer-c': 10_000_000n, // 10 USDC (C도 거부라 소모 없음)
 };
 
@@ -107,14 +107,25 @@ export const FUND_TARGET = {
  * INSTANT가 아니라 NOTIFY로 나와 5와 10이 같은 티어로 접힌다. 그래서 instant_max를 0으로
  * 두어 INSTANT 구간을 비우고, 격상이 건드리지 못하는 위쪽 세 구간으로 3단계를 만든다.
  *
- * buyer-b(주인공 바이어): 5 → NOTIFY(알림만, 실행은 통과) / 10 → DELAY(유예 대기, 그 사이
+ * buyer-a(주인공 바이어): 5 → NOTIFY(알림만, 실행은 통과) / 10 → DELAY(유예 대기, 그 사이
  *   취소 가능) / 20 → APPROVAL(owner 승인). 셋 다 실행으로 확인했다.
- * buyer-a: 구 시나리오(3자 경매) 값 유지.
+ * buyer-b: 구 시나리오(3자 경매) 값 유지.
+ *
+ * **주인공이 buyer-b가 아니라 buyer-a인 이유**: 승인(컷 5)은 owner 서명이 유일한 경로인데
+ * buyer-b는 이미 LOCKED이고 그 owner 키가 폐기돼(과거 시드 정책) 교체조차 막힌다
+ * (`OWNER_ALREADY_CONNECTED`). buyer-a는 owner가 NONE이라 우리가 키를 쥔 채 등록할 수 있고,
+ * x402 도메인 정책도 이미 갖고 있어 컷 7까지 그대로 이어진다.
  */
 export const TOKEN_LIMITS = {
-  'buyer-a': { instant_max: '3', notify_max: '3', delay_max: '3' },
-  'buyer-b': { instant_max: '0', notify_max: '5', delay_max: '10' },
+  'buyer-a': { instant_max: '0', notify_max: '5', delay_max: '10' },
+  'buyer-b': { instant_max: '5', notify_max: '5', delay_max: '5' },
 };
+
+/**
+ * 콘티 v3 시나리오의 주인공 바이어. 시드·구매 흐름·검증이 같은 값을 봐야 하므로 여기서 고정한다.
+ * 선정 근거는 위 TOKEN_LIMITS 주석 참조(owner 등록 가능 + x402 정책 보유).
+ */
+export const MAIN_BUYER = 'buyer-a';
 
 /**
  * DELAY 티어 유예 시간(초). 스키마 최소값이 60이라 더 줄일 수 없다
@@ -144,6 +155,10 @@ export const PATHS = {
   fixtures: path.join(__dirname, 'fixtures'),
   resultCache: path.join(ROOT, 'app/result-cache'), // 라운드별 낙찰 결과물 확정 캐시(orchestrator↔seller hash 일관성)
   facilitator: path.join(ROOT, 'app/facilitator-keypair.json'), // x402 feePayer 대납 키 (에이전트 지갑이 아님)
+  // 지갑 owner(사람) 서명 키. **승인(컷 5)이 owner 서명을 유일한 경로로 요구해서** 보존한다
+  // — 어드민 우회가 없다. 익스텐션 승인 경로가 준비되면 서명 주체가 이 키에서 지갑으로
+  // 옮겨가고 이 파일은 사라진다. 그때까지의 임시 보관이다(0600, gitignore).
+  owner: path.join(ROOT, 'app/owner-keypair.json'),
 };
 
 /** hero 경매 카탈로그 (무대 소품, 스펙 7.1). */

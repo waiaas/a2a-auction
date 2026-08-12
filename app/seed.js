@@ -18,6 +18,7 @@ import {
   FUND_TARGET,
   TOKEN_LIMITS,
   DELAY_SECONDS,
+  MAIN_BUYER,
   AMOUNTS,
   PATHS,
   X402_ALLOWED_DOMAIN,
@@ -58,10 +59,10 @@ async function reseedPolicies(role, client, { mint, assetId, seller }) {
     contracts: [{ address: PROGRAM_ID, name: 'a2a-auction' }],
   });
   // 베이스라인: commit(CONTRACT_CALL to=programId)만 통과. deposit용 auction_pda는 라운드마다 오케스트레이터가 추가.
-  // buyer-b(콘티 v3의 주인공 바이어)만 셀러를 함께 연다 — 새 시나리오는 셀러에게 지불하는
-  // 구조이고, 티어 대조 검증(verify-tiers.js)도 이 수신처로 판정을 확인한다.
+  // 주인공 바이어만 셀러를 함께 연다 — 새 시나리오는 셀러에게 지불하는 구조이고,
+  // 티어 대조 검증(verify-tiers.js)도 이 수신처로 판정을 확인한다.
   ids.whitelist = await client.createPolicy('WHITELIST', {
-    allowed_addresses: role === 'buyer-b' ? [PROGRAM_ID, seller] : [PROGRAM_ID],
+    allowed_addresses: role === MAIN_BUYER ? [PROGRAM_ID, seller] : [PROGRAM_ID],
   });
   ids.allowedTokens = await client.createPolicy('ALLOWED_TOKENS', {
     tokens: [{ address: mint, symbol: 'USDC', assetId }],
@@ -75,7 +76,7 @@ async function reseedPolicies(role, client, { mint, assetId, seller }) {
   // x402 결제 대상 도메인(default-deny — 정책이 없으면 데몬이 전부 거부한다).
   // 결과물 unlock을 결제하는 것은 낙찰자 A뿐이라 A에만 등록한다. 데몬은 hostname만 비교하고
   // `*.` 와일드카드를 지원하므로 터널 재기동마다 갱신할 필요가 없다.
-  if (role === 'buyer-a') {
+  if (role === MAIN_BUYER) {
     ids.x402Domains = await client.createPolicy('X402_ALLOWED_DOMAINS', {
       domains: [X402_ALLOWED_DOMAIN],
     });
@@ -98,14 +99,45 @@ function ensureFacilitatorKeypair() {
   return kp;
 }
 
-/** B owner를 verified 상태로 보장(멱등). 이미 verified면 스킵. */
-async function ensureOwnerVerified(client) {
-  const wallet = await client.getWallet();
-  if (wallet.ownerVerified === true) {
-    return { ownerAddress: wallet.ownerAddress, ownerState: 'LOCKED', skipped: true };
+/**
+ * owner 서명 키 확보(멱등).
+ *
+ * **키를 보존한다.** 승인(컷 5)은 `POST /v1/transactions/{id}/approve` + owner 서명이
+ * 유일한 경로이고 어드민 우회가 없다. 예전에는 거부만 시연했기에 키를 폐기했지만,
+ * 그 결과 buyer-b는 LOCKED인 채 키가 사라져 owner 교체조차 막혔다
+ * (`OWNER_ALREADY_CONNECTED: Use ownerAuth to change owner in LOCKED state`).
+ *
+ * 익스텐션 승인 경로가 준비되면 서명 주체가 이 키에서 지갑으로 옮겨간다.
+ */
+function ensureOwnerKeypair() {
+  if (fs.existsSync(PATHS.owner)) {
+    return Keypair.fromSecretKey(
+      Uint8Array.from(JSON.parse(fs.readFileSync(PATHS.owner, 'utf8'))),
+    );
   }
-  const ownerKp = Keypair.generate(); // 인메모리, 파일·로그 미출력
+  const kp = Keypair.generate();
+  fs.writeFileSync(PATHS.owner, JSON.stringify(Array.from(kp.secretKey)), { mode: 0o600 });
+  return kp;
+}
+
+/** 주인공 바이어의 owner를 verified(LOCKED) 상태로 보장(멱등). */
+async function ensureOwnerVerified(client) {
+  const ownerKp = ensureOwnerKeypair();
   const ownerAddr = ownerKp.publicKey.toBase58();
+  const wallet = await client.getWallet();
+
+  if (wallet.ownerVerified === true) {
+    // 등록된 owner와 보유 키가 어긋나면 승인을 만들 수 없다. 조용히 넘기면 컷 5에서
+    // 처음 드러나므로 여기서 끊는다.
+    if (wallet.ownerAddress !== ownerAddr) {
+      throw new Error(
+        `owner 키 불일치: 지갑에 등록된 owner(${wallet.ownerAddress})와 보유 키(${ownerAddr})가 다르다. ` +
+        `이 지갑은 승인 서명을 만들 수 없다 — app/owner-keypair.json을 확인하거나 데몬 볼륨을 초기화해야 한다.`,
+      );
+    }
+    return { ownerAddress: ownerAddr, ownerState: 'LOCKED', skipped: true };
+  }
+
   await client.registerOwner(ownerAddr);
   // verify 메시지는 재현 불필요(즉시 소비). Date.now로 유일성만 확보.
   const msg = `verify-owner:${client.walletId}:${Date.now()}`;
@@ -206,10 +238,10 @@ async function main() {
   }
 
   // 4) B owner verify
-  const bOwner = await ensureOwnerVerified(clientFor('buyer-b', byRole, env));
-  console.log(`  buyer-b owner: ${bOwner.ownerState}${bOwner.skipped ? ' (이미 verified)' : ' (신규 verify)'}`);
+  const bOwner = await ensureOwnerVerified(clientFor(MAIN_BUYER, byRole, env));
+  console.log(`  ${MAIN_BUYER} owner: ${bOwner.ownerState}${bOwner.skipped ? ' (이미 verified)' : ' (신규 verify)'}`);
   if (bOwner.ownerState !== 'LOCKED') {
-    throw new Error(`buyer-b owner가 LOCKED가 아님(APPROVAL이 DELAY로 강등됨): ${JSON.stringify(bOwner)}`);
+    throw new Error(`${MAIN_BUYER} owner가 LOCKED가 아님(APPROVAL이 DELAY로 강등됨): ${JSON.stringify(bOwner)}`);
   }
 
   // 5) config 기록 (nextAuctionId는 보존; 스파이크가 auction 1을 이미 씀 → 신규 시작은 2)

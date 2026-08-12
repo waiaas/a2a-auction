@@ -72,6 +72,9 @@ const VERDICT = {
   NOTIFY: { cls: 'ok', short: 'NOTIFY', label: 'NOTIFY', step: '실행', sub: '알림 발송 · 실행은 통과' },
   DELAY: { cls: 'warn', short: 'DELAY', label: 'DELAY', step: '유예 대기', sub: '유예 중 · 취소 가능' },
   APPROVAL: { cls: 'warn', short: 'APPROVAL', label: 'APPROVAL', step: '승인 대기', sub: 'owner 승인 대기' },
+  // 승인을 거쳐 실행된 상태. APPROVAL과 같은 배지로 두면 사람이 승인한 뒤에도 화면이
+  // 멈춰 있는 것처럼 보인다 — 컷 5의 결말이 안 보인다.
+  APPROVED: { cls: 'gold', short: 'APPROVED', label: 'APPROVED', step: '승인 후 실행', sub: 'owner 서명으로 실행됨' },
   // 정책 판정이 아니라 관측 실패(데몬 응답 타임아웃) — 거부와 같은 배지로 보이면 서사가 뒤집힌다.
   TIMEOUT: { cls: 'pending', short: 'TIMEOUT', label: 'TIMEOUT', step: '관측 실패', sub: '판정 관측 실패' },
   // 구 시나리오 호환

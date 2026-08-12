@@ -11,12 +11,12 @@
  *
  * 실행: node verify-tiers.js   ← 샌드박스 해제 필요(루프백·LAN RPC)
  */
-import { TOKEN_LIMITS, DELAY_SECONDS, PATHS } from './config.js';
+import { TOKEN_LIMITS, DELAY_SECONDS, MAIN_BUYER, PATHS } from './config.js';
 import { loadStateByRole, loadEnv, masterPasswordFor, loadConfig } from './lib/state.js';
 import { daemonClient } from './lib/daemon.js';
 
 /** 검증 대상 바이어. 새 시나리오의 주인공(콘티 v3 §1). */
-const ROLE = 'buyer-b';
+const ROLE = MAIN_BUYER;
 
 /** 구간마다 대표값 하나씩. 경계값이 아니라 구간 한가운데 값을 쓴다. */
 const USDC = (n) => String(BigInt(n) * 1_000_000n);

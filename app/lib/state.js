@@ -42,6 +42,18 @@ export function loadDeployer() {
   return Keypair.fromSecretKey(Uint8Array.from(readJson(PATHS.deployer)));
 }
 
+/**
+ * 지갑 owner(사람) 서명 키. 시드가 만들어 두고, 승인(컷 5)이 이 키로 서명한다.
+ * 없으면 승인 자체가 불가능하므로 조용히 null을 돌려주지 않고 끊는다.
+ */
+export function loadOwnerKeypair() {
+  try {
+    return Keypair.fromSecretKey(Uint8Array.from(readJson(PATHS.owner)));
+  } catch {
+    throw new Error(`owner 키가 없다(${PATHS.owner}) — node seed.js 를 먼저 실행하라`);
+  }
+}
+
 /** demo-config.json (시드 산출). 없으면 null. */
 export function loadConfig() {
   try {

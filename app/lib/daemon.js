@@ -168,6 +168,24 @@ export function daemonClient(wallet, masterPassword) {
     },
 
     /**
+     * 승인 대기 tx 승인. **owner 서명이 유일한 경로다** — 거부와 달리 어드민 우회가 없다
+     * (`/v1/admin/transactions/{id}/approve`는 존재하지 않는다). 그래서 시드가 owner 키를
+     * 보존한다. 익스텐션 승인 경로가 준비되면 서명만 지갑에서 받아 이 호출로 중계하면 된다.
+     */
+    async approveTx(txId, ownerAddress, message, signatureB64) {
+      // 세션 토큰과 owner 서명을 **둘 다** 요구한다(실측: 서명만 보내면 401 INVALID_TOKEN).
+      // 세션은 "누가 이 지갑을 쓰는가", owner 서명은 "사람이 이 건을 허락했는가"로 층이 다르다.
+      const r = await http('POST', `${base}/v1/transactions/${txId}/approve`, {
+        ...authHdr,
+        'X-Owner-Signature': signatureB64,
+        'X-Owner-Message': message,
+        'X-Owner-Address': ownerAddress,
+      }, {});
+      if (r.status >= 300) throw new Error(`tx ${txId} 승인 실패 ${r.status}: ${JSON.stringify(r.json)}`);
+      return r.json;
+    },
+
+    /**
      * 유예(DELAY) tx 취소. **승인 거부와 경로가 다르다** — DELAY는 승인 요청이 아니라
      * 유예 큐 대기라 `adminRejectTx`를 쓰면 `APPROVAL_NOT_FOUND`(404)로 실패한다(실측).
      * 이 구분을 놓치면 DELAY 건이 큐에 계속 남고, 남은 대기 건은 이후 판정을 전부
