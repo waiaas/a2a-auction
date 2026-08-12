@@ -168,6 +168,29 @@ export function daemonClient(wallet, masterPassword) {
     },
 
     /**
+     * 대기 큐 전량 정리.
+     *
+     * **라운드를 시작하기 전에 반드시 부른다.** 남은 대기 건은 이후 판정을 전부 APPROVAL로
+     * 밀어올려 티어 대조를 무너뜨린다(실측: 큐 13건 상태에서 5 USDC도 APPROVAL, 비우니
+     * 즉시 복귀). 리허설을 반복할수록 조용히 쌓이는 함정이다.
+     *
+     * DELAY와 APPROVAL은 대기 큐가 다르므로 경로를 나눈다 — 섞으면 DELAY 건이 404로 남는다.
+     */
+    async drainPending() {
+      const pending = await this.pendingTxs();
+      for (const t of pending) {
+        try {
+          if (t.tier === 'DELAY') await this.cancelDelayedTx(t.id);
+          else await this.adminRejectTx(t.id);
+        } catch (e) {
+          // 한 건이 안 지워져도 나머지는 지운다. 조용히 넘기면 다음 라운드가 무너진 뒤에야 드러난다.
+          console.error(`  [daemon] 대기 tx ${t.id}(${t.tier}) 정리 실패: ${e.message}`);
+        }
+      }
+      return pending.length;
+    },
+
+    /**
      * 승인 대기 tx 승인. **owner 서명이 유일한 경로다** — 거부와 달리 어드민 우회가 없다
      * (`/v1/admin/transactions/{id}/approve`는 존재하지 않는다). 그래서 시드가 owner 키를
      * 보존한다. 익스텐션 승인 경로가 준비되면 서명만 지갑에서 받아 이 호출로 중계하면 된다.

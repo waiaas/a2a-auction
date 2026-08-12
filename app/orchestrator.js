@@ -18,6 +18,14 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS, NETWORK_LABEL } from './config.js';
 import { initState, buildDeps, openAuction, runBidding, runAuction, assembleReceipt } from './auction-flow.js';
+import {
+  initPurchaseState,
+  runPurchaseRound,
+  refreshPurchases,
+  settlePurchases,
+  approvePurchase,
+} from './purchase-flow.js';
+import { loadListings } from './lib/decision.js';
 
 const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
 
@@ -106,6 +114,92 @@ app.post('/api/auction/reset', (req, res) => {
   state = initState();
   roundCtx = null;
   res.json({ reset: true, scenario });
+});
+
+// ---- 구매 라운드 (콘티 v3) ----
+// 기존 경매 라우트는 그대로 둔다 — 새 흐름이 완성될 때까지 폴백이 필요하다.
+//
+//   GET  /api/purchase/catalog            카탈로그 리스팅 3종 (컷 1)
+//   POST /api/purchase/start              요청 3건 → 선택 → 구매 → 실행된 건 정산 (컷 3·4·6)
+//   GET  /api/purchase/state              현재 상태. 대기 건이 있으면 데몬에서 갱신해 준다
+//   POST /api/purchase/approve/:requestId 승인 대기 건 승인 (컷 5)
+//   POST /api/purchase/settle             유예·승인이 풀린 건 정산
+//   POST /api/purchase/reset              상태 초기화
+
+let purchaseState = initPurchaseState();
+let purchaseRunning = false;
+
+function runPurchaseInBackground(promise, label) {
+  purchaseRunning = true;
+  promise
+    .catch((e) => {
+      purchaseState.phase = 'error';
+      purchaseState.error = e.message;
+      console.error(`[orchestrator] ${label} 실패:`, e.message);
+    })
+    .finally(() => {
+      purchaseRunning = false;
+    });
+}
+
+app.get('/api/purchase/catalog', (_req, res) => res.json({ listings: loadListings() }));
+
+app.post('/api/purchase/start', (_req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  purchaseState = initPurchaseState();
+  // 구매 직후 실행된 건(NOTIFY)은 바로 정산한다. 유예·승인 건은 대기로 남아 컷 5로 이어진다.
+  runPurchaseInBackground(
+    runPurchaseRound(purchaseState, d).then(() => settlePurchases(purchaseState, d)),
+    'runPurchaseRound',
+  );
+  return res.status(202).json({ started: true });
+});
+
+app.get('/api/purchase/state', async (_req, res) => {
+  // 유예는 시간이 지나면 스스로 풀린다. 폴링 때마다 대기 건만 확인해 화면이 그 변화를 잡게 한다.
+  if (!purchaseRunning && purchaseState.purchases.length) {
+    try {
+      const d = buildDeps();
+      await refreshPurchases(purchaseState, d);
+    } catch (e) {
+      console.error('[orchestrator] purchase 상태 갱신 실패:', e.message);
+    }
+  }
+  res.json({ ...purchaseState, network: NETWORK_LABEL, running: purchaseRunning });
+});
+
+app.post('/api/purchase/settle', (_req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  runPurchaseInBackground(settlePurchases(purchaseState, d), 'settlePurchases');
+  return res.status(202).json({ settling: true });
+});
+
+/**
+ * 승인 relay. **데몬에 승인 라우트가 없으면 502로 떨어진다** — 현재 이미지가 그 상태다
+ * (`transactions.ts`의 등록 조건 중 ownerLifecycle이 주입되지 않아 라우트 자체가 미등록).
+ * 우리 쪽 배선은 끝나 있으므로 데몬이 고쳐지면 그대로 동작한다.
+ */
+app.post('/api/purchase/approve/:requestId', ownerGuard, async (req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  try {
+    const purchase = await approvePurchase(purchaseState, d, req.params.requestId);
+    res.json({ requestId: purchase.requestId, ui: purchase.ui, status: purchase.steps.deposit?.status });
+  } catch (e) {
+    console.error('[orchestrator] purchase 승인 실패:', e.message);
+    res.status(502).json({ error: 'approve_failed', message: e.message });
+  }
+});
+
+app.post('/api/purchase/reset', (_req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'running', phase: purchaseState.phase });
+  purchaseState = initPurchaseState();
+  res.json({ reset: true });
 });
 
 // ---- Owner 콘솔 relay (B = Growth Agent의 owner 시점) ----

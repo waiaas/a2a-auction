@@ -444,6 +444,12 @@ export async function settlePurchases(state, deps) {
  */
 export async function runPurchaseRound(state, deps) {
   state.startedAt = new Date().toISOString();
+
+  // 지난 라운드의 대기 건을 먼저 걷어낸다. 남아 있으면 이번 라운드 판정이 전부 APPROVAL로
+  // 무너진다(실측: 리허설 2회차에서 5·10·20이 모두 APPROVAL로 나왔다).
+  const drained = await deps.clients[BUYER].drainPending();
+  if (drained) pushLog(state, `지난 라운드 대기 ${drained}건 정리`);
+
   await chooseAll(state, deps);
   await purchaseAll(state, deps);
   pushLog(

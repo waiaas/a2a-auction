@@ -29,23 +29,6 @@ function expectedTier(usdc, limits) {
   return 'APPROVAL';
 }
 
-/**
- * 대기 큐 비우기. **DELAY와 APPROVAL은 큐가 다르다** — DELAY에 admin reject를 쓰면
- * APPROVAL_NOT_FOUND(404)로 실패하고 건이 그대로 남는다.
- */
-async function drainQueue(client) {
-  const pending = await client.pendingTxs();
-  for (const t of pending) {
-    try {
-      if (t.tier === 'DELAY') await client.cancelDelayedTx(t.id);
-      else await client.adminRejectTx(t.id);
-    } catch (e) {
-      console.log(`  경고: 대기 tx ${t.id}(${t.tier}) 정리 실패 — ${e.message}`);
-    }
-  }
-  return pending.length;
-}
-
 async function main() {
   const byRole = loadStateByRole();
   const env = loadEnv();
@@ -59,7 +42,7 @@ async function main() {
   console.log('=== 정책 티어 대조 검증 ===');
   console.log(`대상 ${ROLE} · token_limits ${limits.instant_max}/${limits.notify_max}/${limits.delay_max} · delay_seconds ${DELAY_SECONDS}`);
 
-  const drained = await drainQueue(client);
+  const drained = await client.drainPending();
   if (drained) console.log(`대기 큐 ${drained}건 정리 (누적분이 판정을 APPROVAL로 밀어올린다)`);
 
   const results = [];
@@ -80,7 +63,7 @@ async function main() {
   }
 
   // 검증이 남긴 대기 건을 그대로 두면 다음 실행(또는 데모 라운드)의 판정을 오염시킨다.
-  const left = await drainQueue(client);
+  const left = await client.drainPending();
   if (left) console.log(`검증 잔여 ${left}건 정리`);
 
   const failed = results.filter((r) => !r.ok);
