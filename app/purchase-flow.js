@@ -21,11 +21,26 @@ import {
   deriveVault,
   deriveBidPda,
   commitHash,
+  saltFor,
   confirmSig,
   signEd25519,
+  tokenUiBalance,
+  fetchAuction,
+  PublicKey,
 } from './lib/solana.js';
-import { buildCreateAuction, buildCommitBid, buildDeposit } from './lib/instructions.js';
-import { pickFreeAuctionId, waitForAuctionAccount } from './lib/onchain-wait.js';
+import {
+  buildCreateAuction,
+  buildCommitBid,
+  buildDeposit,
+  buildRevealBid,
+  buildSettle,
+} from './lib/instructions.js';
+import {
+  pickFreeAuctionId,
+  waitForAuctionAccount,
+  waitForVaultDeposit,
+  waitForTokenBalance,
+} from './lib/onchain-wait.js';
 import { loadListings, loadRequests, chooseListing } from './lib/decision.js';
 import { saveConfig, loadOwnerKeypair } from './lib/state.js';
 
@@ -292,6 +307,135 @@ export async function approvePurchase(state, deps, requestId) {
 
   if (!state.purchases.some((p) => isQueuedDecision(p.ui))) state.phase = 'settling';
   return purchase;
+}
+
+/**
+ * 대기 중인 건의 현재 상태를 데몬에서 다시 읽는다.
+ *
+ * **유예(DELAY)는 시간이 지나면 스스로 실행된다.** 화면이 폴링하며 이 함수를 부르면
+ * "기다렸더니 통과했다"가 관측된다 — 컷 4에서 가장 설명하기 어려운 티어가 스스로 증명되는
+ * 지점이라, 판정을 한 번 찍고 끝내지 않고 갱신 경로를 둔다.
+ */
+export async function refreshPurchases(state, deps) {
+  const { conn, clients } = deps;
+  let changed = false;
+
+  for (const purchase of state.purchases) {
+    if (!isQueuedDecision(purchase.ui) || !purchase.txId) continue;
+    const tx = await clients[BUYER].getTx(purchase.txId);
+    if (!TX_OK.includes(tx.status)) continue;
+
+    // 유예가 풀려 실행된 것과 사람이 승인해 실행된 것은 다른 사건이라 라벨을 나눈다.
+    purchase.ui = purchase.tier === 'APPROVAL' ? 'APPROVED' : 'RELEASED';
+    purchase.steps.deposit = {
+      ...purchase.steps.deposit,
+      status: tx.status,
+      txHash: tx.txHash || purchase.steps.deposit?.txHash || null,
+      onchain: await confirmSig(conn, tx.txHash),
+    };
+    pushLog(state, `대기 해제 ${purchase.listing.id} → ${purchase.ui} (${tx.status})`);
+    changed = true;
+  }
+
+  if (changed && !state.purchases.some((p) => isQueuedDecision(p.ui))) state.phase = 'settling';
+  return changed;
+}
+
+/** 정산 대상인지. 대기 중이거나 이미 정산됐거나 예치가 막힌 건은 제외한다. */
+function isSettleable(purchase) {
+  if (isQueuedDecision(purchase.ui)) return false;
+  if (purchase.steps.settle) return false;
+  return ['NOTIFY', 'INSTANT', 'APPROVED', 'RELEASED'].includes(purchase.ui);
+}
+
+/**
+ * 구매 1건을 정산한다. reveal로 낙찰을 확정하고 settle로 vault → seller를 옮긴다.
+ *
+ * 참가자가 1명이라 reveal도 1회다. commit 때 쓴 salt와 금액이 그대로 맞아야 온체인
+ * sha256 검증을 통과하므로, 커밋과 같은 인자로 유도한다.
+ */
+async function settleOne(state, deps, purchase) {
+  const { conn, config, clients } = deps;
+  const auctionPda = new PublicKey(purchase.addresses.auctionPda);
+  const vault = new PublicKey(purchase.addresses.vault);
+  const bidPda = new PublicKey(purchase.addresses.bidPda);
+  const amount = usdcToBase(purchase.amountUsdc);
+
+  // reveal은 vault 잔고가 금액 이상일 것을 요구한다(DepositNotFound). 제출과 확정 사이의
+  // 간극을 흡수하지 않으면 정산 전체가 죽는다.
+  const wait = await waitForVaultDeposit(conn, vault, purchase.steps.deposit?.txHash, purchase.amountUsdc);
+  if (!wait.confirmed) {
+    pushLog(state, `${purchase.listing.id} 예치 확정 대기 초과(${wait.waitedMs}ms) — reveal은 그대로 시도`);
+  }
+
+  {
+    const body = buildRevealBid({
+      bidder: config.addresses[BUYER],
+      auctionPda,
+      bidPda,
+      vault,
+      amount,
+      salt: saltFor(BUYER, purchase.auctionId),
+    });
+    const id = await clients[BUYER].sendTx(body);
+    const fin = await clients[BUYER].pollTx(id, ['CONFIRMED', 'SUBMITTED', 'FAILED', 'CANCELLED']);
+    const onchain = await confirmSig(conn, fin.txHash);
+    purchase.steps.reveal = { status: fin.status, txHash: fin.txHash || null, onchain };
+    if (!TX_OK.includes(fin.status)) throw new Error(`reveal 실패(${purchase.requestId}): ${JSON.stringify(fin)}`);
+  }
+
+  // 정산 반영 기준선. 잔고 조회가 한 박자 늦을 수 있어 before를 먼저 잡는다.
+  const sellerBefore = await tokenUiBalance(conn, config.sellerTokenAccount);
+  {
+    const body = buildSettle({
+      marketplace: config.marketplace,
+      auctionPda,
+      vault,
+      sellerTokenAccount: config.sellerTokenAccount,
+    });
+    const id = await clients['marketplace'].sendTx(body);
+    const fin = await clients['marketplace'].pollTx(id, ['CONFIRMED', 'SUBMITTED', 'FAILED', 'CANCELLED']);
+    const onchain = await confirmSig(conn, fin.txHash);
+    purchase.steps.settle = { status: fin.status, txHash: fin.txHash || null, onchain };
+    if (!TX_OK.includes(fin.status)) throw new Error(`settle 실패(${purchase.requestId}): ${JSON.stringify(fin)}`);
+  }
+
+  const expected = sellerBefore != null ? sellerBefore + purchase.amountUsdc : null;
+  const sellerUsdc = await waitForTokenBalance(conn, config.sellerTokenAccount, expected);
+  const onchainAuction = await fetchAuction(conn, auctionPda);
+  purchase.result = {
+    sellerUsdc,
+    vaultUsdc: await tokenUiBalance(conn, vault),
+    auctionStatus: onchainAuction?.status ?? null,
+    winnerIsBuyer: onchainAuction?.winner === config.addresses[BUYER],
+  };
+  pushLog(
+    state,
+    `정산 ${purchase.listing.id} ${purchase.amountUsdc} USDC → seller ${sellerUsdc} (auction #${purchase.auctionId} ${purchase.result.auctionStatus})`,
+  );
+}
+
+/**
+ * 컷 6: 실행이 끝난 건들을 온체인 정산한다.
+ *
+ * 대기 중인 건은 건너뛴다 — 승인이나 유예가 풀린 뒤 다시 부르면 그때 정산된다.
+ * 한 건이 실패해도 나머지를 정산한다. 세 건은 서로 다른 경매라 서로를 막지 않는다.
+ */
+export async function settlePurchases(state, deps) {
+  state.phase = 'settling';
+  for (const purchase of state.purchases) {
+    if (!isSettleable(purchase)) continue;
+    try {
+      await settleOne(state, deps, purchase);
+    } catch (e) {
+      purchase.settleError = e.message;
+      pushLog(state, `정산 실패 ${purchase.listing.id}: ${e.message}`);
+    }
+  }
+  const done = state.purchases.filter((p) => p.steps.settle).length;
+  const waiting = state.purchases.filter((p) => isQueuedDecision(p.ui)).length;
+  state.phase = waiting ? 'awaiting' : 'settled';
+  pushLog(state, `정산 ${done}/${state.purchases.length}건 완료${waiting ? ` (대기 ${waiting}건 남음)` : ''}`);
 }
 
 /**
