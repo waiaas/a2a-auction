@@ -6,6 +6,7 @@ import Rail from './components/Rail.jsx';
 import Receipt from './components/Receipt.jsx';
 import SellerConsole from './components/SellerConsole.jsx';
 import OwnerConsole from './components/OwnerConsole.jsx';
+import PurchaseView from './components/PurchaseView.jsx';
 
 const POLL_MS = 1000;
 const INITIAL = { phase: 'idle', auctionId: null, buyers: {}, steps: {}, item: null, addresses: {} };
@@ -13,7 +14,12 @@ const INITIAL = { phase: 'idle', auctionId: null, buyers: {}, steps: {}, item: n
 export default function App() {
   const [state, setState] = useState(INITIAL);
   const [starting, setStarting] = useState(false);
-  const [view, setView] = useState('live'); // 'live' | 'receipt' | 'seller' | 'owner'
+  // 'live' | 'receipt' | 'seller' | 'owner' | 'purchase'
+  // 구매 화면은 `#purchase`로 바로 열 수 있다 — 심사위원이 링크 하나로 새 시나리오에
+  // 진입하는 경로가 필요하고(회의 결정: 진입점 개선), 기존 화면 구조는 건드리지 않는다.
+  const [view, setView] = useState(() =>
+    typeof window !== 'undefined' && window.location.hash === '#purchase' ? 'purchase' : 'live',
+  );
 
   // 1초 폴링. 실패해도 마지막 상태 유지(밸리데이터 블립 대비).
   useEffect(() => {
@@ -60,6 +66,14 @@ export default function App() {
     return (
       <div className="app">
         <OwnerConsole onBack={openLive} />
+      </div>
+    );
+  }
+
+  if (view === 'purchase') {
+    return (
+      <div className="app">
+        <PurchaseView onBack={openLive} />
       </div>
     );
   }

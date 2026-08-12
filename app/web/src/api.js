@@ -34,6 +34,51 @@ function ownerHeaders(extra = {}) {
   return t ? { ...extra, 'x-owner-token': t } : extra;
 }
 
+// ---- 구매 라운드 (콘티 v3) ----
+
+export async function fetchPurchaseState() {
+  const res = await fetch('/api/purchase/state', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`purchase state ${res.status}`);
+  return res.json();
+}
+
+export async function fetchCatalog() {
+  const res = await fetch('/api/purchase/catalog', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`catalog ${res.status}`);
+  return res.json();
+}
+
+export async function startPurchase() {
+  const res = await fetch('/api/purchase/start', { method: 'POST', headers: JSON_HEADERS });
+  if (!res.ok) throw new Error(`purchase start ${res.status}`);
+  return res.json();
+}
+
+export async function settlePurchase() {
+  const res = await fetch('/api/purchase/settle', { method: 'POST', headers: JSON_HEADERS });
+  if (!res.ok) throw new Error(`purchase settle ${res.status}`);
+  return res.json();
+}
+
+/** 승인 대기 건 승인(컷 5). owner relay와 같은 토큰 규약을 쓴다. */
+export async function approvePurchase(requestId) {
+  const res = await fetch(`/api/purchase/approve/${requestId}`, {
+    method: 'POST',
+    headers: ownerHeaders(JSON_HEADERS),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || `승인 실패 (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function resetPurchase() {
+  const res = await fetch('/api/purchase/reset', { method: 'POST', headers: JSON_HEADERS });
+  if (!res.ok) throw new Error(`purchase reset ${res.status}`);
+  return res.json();
+}
+
 export async function fetchState() {
   const res = await fetch('/api/auction/state', { cache: 'no-store' });
   if (!res.ok) throw new Error(`state ${res.status}`);
