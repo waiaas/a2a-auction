@@ -43,6 +43,12 @@ import {
 import { getQuoteAndRationale, getResult } from './lib/gemini.js';
 import { loadConfig, saveConfig, loadStateByRole, loadEnv, masterPasswordFor } from './lib/state.js';
 import { daemonClient } from './lib/daemon.js';
+import {
+  pickFreeAuctionId,
+  waitForAuctionAccount,
+  waitForTokenBalance,
+  waitForVaultDeposit,
+} from './lib/onchain-wait.js';
 
 const BUYERS = ['buyer-a', 'buyer-b', 'buyer-c'];
 const TX_OK = ['CONFIRMED', 'SUBMITTED'];
@@ -86,17 +92,6 @@ function pushLog(state, msg) {
   console.log(`  [flow] ${msg}`);
 }
 
-/** 온체인에서 비어 있는 auction_id 슬롯을 앞으로 스캔(스파이크·이전 라운드와 충돌 방지). */
-async function pickFreeAuctionId(conn, marketplace, start) {
-  let id = start;
-  // 안전 상한: 무한 루프 방지
-  for (let i = 0; i < 10000; i++) {
-    const pda = deriveAuctionPda(marketplace, id);
-    if (!(await fetchAuction(conn, pda))) return id;
-    id++;
-  }
-  throw new Error('빈 auction_id 슬롯을 찾지 못함');
-}
 
 /**
  * 경매 개설까지만 실행한다 (판매자 콘솔의 "경매 오픈"). 입찰·정산은 runBidding이 이어받는다.
@@ -368,7 +363,6 @@ export async function runAuction(state, deps) {
   return runBidding(state, deps, ctx);
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * A의 데몬으로 seller 결과물을 x402 결제해 unlock한다.
@@ -407,51 +401,6 @@ async function unlockViaX402(clientA, auctionId, state) {
   throw new Error(`x402 unlock 실패(2회): ${lastError.message}`);
 }
 
-/** create 직후 auction 계정이 조회될 때까지 짧게 재시도한다(위 주석 참조). */
-async function waitForAuctionAccount(conn, auctionPda, intervalMs = 500, tries = 10) {
-  for (let i = 0; i < tries; i++) {
-    if (await fetchAuction(conn, auctionPda)) return { found: true, waitedMs: i * intervalMs };
-    await sleep(intervalMs);
-  }
-  return { found: false, waitedMs: tries * intervalMs };
-}
-
-/**
- * A의 예치가 온체인에 반영될 때까지 짧게 재시도한다.
- * reveal_bid의 온체인 요구사항(vault 잔고 >= reveal 금액)을 그대로 게이트로 쓴다.
- *
- * 확정되지 않아도 throw하지 않는다 — 조회가 늦었을 뿐 실제로는 반영됐을 수 있고,
- * 여기서 라운드를 죽이면 기존 동작보다 더 나빠진다. 판단은 reveal의 온체인 검증에 맡긴다.
- */
-/**
- * 토큰 계정 잔고가 목표치 이상이 될 때까지 짧게 재시도한다(정산 반영 대기).
- * minUiAmount가 null이면 즉시 1회 조회로 끝낸다. 도달하지 못해도 마지막에 읽은 값을
- * 그대로 돌려준다 — 판정은 온체인 Auction 계정(Settled·winner)이 이미 담당한다.
- */
-async function waitForTokenBalance(conn, account, minUiAmount, intervalMs = 500, tries = 10) {
-  let balance = await tokenUiBalance(conn, account);
-  if (minUiAmount == null) return balance;
-  for (let i = 0; i < tries && !(balance != null && balance >= minUiAmount); i++) {
-    await sleep(intervalMs);
-    balance = await tokenUiBalance(conn, account);
-  }
-  return balance;
-}
-
-async function waitForVaultDeposit(conn, vault, txHash, minUiAmount, intervalMs = 500, tries = 10) {
-  let status = 'unknown';
-  let balance = null;
-  for (let i = 0; i < tries; i++) {
-    status = await confirmSig(conn, txHash);
-    balance = await tokenUiBalance(conn, vault);
-    const sigOk = status === 'confirmed' || status === 'finalized';
-    if (sigOk && balance != null && balance >= minUiAmount) {
-      return { confirmed: true, status, balance, waitedMs: i * intervalMs };
-    }
-    await sleep(intervalMs);
-  }
-  return { confirmed: false, status, balance, waitedMs: tries * intervalMs };
-}
 
 /**
  * 예치 결과를 화면 판정으로 매핑. **데몬이 내린 티어를 그대로 쓴다** —

@@ -90,10 +90,11 @@ function fallbackReason(request, listing) {
  * @returns {Promise<{listing:object, reason:string, rejected:string|null, source:'live'|'fallback'}>}
  */
 export async function chooseListing(request, listings) {
-  // 심층 요청일수록 응답이 길어 기본 12초로는 끊긴다(실측: deep 요청이 타임아웃으로 폴백).
-  // 라이브 판단 근거가 컷 3의 알맹이라 여유를 준다.
+  // 심층 요청일수록 응답이 길어 12초·20초 모두 끊겼다(실측: deep 요청만 2회 연속 폴백).
+  // 라이브 판단 근거가 컷 3의 알맹이라 여유를 크게 준다 — 화면에서는 에이전트가 더 오래
+  // 고민하는 것으로 보이므로 대기 자체가 손해는 아니다.
   const args = await generateFunctionCall(buildPrompt(request, listings), CHOOSE_LISTING_FN, {
-    timeoutMs: 20000,
+    timeoutMs: 35000,
   });
   const picked = args?.listingId ? listings.find((l) => l.id === args.listingId) : null;
 
