@@ -29,10 +29,7 @@ import {
 } from './purchase-flow.js';
 import { loadListings } from './lib/decision.js';
 import { registerListing } from './lib/listings-store.js';
-import { ensureUser } from './lib/onboarding.js';
-import { grantToOwner } from './lib/faucet.js';
-import { findUser, touchUser } from './lib/store.js';
-import { loadEnv, masterPasswordFor } from './lib/state.js';
+import { createUserApi } from './user-api.js';
 
 const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
 
@@ -149,56 +146,15 @@ function runPurchaseInBackground(promise, label) {
     });
 }
 
-// ---- 사용자 온보딩 (지갑 연결 → 에이전트 지갑 발급) ----
+// ---- 사용자 API (`/api/u/*`) ----
 //
-// 신원은 **연결한 지갑 주소**다. 서버가 계정을 발급하지 않는다.
-// 사용자마다 에이전트 지갑을 따로 두므로 오너가 겹치지 않고, 대기 큐도 서로 오염시키지 않는다.
+// 지갑을 연결한 사람이 **자기 에이전트 지갑으로** 사는 경로다. 아래 `/api/purchase/*`는 공용
+// 데모 지갑으로 도는 고정 라운드라 신원 모델이 다르다 — 섞으면 어느 지갑이 도는지 화면에서
+// 구분할 수 없어진다(직전 세션에서 오너 콘솔이 남의 지갑 큐를 보던 사고와 같은 종류).
 //
-// 주의: 이 라우트는 아직 **서명을 검증하지 않는다.** 주소만 받으면 남의 주소를 사칭할 수
-// 있으므로, 공개 배포 전에 연결 시점 서명 검증(nonce 챌린지)을 반드시 붙여야 한다.
-// TODO(보안): Wallet Standard 연결 작업과 함께 처리.
-app.post('/api/users/connect', async (req, res) => {
-  const d = depsOrError(res);
-  if (!d) return;
-  const ownerAddress = String(req.body?.ownerAddress || '').trim();
-  if (!ownerAddress) return res.status(400).json({ error: 'ownerAddress_required' });
-
-  try {
-    const { user, created } = await ensureUser(ownerAddress, {
-      daemonUrl: d.byRole[MAIN_BUYER].daemonUrl,
-      masterPassword: masterPasswordFor(loadEnv(), MAIN_BUYER),
-      config: d.config,
-    });
-    touchUser(ownerAddress);
-    res.json({
-      created,
-      ownerAddress,
-      agentWalletId: user.agent_wallet_id,
-      agentAddress: user.agent_address,
-      note: created ? '에이전트 지갑을 발급했습니다.' : '기존 에이전트 지갑을 이어서 씁니다.',
-    });
-  } catch (e) {
-    console.error('[orchestrator] 온보딩 실패:', e.message);
-    res.status(502).json({ error: 'onboarding_failed', message: e.message });
-  }
-});
-
-// 체험용 자산 지급. **오너 지갑에만** 준다 — 에이전트 지갑에 직접 넣으면 위임이 사라진다.
-app.post('/api/users/faucet', async (req, res) => {
-  const d = depsOrError(res);
-  if (!d) return;
-  const ownerAddress = String(req.body?.ownerAddress || '').trim();
-  if (!ownerAddress) return res.status(400).json({ error: 'ownerAddress_required' });
-  if (!findUser(ownerAddress)) return res.status(404).json({ error: 'not_connected' });
-
-  try {
-    const out = await grantToOwner(ownerAddress, d.config);
-    res.status(out.granted ? 200 : 429).json(out);
-  } catch (e) {
-    console.error('[orchestrator] faucet 실패:', e.message);
-    res.status(502).json({ error: 'faucet_failed', message: e.message });
-  }
-});
+// 이전의 `/api/users/connect`는 주소만 받고 서명을 검증하지 않아 사칭이 가능했다. 그 자리를
+// nonce 챌린지 + Ed25519 검증을 거치는 `/api/u/connect`가 대체한다.
+app.use('/api/u', createUserApi());
 
 app.get('/api/purchase/catalog', (_req, res) => res.json({ listings: loadListings() }));
 

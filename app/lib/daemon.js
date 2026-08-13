@@ -209,6 +209,24 @@ export function daemonClient(wallet, masterPassword) {
     },
 
     /**
+     * 승인 대기 tx를 **오너 서명으로** 거부한다.
+     *
+     * 어드민 거부(`adminRejectTx`)와 결과는 같지만 주체가 다르다. 사용자별 에이전트 지갑에서는
+     * 서비스가 남의 지갑 건을 마스터 권한으로 취소하면 안 된다 — 맡긴 사람이 거두는 것이
+     * 위임 모델과 맞는다. 승인과 같은 헤더 규약을 쓴다.
+     */
+    async rejectTxAsOwner(txId, ownerAddress, message, signatureB64) {
+      const r = await http('POST', `${base}/v1/transactions/${txId}/reject`, {
+        ...authHdr,
+        'X-Owner-Signature': signatureB64,
+        'X-Owner-Message': message,
+        'X-Owner-Address': ownerAddress,
+      }, {});
+      if (r.status >= 300) throw new Error(`tx ${txId} 거부 실패 ${r.status}: ${JSON.stringify(r.json)}`);
+      return r.json;
+    },
+
+    /**
      * 유예(DELAY) tx 취소. **승인 거부와 경로가 다르다** — DELAY는 승인 요청이 아니라
      * 유예 큐 대기라 `adminRejectTx`를 쓰면 `APPROVAL_NOT_FOUND`(404)로 실패한다(실측).
      * 이 구분을 놓치면 DELAY 건이 큐에 계속 남고, 남은 대기 건은 이후 판정을 전부

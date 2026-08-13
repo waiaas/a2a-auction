@@ -18,6 +18,7 @@ import { connection, PublicKey, LAMPORTS_PER_SOL } from './solana.js';
 import { loadDeployer } from './state.js';
 import { ensureSol, ensureTokenBalance } from './onchain-setup.js';
 import { recordFunding, totalFundedSol } from './store.js';
+import { AGENT_GAS_SOL } from './deposit.js';
 
 /**
  * 사용자 1명에게 줄 양.
@@ -87,4 +88,22 @@ export async function grantToOwner(ownerAddress, config) {
     solGiven,
     note: '오너 지갑에 지급했습니다. 에이전트에게 맡기려면 직접 입금해야 합니다.',
   };
+}
+
+/**
+ * 에이전트 지갑에 **가스만** 넣는다.
+ *
+ * USDC와 성격이 다르다. USDC는 "얼마까지 맡겼는가"라는 위임의 단위라 반드시 오너가 자기
+ * 서명으로 보내야 하지만, SOL은 트랜잭션을 실을 연료일 뿐이라 위임의 크기와 무관하다.
+ * 사용자에게 가스 개념을 설명하고 두 번 서명하게 하는 대신 서비스가 부담한다
+ * (결선 미팅에서 확인한 gasless UX 방향과 같다).
+ *
+ * 지급량은 목표치까지만 채운다 — 재접속마다 퍼주면 devnet 예산이 조용히 마른다.
+ */
+export async function fundAgentGas(agentAddress) {
+  const conn = connection();
+  const deployer = loadDeployer();
+  const before = (await conn.getBalance(new PublicKey(agentAddress))) / LAMPORTS_PER_SOL;
+  const after = await ensureSol(conn, agentAddress, AGENT_GAS_SOL, AGENT_GAS_SOL, deployer);
+  return { solBalance: after, solGiven: Math.max(0, after - before) };
 }

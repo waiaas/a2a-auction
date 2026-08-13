@@ -66,3 +66,19 @@ export function loadConfig() {
 export function saveConfig(cfg) {
   writeJson(PATHS.demoConfig, cfg);
 }
+
+/**
+ * 다음 라운드가 스캔을 시작할 auction_id만 갱신한다.
+ *
+ * **config 전체를 저장하면 안 되는 이유**: 사용자별 구매는 `buildUserDeps`가 config를 복사해
+ * addresses·policies의 주인공 자리에 그 사용자의 에이전트 지갑을 끼운 사본으로 돈다. 그 사본을
+ * `saveConfig`로 저장하면 demo-config.json의 buyer-a 항목이 방금 접속한 사용자 값으로 덮여
+ * 시드·구 경매 경로가 조용히 남의 지갑을 가리키게 된다. 그래서 파일을 다시 읽어 이 필드만 쓴다.
+ */
+export function bumpNextAuctionId(next) {
+  const cfg = loadConfig();
+  if (!cfg) return;
+  if (Number(cfg.nextAuctionId || 0) >= next) return; // 동시 라운드가 더 앞서 있으면 되돌리지 않는다
+  cfg.nextAuctionId = next;
+  writeJson(PATHS.demoConfig, cfg);
+}

@@ -11,12 +11,10 @@ const NOTES = {
   search: '검색은 준비 중입니다. 이 데모는 라이브 경매 1건과 카탈로그 소품으로 구성돼 있습니다.',
   bell:
     '알림 센터는 준비 중입니다. 위임 한도를 넘은 지출의 승인 대기는 Owner 콘솔의 "승인 대기 큐"에서 확인합니다.',
-  connect:
-    '에이전트 연결(세션 발급)은 각 에이전트의 WAIaaS 데몬 콘솔에서 수행합니다. 이 데모의 에이전트 5개는 이미 연결되어 있습니다.',
 };
 
-/** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · Connect Agent. */
-export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, onOpenPurchase }) {
+/** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · 지갑 연결. */
+export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, onOpenPurchase, onOpenService }) {
   const [note, setNote] = useState(null);
   const toggle = (key) => setNote((v) => (v === key ? null : key));
 
@@ -46,6 +44,9 @@ export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, on
         {btn(scrollTop, 'on navbtn', 'Live Auctions')}
         {/* 콘티 v3의 주무대. 심사위원이 루트로 들어와도 구매 라운드에 닿을 수 있어야 한다 —
             해시 URL만으로는 링크를 받은 사람만 들어온다. */}
+        {/* 실제 서비스 진입점. 위 항목들이 발표용 고정 화면이라면 이쪽은 접속자 본인의 지갑과
+            에이전트로 도는 곳이라, 나란히 두되 이름으로 구분한다. */}
+        {btn(onOpenService, 'navbtn', '내 에이전트')}
         {btn(onOpenPurchase, 'navbtn', '구매 라운드')}
         {btn(() => toggle('agents'), 'navbtn', 'Agents')}
         {btn(scrollToCatalogue, 'navbtn', 'Catalogue')}
@@ -56,7 +57,7 @@ export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, on
       <div className="sp" />
       {btn(() => toggle('search'), 'icirc ib', <Icon name="search" size={16} />)}
       {btn(() => toggle('bell'), 'icirc ib', <Icon name="bell" size={16} />)}
-      <button className="connect" onClick={() => toggle('connect')}>Connect Agent</button>
+      <button className="connect" onClick={() => onOpenService?.()}>지갑 연결</button>
       {note && (
         <div className={`bar-note ${note === 'agents' ? 'left' : 'right'}`}>{NOTES[note]}</div>
       )}

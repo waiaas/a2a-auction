@@ -47,6 +47,14 @@ function conn() {
     );
     CREATE INDEX IF NOT EXISTS idx_purchases_owner ON purchases(owner_address, created_at DESC);
   `);
+  // 연결 서명 검증이 붙으면서 생긴 컬럼. 기존 DB를 지우지 않고 이어 쓰기 위해 개별 추가한다
+  // (SQLite는 IF NOT EXISTS를 컬럼에 지원하지 않아 중복 추가 오류를 그대로 삼킨다).
+  for (const ddl of [
+    'ALTER TABLE users ADD COLUMN auth_token TEXT',
+    'ALTER TABLE users ADD COLUMN deposited_usdc REAL NOT NULL DEFAULT 0',
+  ]) {
+    try { db.exec(ddl); } catch { /* 이미 있는 컬럼 */ }
+  }
   try {
     fs.chmodSync(DB_PATH, 0o600); // 세션 토큰이 들어 있다
   } catch { /* 파일시스템이 권한을 무시하는 환경 */ }
@@ -90,6 +98,30 @@ export function touchUser(ownerAddress) {
   conn().prepare('UPDATE users SET last_seen_at = ? WHERE owner_address = ?').run(nowIso(), ownerAddress);
 }
 
+/**
+ * 연결 서명 검증에 성공한 사용자에게 인증 토큰을 발급한다.
+ *
+ * 이 토큰이 "이 브라우저가 그 지갑의 주인임을 증명했다"는 사실의 유일한 근거다. 이게 없으면
+ * 주소만 보내도 남의 에이전트 지갑을 조작할 수 있다(연결 라우트가 주소만 받던 상태).
+ */
+export function setAuthToken(ownerAddress, token) {
+  conn().prepare('UPDATE users SET auth_token = ?, last_seen_at = ? WHERE owner_address = ?')
+    .run(token, nowIso(), ownerAddress);
+}
+
+/** 인증 토큰으로 사용자 조회. 모든 사용자 API가 이 경로로 신원을 정한다. */
+export function findUserByToken(token) {
+  if (!token) return null;
+  const row = conn().prepare('SELECT * FROM users WHERE auth_token = ?').get(token);
+  return row ? { ...row, policyIds: JSON.parse(row.policy_ids) } : null;
+}
+
+/** 오너가 에이전트 지갑에 입금한 누적액. 정책 한도의 상한 판정에 쓴다. */
+export function recordDeposit(ownerAddress, usdc) {
+  conn().prepare('UPDATE users SET deposited_usdc = deposited_usdc + ? WHERE owner_address = ?')
+    .run(usdc, ownerAddress);
+}
+
 /** faucet 지급량 누적. 상한 판정의 근거가 되므로 지급 직후에 기록한다. */
 export function recordFunding(ownerAddress, { sol = 0, usdc = 0 }) {
   conn()
@@ -127,6 +159,14 @@ export function listPurchases(ownerAddress, limit = 50) {
     .prepare('SELECT payload FROM purchases WHERE owner_address = ? ORDER BY created_at DESC LIMIT ?')
     .all(ownerAddress, limit)
     .map((r) => JSON.parse(r.payload));
+}
+
+/**
+ * 구매 이력만 지운다. 사용자 행은 남기므로 **연결 상태와 에이전트 지갑이 유지된다** —
+ * 화면 초기화 때 사용자까지 지우면 인증 토큰이 죽어 그 자리에서 로그아웃된다.
+ */
+export function clearPurchases(ownerAddress) {
+  conn().prepare('DELETE FROM purchases WHERE owner_address = ?').run(ownerAddress);
 }
 
 /** 테스트·리허설 초기화용. 사용자와 이력을 함께 지운다. */

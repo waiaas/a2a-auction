@@ -44,7 +44,7 @@ import {
 import { getResult } from './lib/gemini.js';
 import { unlockViaX402 } from './lib/x402-unlock.js';
 import { loadListings, loadRequests, chooseListing } from './lib/decision.js';
-import { saveConfig, loadOwnerKeypair } from './lib/state.js';
+import { bumpNextAuctionId, loadOwnerKeypair } from './lib/state.js';
 
 /** 이 시나리오의 주인공 바이어. owner가 verified라 APPROVAL이 실제로 큐에 걸린다. */
 export const BUYER = MAIN_BUYER;
@@ -58,13 +58,20 @@ const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json
 
 const usdcToBase = (usdc) => BigInt(Math.round(usdc * 1e6));
 
-/** 오케스트레이터가 보관하는 초기 상태. */
-export function initPurchaseState() {
+/**
+ * 오케스트레이터가 보관하는 초기 상태.
+ *
+ * @param {object} [buyer] - 사용자별 라운드일 때 그 사용자의 표시 정보와 **실제 정책값**.
+ *   생략하면 공용 주인공 바이어(구 경매 경로·verify 스크립트)로 채운다. 정책값을 주입받는
+ *   이유는 사용자가 자기 한도를 바꾸기 때문이다 — config 상수를 그대로 쓰면 화면이 데몬에
+ *   등록된 값과 다른 숫자를 말하게 된다.
+ */
+export function initPurchaseState(buyer) {
   return {
     mode: 'purchase',
     phase: 'idle', // idle | choosing | purchasing | awaiting | settling | settled | error
     startedAt: null,
-    buyer: {
+    buyer: buyer ?? {
       role: BUYER,
       name: actors[BUYER]?.name ?? BUYER,
       emoji: actors[BUYER]?.emoji ?? '',
@@ -238,8 +245,10 @@ async function openAuctionFor(state, deps, purchase) {
   );
 
   // 다음 라운드가 같은 슬롯을 다시 스캔하지 않도록 진행분을 기록한다.
+  // config 전체가 아니라 이 필드만 쓴다 — 사용자별 deps는 config 사본이라 통째로 저장하면
+  // demo-config.json의 buyer-a 자리가 접속자 지갑으로 덮인다(`bumpNextAuctionId` 주석 참조).
   config.nextAuctionId = auctionId + 1;
-  saveConfig(config);
+  bumpNextAuctionId(auctionId + 1);
 
   return { auctionId, auctionPda, vault, bidPda };
 }
@@ -342,15 +351,66 @@ export async function purchaseOne(state, deps, { listingId, title, need }) {
   const listing = loadListings().find((l) => l.id === listingId);
   if (!listing) throw new Error(`카탈로그에 없는 리스팅이다: ${listingId}`);
 
+  const purchase = newPurchase(state, deps, {
+    requestId: `mcp-${listingId}-${state.purchases.length + 1}`,
+    listing,
+    title: title ?? listing.title,
+    need: need ?? 'MCP 도구로 직접 구매',
+    task: need ?? listing.summary,
+    // 도구 호출자가 직접 고른 것이므로 에이전트 판단이 아니다. 화면이 이를 구분해 표시한다.
+    decision: { reason: 'MCP 도구 호출자가 직접 지정한 리스팅이다.', rejected: null, source: 'direct' },
+  });
+  return runOnePurchase(state, deps, purchase);
+}
+
+/**
+ * 사용자가 직접 쓴 요청 하나를 산다 (자유 요청 경로).
+ *
+ * **fixtures의 고정 3건과 이 경로의 차이가 "콘티 재생 장치"와 "서비스"를 가른다.** 요청이
+ * 밖에서 들어오므로 어떤 리스팅이 뽑힐지 미리 알 수 없고, 그래서 판정도 미리 정해져 있지 않다.
+ * 선택은 컷 3과 같은 `chooseListing`을 쓴다 — 화면이 "에이전트가 골랐다"고 말하려면 실제로
+ * 같은 판단 경로여야 한다.
+ *
+ * @param {{title?:string, prompt:string, need?:string}} req - 사용자가 입력한 요청
+ */
+export async function purchaseFromRequest(state, deps, req) {
+  const prompt = String(req.prompt || '').trim();
+  if (!prompt) throw new Error('요청 내용이 비어 있다');
+
+  const listings = loadListings();
+  const request = {
+    id: `req-${state.purchases.length + 1}`,
+    title: req.title?.trim() || prompt.slice(0, 40),
+    prompt,
+    need: req.need?.trim() || '사용자가 직접 입력한 요청',
+    size: 'medium', // 폴백 판정용 기본 깊이. 라이브가 성공하면 쓰이지 않는다
+  };
+  const { listing, reason, rejected, source } = await chooseListing(request, listings);
+
+  const purchase = newPurchase(state, deps, {
+    requestId: `user-${Date.now().toString(36)}-${state.purchases.length + 1}`,
+    listing,
+    title: request.title,
+    need: request.need,
+    task: request.prompt,
+    size: listing.depth,
+    decision: { reason, rejected, source },
+  });
+  pushLog(state, `선택 ${request.id} → ${listing.id} (${listing.priceUsdc} USDC, ${source})`);
+  return runOnePurchase(state, deps, purchase);
+}
+
+/** 구매 1건의 초기 객체. 라운드 경로와 단건 경로가 같은 모양을 쓰도록 한곳에서 만든다. */
+function newPurchase(state, deps, { requestId, listing, title, need, task, size, decision }) {
   if (!state.startedAt) state.startedAt = new Date().toISOString();
   if (!state.listings.length) state.listings = loadListings();
 
   const purchase = {
-    requestId: `mcp-${listingId}-${state.purchases.length + 1}`,
-    title: title ?? listing.title,
-    need: need ?? 'MCP 도구로 직접 구매',
-    size: listing.depth,
-    task: need ?? listing.summary,
+    requestId,
+    title,
+    need,
+    size: size ?? listing.depth,
+    task,
     listing: {
       id: listing.id,
       title: listing.title,
@@ -359,8 +419,7 @@ export async function purchaseOne(state, deps, { listingId, title, need }) {
       sellerEmoji: listing.seller.emoji,
       deliverable: listing.deliverable,
     },
-    // 도구 호출자가 직접 고른 것이므로 에이전트 판단이 아니다. 화면이 이를 구분해 표시한다.
-    decision: { reason: 'MCP 도구 호출자가 직접 지정한 리스팅이다.', rejected: null, source: 'direct' },
+    decision,
     amountUsdc: listing.priceUsdc,
     sellerAddress: deps.config.seller,
     auctionId: null,
@@ -371,7 +430,11 @@ export async function purchaseOne(state, deps, { listingId, title, need }) {
     txId: null,
   };
   state.purchases.push(purchase);
+  return purchase;
+}
 
+/** 단건 구매의 온체인·정책 경로. 라운드와 달리 이미 쌓인 구매가 있는 상태에서 돈다. */
+async function runOnePurchase(state, deps, purchase) {
   const ctx = await openAuctionFor(state, deps, purchase);
   // WHITELIST는 PUT이 전체를 덮어쓰므로 지금까지의 모든 auction_pda를 함께 넣어야 한다.
   // 하나만 넣으면 앞서 산 건의 수신처가 지워져 그 건의 정산이 막힌다.
@@ -386,24 +449,33 @@ export async function purchaseOne(state, deps, { listingId, title, need }) {
 /**
  * 컷 5: 승인 대기 건을 사람이 승인한다. 스토리의 정점.
  *
- * **owner 서명이 유일한 경로다** — 거부와 달리 어드민 우회가 없어서, 지금은 시드가 보존한
- * owner 키로 서명한다. 익스텐션 승인 경로가 준비되면 서명만 지갑에서 받아 그대로 이 자리에
- * 끼우면 된다(콘티 §6의 "웹이 서명받고 오케스트레이터가 중계"와 같은 모양).
+ * **owner 서명이 유일한 경로다** — 거부와 달리 어드민 우회가 없다.
+ *
+ * 서명 주체는 두 가지다. 사용자별 에이전트 지갑은 오너가 **접속자의 지갑 주소**라 서버가
+ * 대신 서명할 수 없고(키가 없다), 반드시 브라우저에서 받은 서명을 그대로 중계해야 한다.
+ * 공용 주인공 지갑(구 경매 경로·verify 스크립트)만 시드가 보존한 owner 키로 서명한다.
  *
  * @param {string} requestId - 승인할 구매 건
+ * @param {{address:string, message:string, signature:string}} [ownerSig] - 지갑에서 받은 서명.
+ *   주면 그대로 중계하고, 없으면 서버 보관 키로 서명한다.
  */
-export async function approvePurchase(state, deps, requestId) {
+export async function approvePurchase(state, deps, requestId, ownerSig = null) {
   const { clients } = deps;
   const purchase = state.purchases.find((p) => p.requestId === requestId);
   if (!purchase) throw new Error(`구매 건을 찾을 수 없다: ${requestId}`);
   if (purchase.ui !== 'APPROVAL') throw new Error(`승인 대상이 아니다: ${requestId} (${purchase.ui})`);
   if (!purchase.txId) throw new Error(`승인할 tx가 없다: ${requestId}`);
 
-  const kp = loadOwnerKeypair();
-  const ownerAddress = kp.publicKey.toBase58();
-  // 승인 메시지는 즉시 소비되고 재현이 필요 없다. tx를 특정하고 유일성만 확보한다.
-  const message = `approve-tx:${purchase.txId}:${Date.now()}`;
-  const signature = signEd25519(kp.secretKey, message).toString('base64');
+  let ownerAddress, message, signature;
+  if (ownerSig) {
+    ({ address: ownerAddress, message, signature } = ownerSig);
+  } else {
+    const kp = loadOwnerKeypair();
+    ownerAddress = kp.publicKey.toBase58();
+    // 승인 메시지는 즉시 소비되고 재현이 필요 없다. tx를 특정하고 유일성만 확보한다.
+    message = `approve-tx:${purchase.txId}:${Date.now()}`;
+    signature = signEd25519(kp.secretKey, message).toString('base64');
+  }
 
   await clients[BUYER].approveTx(purchase.txId, ownerAddress, message, signature);
   pushLog(state, `승인 ${purchase.listing.id} ${purchase.amountUsdc} USDC (owner 서명)`);
@@ -420,6 +492,35 @@ export async function approvePurchase(state, deps, requestId) {
   purchase.ui = TX_OK.includes(fin.status) ? 'APPROVED' : classifyDeposit(fin);
   pushLog(state, `승인 후 실행 ${purchase.listing.id} → ${fin.status}`);
 
+  if (!state.purchases.some((p) => isQueuedDecision(p.ui))) state.phase = 'settling';
+  return purchase;
+}
+
+/**
+ * 대기 건을 거둔다. **승인만 있고 거부가 없으면 대기 큐가 영원히 쌓인다** — 남은 대기 건은
+ * 이후 판정을 전부 APPROVAL로 밀어올려 정책 대조가 조용히 무너진다(실측된 함정).
+ *
+ * DELAY와 APPROVAL은 큐가 달라 경로가 갈린다. DELAY는 유예 취소(세션 권한), APPROVAL은
+ * 오너 서명 거부다 — 맡긴 사람이 거두는 것이 위임 모델과 맞는다.
+ *
+ * @param {{address:string, message:string, signature:string}} [ownerSig] - APPROVAL 건에 필요
+ */
+export async function cancelPurchase(state, deps, requestId, ownerSig = null) {
+  const purchase = state.purchases.find((p) => p.requestId === requestId);
+  if (!purchase) throw new Error(`구매 건을 찾을 수 없다: ${requestId}`);
+  if (!isQueuedDecision(purchase.ui)) throw new Error(`대기 중인 건이 아니다: ${requestId} (${purchase.ui})`);
+
+  const client = deps.clients[BUYER];
+  if (purchase.ui === 'DELAY') {
+    await client.cancelDelayedTx(purchase.txId);
+  } else {
+    if (!ownerSig) throw new Error('승인 대기 건을 거부하려면 오너 서명이 필요하다');
+    await client.rejectTxAsOwner(purchase.txId, ownerSig.address, ownerSig.message, ownerSig.signature);
+  }
+
+  purchase.ui = 'REJECTED';
+  purchase.steps.deposit = { ...purchase.steps.deposit, status: 'CANCELLED', rejectedAt: new Date().toISOString() };
+  pushLog(state, `대기 취소 ${purchase.listing.id} ${purchase.amountUsdc} USDC`);
   if (!state.purchases.some((p) => isQueuedDecision(p.ui))) state.phase = 'settling';
   return purchase;
 }
@@ -664,7 +765,9 @@ function outcomeOf(purchase) {
 export function assemblePurchaseReceipt(state) {
   if (!state.purchases.length) return null;
 
-  const limits = TOKEN_LIMITS[BUYER];
+  // 정책은 상태에 실린 값을 쓴다. 사용자가 자기 한도를 바꾸면 영수증도 그 값을 말해야 한다
+  // (config 상수를 읽으면 화면과 영수증이 서로 다른 숫자를 말한다).
+  const policy = state.buyer.policy;
   const purchases = state.purchases.map((p) => ({
     requestId: p.requestId,
     request: { title: p.title, need: p.need, size: p.size },
@@ -713,10 +816,10 @@ export function assemblePurchaseReceipt(state) {
     buyer: state.buyer,
     // 이 데모의 설계도 한 줄. 화면 문구가 아니라 데몬에 실제로 등록된 값에서 온다.
     policy: {
-      notifyMaxUsdc: Number(limits.notify_max),
-      delayMaxUsdc: Number(limits.delay_max),
-      delaySeconds: DELAY_SECONDS,
-      note: `${limits.notify_max} USDC까지 알림, ${limits.delay_max} USDC까지 유예 ${DELAY_SECONDS}초, 초과는 사람 승인`,
+      ...policy,
+      note:
+        `${policy.notifyMaxUsdc} USDC까지 알림, ${policy.delayMaxUsdc} USDC까지 유예 ` +
+        `${policy.delaySeconds}초, 초과는 사람 승인`,
     },
     purchases,
     totals: {

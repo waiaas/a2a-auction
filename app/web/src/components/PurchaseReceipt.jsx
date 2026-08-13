@@ -24,21 +24,25 @@ const OUTCOME = {
 
 const short = (s, n = 16) => (s ? `${String(s).slice(0, n)}…` : '—');
 
-export default function PurchaseReceipt({ onBack }) {
+/**
+ * @param {Function} [fetcher] - 영수증 소스. 기본은 공용 데모 라운드이고, 사용자 화면은
+ *   자기 라운드(`/api/u/...`)를 넘긴다 — 같은 조립 형식이라 표시부는 하나로 쓴다.
+ */
+export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt }) {
   const [receipt, setReceipt] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let alive = true;
     const tick = () => {
-      fetchPurchaseReceipt()
+      fetcher()
         .then((d) => { if (alive) { setReceipt(d); setError(null); } })
         .catch((e) => { if (alive) setError(e.message); });
     };
     tick();
     const id = setInterval(tick, 2000);
     return () => { alive = false; clearInterval(id); };
-  }, []);
+  }, [fetcher]);
 
   if (error || !receipt) {
     return (
