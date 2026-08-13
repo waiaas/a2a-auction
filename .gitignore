@@ -19,3 +19,6 @@ test-ledger/
 .DS_Store
 *.log
 app/registered-listings.json
+app/a2ahouse.db
+app/a2ahouse.db-wal
+app/a2ahouse.db-shm
