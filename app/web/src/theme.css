@@ -369,4 +369,5 @@ body::before {
 .buy-f { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 10px;
   border-top: 1px dashed var(--edge-soft); font-size: 11px; color: var(--faint); flex-wrap: wrap; }
 .buy-f .ok { color: var(--ok); font-weight: 700; }
+.buy-f .bad { color: var(--bad); font-weight: 700; }
 .buy-f .cta { margin-left: auto; font-size: 12.5px; padding: 8px 16px; }

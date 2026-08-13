@@ -16,7 +16,7 @@ const NOTES = {
 };
 
 /** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · Connect Agent. */
-export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner }) {
+export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, onOpenPurchase }) {
   const [note, setNote] = useState(null);
   const toggle = (key) => setNote((v) => (v === key ? null : key));
 
@@ -44,6 +44,9 @@ export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner }) 
       {btn(scrollTop, 'logo logobtn', <>A2A<b>House</b></>)}
       <div className="nav">
         {btn(scrollTop, 'on navbtn', 'Live Auctions')}
+        {/* 콘티 v3의 주무대. 심사위원이 루트로 들어와도 구매 라운드에 닿을 수 있어야 한다 —
+            해시 URL만으로는 링크를 받은 사람만 들어온다. */}
+        {btn(onOpenPurchase, 'navbtn', '구매 라운드')}
         {btn(() => toggle('agents'), 'navbtn', 'Agents')}
         {btn(scrollToCatalogue, 'navbtn', 'Catalogue')}
         {btn(onOpenSeller, 'navbtn', 'Seller')}

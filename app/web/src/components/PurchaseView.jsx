@@ -122,7 +122,11 @@ export default function PurchaseView({ onBack }) {
             <div className="buy-f">
               <span>{v.sub}</span>
               {p.auctionId != null && <span>auction #{p.auctionId}</span>}
+              {/* 성공만 초록으로 말한다. 실패를 같은 색으로 적으면 화면이 거짓을 말한다. */}
               {p.steps?.settle && <span className="ok">정산 완료 · seller {p.result?.sellerUsdc ?? '—'} USDC</span>}
+              {p.x402 && <span className="ok">x402 {p.x402.amountUsdc} USDC 결제</span>}
+              {p.settleError && <span className="bad">정산 실패: {p.settleError}</span>}
+              {p.unlockError && <span className="bad">열람 결제 실패: {p.unlockError}</span>}
               {p.ui === 'APPROVAL' && (
                 <button className="cta bad" disabled={running} onClick={() => run(() => approvePurchase(p.requestId))}>
                   <Icon name="clipboard" size={13} /> 승인하기

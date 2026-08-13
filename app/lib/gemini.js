@@ -249,9 +249,16 @@ export async function getResult(item, auctionId = null) {
   // 캐시 히트: 파일 I/O는 시스템 경계 — 없거나 손상되면 미스로 보고 아래 생성 경로로 폴백한다.
   if (cachePath) {
     try {
-      const { source, contentMarkdown } = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-      if (typeof contentMarkdown === 'string') {
-        return { contentMarkdown, hash: sha256Hex(contentMarkdown), source };
+      const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      if (typeof cached.contentMarkdown === 'string') {
+        return {
+          contentMarkdown: cached.contentMarkdown,
+          hash: sha256Hex(cached.contentMarkdown),
+          source: cached.source,
+          // 구매 라운드는 경매마다 상품이 다르다 — 생성 시점의 item을 캐시에 실어
+          // seller가 (자기는 매핑을 모르면서도) 올바른 상품 메타를 돌려줄 수 있게 한다.
+          item: cached.item ?? item,
+        };
       }
     } catch { /* 캐시 없음/손상 → 재생성 */ }
   }
@@ -269,11 +276,11 @@ export async function getResult(item, auctionId = null) {
     try {
       fs.mkdirSync(PATHS.resultCache, { recursive: true });
       const tmp = `${cachePath}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ source, contentMarkdown }));
+      fs.writeFileSync(tmp, JSON.stringify({ source, contentMarkdown, item }));
       fs.renameSync(tmp, cachePath);
     } catch (e) {
       console.error(`[gemini] result 캐시 쓰기 실패 auction=${auctionId}: ${e.message}`);
     }
   }
-  return { contentMarkdown, hash: sha256Hex(contentMarkdown), source };
+  return { contentMarkdown, hash: sha256Hex(contentMarkdown), source, item };
 }

@@ -41,10 +41,25 @@ export default function App() {
     finally { setStarting(false); }
   }, []);
 
+  // 해시로 들어온 뒤 뒤로가기·주소 수정으로 해시가 바뀌는 경우까지 따라간다. 최초 로드만
+  // 보면 링크를 다시 눌러도 화면이 그대로라 "링크가 죽었다"로 읽힌다.
+  useEffect(() => {
+    const onHash = () => setView(window.location.hash === '#purchase' ? 'purchase' : 'live');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   const openReceipt = useCallback(() => setView('receipt'), []);
   const openSeller = useCallback(() => setView('seller'), []);
   const openOwner = useCallback(() => setView('owner'), []);
-  const openLive = useCallback(() => setView('live'), []);
+  const openPurchase = useCallback(() => {
+    window.location.hash = '#purchase'; // 주소를 실제로 바꿔 공유·새로고침이 같은 화면을 연다
+    setView('purchase');
+  }, []);
+  const openLive = useCallback(() => {
+    if (window.location.hash) window.history.replaceState({}, '', window.location.pathname);
+    setView('live');
+  }, []);
 
   if (view === 'receipt') {
     return (
@@ -83,7 +98,7 @@ export default function App() {
       {state.phase === 'error' && (
         <div className="errbar">라운드 실행 오류: {state.error || '알 수 없는 오류'}</div>
       )}
-      <Hero state={state} onStart={onStart} starting={starting} onOpenReceipt={openReceipt} onOpenSeller={openSeller} onOpenOwner={openOwner} />
+      <Hero state={state} onStart={onStart} starting={starting} onOpenReceipt={openReceipt} onOpenSeller={openSeller} onOpenOwner={openOwner} onOpenPurchase={openPurchase} />
       <div className="lower">
         <Catalogue />
         <Rail state={state} />

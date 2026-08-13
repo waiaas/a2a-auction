@@ -15,7 +15,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { PROGRAM_ID, PATHS, TOKEN_LIMITS, DELAY_SECONDS, MAIN_BUYER } from './config.js';
+import { PROGRAM_ID, PATHS, TOKEN_LIMITS, DELAY_SECONDS, MAIN_BUYER, X402_UNLOCK } from './config.js';
 import {
   deriveAuctionPda,
   deriveVault,
@@ -41,6 +41,8 @@ import {
   waitForVaultDeposit,
   waitForTokenBalance,
 } from './lib/onchain-wait.js';
+import { getResult } from './lib/gemini.js';
+import { unlockViaX402 } from './lib/x402-unlock.js';
 import { loadListings, loadRequests, chooseListing } from './lib/decision.js';
 import { saveConfig, loadOwnerKeypair } from './lib/state.js';
 
@@ -120,6 +122,8 @@ async function chooseAll(state, deps) {
       title: request.title,
       need: request.need,
       size: request.size,
+      // 결과물 생성(컷 7)이 쓰는 원문 과업. 리스팅이 아니라 요청이 과업의 원천이다.
+      task: request.prompt,
       listing: {
         id: listing.id,
         title: listing.title,
@@ -363,12 +367,18 @@ async function settleOne(state, deps, purchase) {
 
   // reveal은 vault 잔고가 금액 이상일 것을 요구한다(DepositNotFound). 제출과 확정 사이의
   // 간극을 흡수하지 않으면 정산 전체가 죽는다.
-  const wait = await waitForVaultDeposit(conn, vault, purchase.steps.deposit?.txHash, purchase.amountUsdc);
+  //
+  // 기본 5초로는 짧다 — 특히 DELAY 건은 유예가 막 풀려 SUBMITTED가 된 직후라 온체인
+  // 반영이 덜 됐을 수 있다(감사 지적). 20초까지 기다리고, 그래도 안 되면 reveal은 시도하되
+  // 아래 settle 가드가 최종 판단을 맡는다.
+  const wait = await waitForVaultDeposit(conn, vault, purchase.steps.deposit?.txHash, purchase.amountUsdc, 500, 40);
   if (!wait.confirmed) {
     pushLog(state, `${purchase.listing.id} 예치 확정 대기 초과(${wait.waitedMs}ms) — reveal은 그대로 시도`);
   }
 
-  {
+  // reveal은 한 번만 보낸다. 재시도로 다시 보내면 온체인이 AlreadyRevealed로 거부해
+  // 정산이 영구히 막힌다(감사 지적). 이미 성공한 reveal이 있으면 건너뛴다.
+  if (!purchase.steps.reveal || !TX_OK.includes(purchase.steps.reveal.status)) {
     const body = buildRevealBid({
       bidder: config.addresses[BUYER],
       auctionPda,
@@ -382,6 +392,30 @@ async function settleOne(state, deps, purchase) {
     const onchain = await confirmSig(conn, fin.txHash);
     purchase.steps.reveal = { status: fin.status, txHash: fin.txHash || null, onchain };
     if (!TX_OK.includes(fin.status)) throw new Error(`reveal 실패(${purchase.requestId}): ${JSON.stringify(fin)}`);
+  }
+
+  /**
+   * **settle 직전 필수 가드 (콘티 §5).**
+   *
+   * `settle.rs:29-33`은 winner가 없어도 `status = Settled`를 먼저 쓰고, 전송만 건너뛴다.
+   * 복구 명령이 없으므로 이 경우 **돈이 0원 이동한 채 경매가 영구히 잠긴다.** 데몬의
+   * SUBMITTED는 브로드캐스트일 뿐 온체인 성공이 아니라서, reveal이 DepositNotFound 등으로
+   * 실패해도 앞 단계는 통과할 수 있다. 그래서 데몬 응답이 아니라 **온체인 계정 상태**를
+   * 게이트로 삼는다 — winner와 highest가 실제로 세팅된 뒤에만 settle을 보낸다.
+   */
+  const beforeSettle = await fetchAuction(conn, auctionPda);
+  if (!beforeSettle) {
+    throw new Error(`settle 중단(${purchase.requestId}): auction #${purchase.auctionId} 계정을 읽을 수 없다`);
+  }
+  if (beforeSettle.status === 'Settled') {
+    throw new Error(`settle 중단(${purchase.requestId}): auction #${purchase.auctionId}가 이미 Settled다`);
+  }
+  if (!beforeSettle.winner || BigInt(beforeSettle.highest) === 0n) {
+    throw new Error(
+      `settle 중단(${purchase.requestId}): reveal이 온체인에 반영되지 않았다 ` +
+      `(winner=${beforeSettle.winner ?? 'none'}, highest=${beforeSettle.highest}). ` +
+      `이대로 settle하면 돈이 움직이지 않은 채 경매가 영구히 잠긴다.`,
+    );
   }
 
   // 정산 반영 기준선. 잔고 조회가 한 박자 늦을 수 있어 before를 먼저 잡는다.
@@ -413,6 +447,37 @@ async function settleOne(state, deps, purchase) {
     state,
     `정산 ${purchase.listing.id} ${purchase.amountUsdc} USDC → seller ${sellerUsdc} (auction #${purchase.auctionId} ${purchase.result.auctionStatus})`,
   );
+
+  // 컷 7 전반부: 구매한 능력이 실행되어 결과물이 생긴다. 여기서 auctionId 캐시에 확정해
+  // seller가 동일 hash를 재현한다(M2 원칙). 상품 메타(item)도 캐시에 실려 seller가
+  // 리스팅 매핑을 몰라도 올바른 상품 정보를 내려준다.
+  const result = await getResult(
+    { title: purchase.listing.title, task: purchase.task, seller: purchase.listing.sellerName },
+    purchase.auctionId,
+  );
+  purchase.resultMeta = { hash: result.hash, source: result.source };
+  pushLog(state, `결과물 생성 ${purchase.listing.id} hash=${result.hash.slice(0, 12)}… (${result.source})`);
+}
+
+/**
+ * 컷 7 후반부: 결과물 열람에 x402 마이크로페이먼트를 붙인다.
+ *
+ * 정산(온체인 Settled)이 seller의 시간 게이트라 반드시 정산 뒤에 온다. 실패해도 정산을
+ * 되돌리지 않는다 — 결제 실패는 열람이 잠긴 것이지 구매가 무효가 된 것이 아니다.
+ * unlockError를 남겨 두면 다음 settlePurchases 호출이 재시도한다.
+ */
+async function unlockOne(state, deps, purchase) {
+  try {
+    purchase.x402 = await unlockViaX402(deps.clients[BUYER], purchase.auctionId, (m) => pushLog(state, m));
+    purchase.unlockError = null;
+    pushLog(
+      state,
+      `x402 unlock ${purchase.listing.id}: ${purchase.x402.amountUsdc} USDC sig=${purchase.x402.onchainSignature}`,
+    );
+  } catch (e) {
+    purchase.unlockError = e.message;
+    pushLog(state, `x402 unlock 실패 ${purchase.listing.id}: ${e.message}`);
+  }
 }
 
 /**
@@ -432,6 +497,15 @@ export async function settlePurchases(state, deps) {
       pushLog(state, `정산 실패 ${purchase.listing.id}: ${e.message}`);
     }
   }
+
+  // 컷 7: 정산된 건의 결과물을 x402로 연다. 첫 시도와 실패 재시도가 같은 조건이다
+  // (settle 있음 + x402 없음). X402_UNLOCK이 꺼져 있으면 무료 열람 경로 그대로다(킬 스위치).
+  if (X402_UNLOCK) {
+    for (const purchase of state.purchases) {
+      if (purchase.steps.settle && !purchase.x402) await unlockOne(state, deps, purchase);
+    }
+  }
+
   const done = state.purchases.filter((p) => p.steps.settle).length;
   const waiting = state.purchases.filter((p) => isQueuedDecision(p.ui)).length;
   state.phase = waiting ? 'awaiting' : 'settled';

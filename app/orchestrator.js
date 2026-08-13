@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS, NETWORK_LABEL } from './config.js';
+import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS, NETWORK_LABEL, MAIN_BUYER } from './config.js';
 import { initState, buildDeps, openAuction, runBidding, runAuction, assembleReceipt } from './auction-flow.js';
 import {
   initPurchaseState,
@@ -206,7 +206,9 @@ app.post('/api/purchase/reset', (_req, res) => {
 // 데몬의 승인 큐·거부는 원래 어드민 UI(:3101/admin)의 기능이다. 영상에서 오리진을 오가며
 // 재로그인하는 문제를 없애려고 같은 SPA에서 쓸 수 있게 relay한다. 마스터 패스워드는
 // 오케스트레이터가 이미 보유한 것(정책 갱신에 사용)을 그대로 쓴다 — 새 권한이 아니다.
-const OWNER_ROLE = 'buyer-b';
+// 주인공 바이어를 그대로 따라간다. 여기에 'buyer-b'를 박아 두면 새 시나리오의 승인 대기 건이
+// Owner 콘솔에 **하나도 뜨지 않고**(다른 지갑의 큐를 보므로) 위임 한도도 남의 값을 표시한다.
+const OWNER_ROLE = MAIN_BUYER;
 
 /**
  * 바인딩 주소. 루프백이 아니면 owner relay가 인터넷에 열린다는 뜻이다.

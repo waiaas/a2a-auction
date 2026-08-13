@@ -112,13 +112,16 @@ app.get('/slot/:auctionId/result', async (req, res) => {
 
   // 정산 확인됨 → 결과 공개. 승자 주소를 함께 반환해 호출자가 대조할 수 있게 한다.
   // orchestrator가 정산 시 저장한 확정 캐시를 재사용 → receipt.resultHash와 동일(M2).
+  // 구매 라운드는 경매마다 상품이 다르다 — 캐시에 실린 생성 시점 item이 있으면 그것을 쓴다
+  // (seller는 auctionId ↔ 리스팅 매핑을 모르고, 알 필요도 없게 한다).
   const result = await getResult(AUCTION_ITEM, auctionId);
+  const winnerRole = Object.entries(config.addresses).find(([, addr]) => addr === auction.winner)?.[0];
   return res.json({
     locked: false,
     auctionId,
     winner: auction.winner,
-    unlockedForBuyerId: auction.winner === config.addresses['buyer-a'] ? 'buyer-a' : 'unknown',
-    item: AUCTION_ITEM,
+    unlockedForBuyerId: winnerRole ?? 'unknown',
+    item: result.item ?? AUCTION_ITEM,
     result: {
       contentMarkdown: result.contentMarkdown,
       hash: result.hash,
