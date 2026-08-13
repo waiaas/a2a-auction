@@ -27,15 +27,23 @@ async function main() {
   console.log(`  result: hash=${state.resultMeta?.hash?.slice(0, 16)}… source=${state.resultMeta?.source}`);
 
   const receipt = assembleReceipt(state);
+  // 판정 라벨은 이제 데몬 티어 이름 그대로다(구 ALLOW/APPROVAL_REQUIRED 아님).
+  // A는 실행 통과, B는 대기 큐, C는 거부라는 **의미**로 검증한다 — 라벨 문자열을 박아 두면
+  // 티어 표기가 바뀔 때마다 이 검증이 조용히 빨간불이 된다.
+  const EXECUTED = ['INSTANT', 'NOTIFY'];
+  const QUEUED = ['DELAY', 'APPROVAL'];
   const ok =
-    state.buyers['buyer-a'].ui === 'ALLOW' &&
-    state.buyers['buyer-b'].ui === 'APPROVAL_REQUIRED' &&
+    EXECUTED.includes(state.buyers['buyer-a'].ui) &&
+    QUEUED.includes(state.buyers['buyer-b'].ui) &&
     state.buyers['buyer-c'].ui === 'DENY' &&
     state.auctionState?.status === 'Settled' &&
     state.auctionState?.winnerIsA === true &&
     state.result?.sellerUsdc >= 2.8;
 
-  console.log(`\n판정: ${ok ? '✅ PASS (A 실행 / B 승인대기 / C 거부 · settle 완료 · A 낙찰)' : '❌ FAIL'}`);
+  console.log(
+    `\n판정: ${ok ? '✅ PASS (A 실행 / B 대기 / C 거부 · settle 완료 · A 낙찰)' : '❌ FAIL'}` +
+    `  [A=${state.buyers['buyer-a'].ui} B=${state.buyers['buyer-b'].ui} C=${state.buyers['buyer-c'].ui}]`,
+  );
   if (!ok) {
     console.log(JSON.stringify(receipt, null, 2));
     process.exit(1);

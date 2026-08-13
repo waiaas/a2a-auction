@@ -50,6 +50,8 @@ import { saveConfig, loadOwnerKeypair } from './lib/state.js';
 export const BUYER = MAIN_BUYER;
 
 const TX_OK = ['CONFIRMED', 'SUBMITTED'];
+/** 더 기다려도 바뀌지 않는 종료 상태. 대기 큐에서 이 상태로 끝난 건은 결말로 확정한다. */
+const TERMINAL_FAIL = ['CANCELLED', 'FAILED', 'EXPIRED', 'POLICY_DENIED', 'REJECTED'];
 const DEPOSIT_STOP = ['CONFIRMED', 'SUBMITTED', 'QUEUED', 'DELAYED', 'CANCELLED', 'FAILED', 'POLICY_DENIED'];
 
 const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
@@ -143,6 +145,54 @@ async function chooseAll(state, deps) {
       txId: null,
     });
     pushLog(state, `선택 ${request.id} → ${listing.id} (${listing.priceUsdc} USDC, ${source})`);
+  }
+
+  enforceDistinctTiers(state, listings);
+}
+
+/**
+ * 세 선택이 서로 다른 가격대를 덮도록 강제한다.
+ *
+ * **컷 4는 컷 3의 출력에 얹혀 있다.** 모델이 두 요청에 같은 리스팅을 고르면 두 건이 같은
+ * 티어로 접혀 "같은 정책, 세 가지 반응"이 그 자리에서 무너진다. 폴백은 모델이 실패했을
+ * 때만 도는 장치라, 모델이 **성공적으로 쏠린 선택**을 한 경우는 잡지 못한다.
+ *
+ * 겹친 건만 요청에 적힌 폴백 리스팅으로 내리고, 그 사실을 화면 태그(source)와 로그에
+ * 남긴다 — 조용히 바꾸면 화면이 "에이전트 판단"이라고 거짓을 말하게 된다.
+ */
+function enforceDistinctTiers(state, listings) {
+  const seen = new Set();
+  for (const purchase of state.purchases) {
+    if (!seen.has(purchase.listing.id)) {
+      seen.add(purchase.listing.id);
+      continue;
+    }
+    const request = loadRequests().find((r) => r.id === purchase.requestId);
+    const fallback = listings.find((l) => l.id === request?.expectedListingId);
+    if (!fallback || seen.has(fallback.id)) continue;
+
+    pushLog(
+      state,
+      `티어 중복 교정: ${purchase.requestId}의 선택 ${purchase.listing.id} → ${fallback.id} ` +
+      `(세 건이 서로 다른 가격대를 덮어야 컷 4가 성립한다)`,
+    );
+    purchase.listing = {
+      id: fallback.id,
+      title: fallback.title,
+      priceUsdc: fallback.priceUsdc,
+      sellerName: fallback.seller.name,
+      sellerEmoji: fallback.seller.emoji,
+      deliverable: fallback.deliverable,
+    };
+    purchase.amountUsdc = fallback.priceUsdc;
+    purchase.decision = {
+      ...purchase.decision,
+      source: 'fallback',
+      reason:
+        `다른 요청이 같은 리스팅을 선택해 중복을 피했다. 요청 크기 '${purchase.size}'에 맞는 ` +
+        `${fallback.title}(${fallback.priceUsdc} USDC)로 조정했다.`,
+    };
+    seen.add(fallback.id);
   }
 }
 
@@ -327,6 +377,16 @@ export async function refreshPurchases(state, deps) {
   for (const purchase of state.purchases) {
     if (!isQueuedDecision(purchase.ui) || !purchase.txId) continue;
     const tx = await clients[BUYER].getTx(purchase.txId);
+
+    // 종료 상태(거부·취소·실패)도 흡수해야 한다. 이걸 건너뛰면 그 건이 영원히 대기로 남아
+    // phase가 awaiting에 갇히고, 화면은 이미 거부된 건에 "승인하기" 버튼을 계속 띄운다.
+    if (TERMINAL_FAIL.includes(tx.status)) {
+      purchase.ui = tx.status === 'POLICY_DENIED' ? 'DENY' : 'REJECTED';
+      purchase.steps.deposit = { ...purchase.steps.deposit, status: tx.status };
+      pushLog(state, `대기 종료 ${purchase.listing.id} → ${purchase.ui} (${tx.status})`);
+      changed = true;
+      continue;
+    }
     if (!TX_OK.includes(tx.status)) continue;
 
     // 유예가 풀려 실행된 것과 사람이 승인해 실행된 것은 다른 사건이라 라벨을 나눈다.

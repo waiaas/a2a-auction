@@ -77,6 +77,9 @@ const VERDICT = {
   APPROVED: { cls: 'gold', short: 'APPROVED', label: 'APPROVED', step: '승인 후 실행', sub: 'owner 서명으로 실행됨' },
   // 유예가 끝나 스스로 실행된 상태. 사람이 승인한 APPROVED와 다른 사건이라 라벨을 나눈다.
   RELEASED: { cls: 'ok', short: 'RELEASED', label: 'RELEASED', step: '유예 후 실행', sub: '유예 만료 · 취소 없이 통과' },
+  // 사람이 거부했거나 유예 중 취소된 결말. 대기와 같은 배지로 두면 이미 끝난 건에
+  // 승인 버튼이 계속 떠 있게 된다.
+  REJECTED: { cls: 'bad', short: 'REJECTED', label: 'REJECTED', step: '거부됨', sub: '사람이 거부 · 실행되지 않음' },
   // 정책 판정이 아니라 관측 실패(데몬 응답 타임아웃) — 거부와 같은 배지로 보이면 서사가 뒤집힌다.
   TIMEOUT: { cls: 'pending', short: 'TIMEOUT', label: 'TIMEOUT', step: '관측 실패', sub: '판정 관측 실패' },
   // 구 시나리오 호환

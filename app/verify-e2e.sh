@@ -109,8 +109,10 @@ SELLER_USDC=$(echo "$R" | jq -r '.settlement.sellerUsdc')
 VAULT_USDC=$(echo "$R" | jq -r '.settlement.vaultUsdc')
 
 echo "  A=$A_UI  B=$B_UI(큐 등재 $B_PENDING)  C=$C_UI  | auction=$STATUS winnerIsA=$WINNER_IS_A sellerUsdc=$SELLER_USDC vault=$VAULT_USDC"
-[ "$A_UI" = "ALLOW" ] || fail "A가 ALLOW 아님 ($A_UI)"
-[ "$B_UI" = "APPROVAL_REQUIRED" ] || fail "B가 APPROVAL_REQUIRED 아님 ($B_UI)"
+# 판정 라벨은 데몬 티어 이름 그대로다(구 ALLOW/APPROVAL_REQUIRED 아님). 라벨 문자열이 아니라
+# **의미**로 검증한다 — A는 실행 통과(INSTANT·NOTIFY), B는 대기 큐(DELAY·APPROVAL), C는 거부.
+case "$A_UI" in INSTANT|NOTIFY) ;; *) fail "A가 실행 티어 아님 ($A_UI)" ;; esac
+case "$B_UI" in DELAY|APPROVAL) ;; *) fail "B가 대기 티어 아님 ($B_UI)" ;; esac
 [ "$C_UI" = "DENY" ] || fail "C가 DENY 아님 ($C_UI)"
 # README가 실물 증거로 내세우는 항목 — 데몬의 승인 대기 큐에 B의 tx가 실제로 있는지
 # null = 라운드 중 큐 조회 자체가 실패한 것(관측 실패). false(큐에 없음 = 정책 경로 문제)와
