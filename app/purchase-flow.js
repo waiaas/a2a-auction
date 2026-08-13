@@ -259,13 +259,60 @@ async function updateWhitelist(state, deps, pdas) {
 }
 
 /**
+ * 구매 1건 실행: commit → deposit. **티어가 갈리는 지점은 예치 한 곳뿐이다.**
+ * commit은 CONTRACT_CALL이라 token_limits가 걸리지 않는다(`spending-limit.ts`가 건너뛴다).
+ *
+ * 예치는 정지 상태(확정·큐 등재·거부)까지만 관측한다. DELAY는 유예가 끝나면 스스로 실행되고
+ * APPROVAL은 사람이 승인해야 하므로, 여기서 끝까지 기다리면 발표가 멈춘다.
+ */
+async function executePurchase(state, deps, purchase, ctx) {
+  const { conn, config, clients } = deps;
+  const { auctionId, auctionPda, bidPda } = ctx;
+  const amount = usdcToBase(purchase.amountUsdc);
+
+  {
+    const body = buildCommitBid({
+      bidder: config.addresses[BUYER],
+      auctionPda,
+      bidPda,
+      commitHash: commitHash(amount, BUYER, auctionId),
+    });
+    const id = await clients[BUYER].sendTx(body);
+    const fin = await clients[BUYER].pollTx(id, ['CONFIRMED', 'SUBMITTED', 'FAILED', 'CANCELLED']);
+    const onchain = await confirmSig(conn, fin.txHash);
+    purchase.steps.commit = { status: fin.status, txHash: fin.txHash || null, onchain };
+    if (!TX_OK.includes(fin.status)) throw new Error(`commit 실패(${purchase.requestId}): ${JSON.stringify(fin)}`);
+  }
+
+  {
+    const body = buildDeposit({ auctionPda, amount, mint: config.mint, assetId: config.assetId });
+    const id = await clients[BUYER].sendTx(body);
+    const fin = await clients[BUYER].pollTx(id, DEPOSIT_STOP, 25000);
+    const onchain = await confirmSig(conn, fin.txHash);
+    const decision = classifyDeposit(fin);
+    purchase.txId = id;
+    purchase.tier = fin.tier || null;
+    purchase.ui = decision;
+    purchase.steps.deposit = {
+      txId: id,
+      status: fin.status,
+      tier: fin.tier || null,
+      txHash: fin.txHash || null,
+      onchain,
+      error: fin.error || fin.errorMessage || null,
+    };
+    pushLog(state, `구매 ${purchase.listing.id} ${purchase.amountUsdc} USDC → ${decision} (${fin.status})`);
+  }
+  return purchase;
+}
+
+/**
  * 컷 4: 세 건을 같은 정책에 통과시킨다. 금액만 다르고 나머지는 같다.
  *
  * 예치는 정지 상태(확정·큐 등재·거부)까지만 관측한다. DELAY는 유예가 끝나면 스스로 실행되고
  * APPROVAL은 사람이 승인해야 하므로, 여기서 끝까지 기다리면 발표가 멈춘다.
  */
 async function purchaseAll(state, deps) {
-  const { conn, config, clients } = deps;
   state.phase = 'purchasing';
 
   const ctxs = [];
@@ -275,51 +322,65 @@ async function purchaseAll(state, deps) {
   await updateWhitelist(state, deps, ctxs.map((c) => c.auctionPda.toBase58()));
 
   for (const [i, purchase] of state.purchases.entries()) {
-    const { auctionId, auctionPda, bidPda } = ctxs[i];
-    const amount = usdcToBase(purchase.amountUsdc);
-
-    // commit: CONTRACT_CALL이라 금액 티어가 걸리지 않는다. 세 건 모두 통과해야 정상이다.
-    {
-      const body = buildCommitBid({
-        bidder: config.addresses[BUYER],
-        auctionPda,
-        bidPda,
-        commitHash: commitHash(amount, BUYER, auctionId),
-      });
-      const id = await clients[BUYER].sendTx(body);
-      const fin = await clients[BUYER].pollTx(id, ['CONFIRMED', 'SUBMITTED', 'FAILED', 'CANCELLED']);
-      const onchain = await confirmSig(conn, fin.txHash);
-      purchase.steps.commit = { status: fin.status, txHash: fin.txHash || null, onchain };
-      if (!TX_OK.includes(fin.status)) throw new Error(`commit 실패(${purchase.requestId}): ${JSON.stringify(fin)}`);
-    }
-
-    // 예치: 여기서 티어가 갈린다.
-    {
-      const body = buildDeposit({ auctionPda, amount, mint: config.mint, assetId: config.assetId });
-      const id = await clients[BUYER].sendTx(body);
-      const fin = await clients[BUYER].pollTx(id, DEPOSIT_STOP, 25000);
-      const onchain = await confirmSig(conn, fin.txHash);
-      const decision = classifyDeposit(fin);
-      purchase.txId = id;
-      purchase.tier = fin.tier || null;
-      purchase.ui = decision;
-      purchase.steps.deposit = {
-        txId: id,
-        status: fin.status,
-        tier: fin.tier || null,
-        txHash: fin.txHash || null,
-        onchain,
-        error: fin.error || fin.errorMessage || null,
-      };
-      pushLog(
-        state,
-        `구매 ${purchase.listing.id} ${purchase.amountUsdc} USDC → ${decision} (${fin.status})`,
-      );
-    }
+    await executePurchase(state, deps, purchase, ctxs[i]);
   }
 
   // 대기 건이 남았는지에 따라 다음 장면이 갈린다(승인·유예가 있으면 컷 5로).
   state.phase = state.purchases.some((p) => isQueuedDecision(p.ui)) ? 'awaiting' : 'settling';
+}
+
+/**
+ * 단건 구매 (MCP `purchase_skill`이 쓰는 경로, 컷 2).
+ *
+ * 라운드가 요청 3건을 한꺼번에 도는 것과 달리, 여기서는 **이미 고른 리스팅 하나**를 산다.
+ * 도구 호출자가 후보를 조회(`list_skills`)하고 스스로 골랐다는 전제라, 선택 단계를 건너뛴다.
+ *
+ * **정책 판정을 그대로 반환한다**(콘티 §8의 설계 핵심). 5달러는 즉시 성공, 10달러는 유예 중,
+ * 20달러는 승인 대기가 도구 응답에 찍히면 별도 설명 없이 정책 엔진이 스스로를 증명한다.
+ */
+export async function purchaseOne(state, deps, { listingId, title, need }) {
+  const listing = loadListings().find((l) => l.id === listingId);
+  if (!listing) throw new Error(`카탈로그에 없는 리스팅이다: ${listingId}`);
+
+  if (!state.startedAt) state.startedAt = new Date().toISOString();
+  if (!state.listings.length) state.listings = loadListings();
+
+  const purchase = {
+    requestId: `mcp-${listingId}-${state.purchases.length + 1}`,
+    title: title ?? listing.title,
+    need: need ?? 'MCP 도구로 직접 구매',
+    size: listing.depth,
+    task: need ?? listing.summary,
+    listing: {
+      id: listing.id,
+      title: listing.title,
+      priceUsdc: listing.priceUsdc,
+      sellerName: listing.seller.name,
+      sellerEmoji: listing.seller.emoji,
+      deliverable: listing.deliverable,
+    },
+    // 도구 호출자가 직접 고른 것이므로 에이전트 판단이 아니다. 화면이 이를 구분해 표시한다.
+    decision: { reason: 'MCP 도구 호출자가 직접 지정한 리스팅이다.', rejected: null, source: 'direct' },
+    amountUsdc: listing.priceUsdc,
+    sellerAddress: deps.config.seller,
+    auctionId: null,
+    addresses: null,
+    steps: { createAuction: null, commit: null, deposit: null, reveal: null, settle: null },
+    tier: null,
+    ui: null,
+    txId: null,
+  };
+  state.purchases.push(purchase);
+
+  const ctx = await openAuctionFor(state, deps, purchase);
+  // WHITELIST는 PUT이 전체를 덮어쓰므로 지금까지의 모든 auction_pda를 함께 넣어야 한다.
+  // 하나만 넣으면 앞서 산 건의 수신처가 지워져 그 건의 정산이 막힌다.
+  const pdas = state.purchases.filter((p) => p.addresses).map((p) => p.addresses.auctionPda);
+  await updateWhitelist(state, deps, pdas);
+  await executePurchase(state, deps, purchase, ctx);
+
+  state.phase = state.purchases.some((p) => isQueuedDecision(p.ui)) ? 'awaiting' : 'settling';
+  return purchase;
 }
 
 /**

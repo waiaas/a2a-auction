@@ -12,14 +12,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PATHS } from '../config.js';
 import { generateFunctionCall } from './gemini.js';
+import { loadCatalog } from './listings-store.js';
 
 function loadFixture(name) {
   return JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, name), 'utf8'));
 }
 
-/** 카탈로그 리스팅 3종 (컷 1에서 화면에 깔리는 것과 같은 소스). */
+/**
+ * 카탈로그 리스팅 (컷 1에서 화면에 깔리는 것과 같은 소스).
+ * MCP로 등록된 리스팅까지 포함한다 — 등록(컷 0)이 선택(컷 3)의 후보에 실제로 들어가야 한다.
+ */
 export function loadListings() {
-  return loadFixture('listings.json').listings;
+  return loadCatalog();
 }
 
 /** 바이어가 맡기는 일 3건. */

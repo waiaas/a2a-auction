@@ -25,8 +25,10 @@ import {
   settlePurchases,
   approvePurchase,
   assemblePurchaseReceipt,
+  purchaseOne,
 } from './purchase-flow.js';
 import { loadListings } from './lib/decision.js';
+import { registerListing } from './lib/listings-store.js';
 
 const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
 
@@ -144,6 +146,49 @@ function runPurchaseInBackground(promise, label) {
 }
 
 app.get('/api/purchase/catalog', (_req, res) => res.json({ listings: loadListings() }));
+
+// 컷 0: 셀러가 능력을 등록한다. MCP `register_skill`이 이 라우트를 감싼다.
+// 등록분은 카탈로그에 즉시 반영되어 컷 1 화면과 컷 3 후보에 함께 들어간다.
+app.post('/api/purchase/listings', (req, res) => {
+  try {
+    const { listing, replaced } = registerListing(req.body ?? {});
+    res.status(replaced ? 200 : 201).json({ listing, replaced });
+  } catch (e) {
+    // 입력 검증 실패는 호출자 잘못이라 4xx로 돌려준다 — 도구가 무엇이 틀렸는지 알아야 고친다.
+    res.status(400).json({ error: 'invalid_listing', message: e.message });
+  }
+});
+
+// 컷 2: 도구 호출자가 고른 리스팅 하나를 산다. 정책 판정이 응답으로 그대로 돌아간다.
+app.post('/api/purchase/buy', (req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  const { listingId, title, need } = req.body ?? {};
+  if (!listingId) return res.status(400).json({ error: 'listingId_required' });
+
+  purchaseRunning = true;
+  purchaseOne(purchaseState, d, { listingId, title, need })
+    .then((p) => {
+      res.json({
+        requestId: p.requestId,
+        listingId: p.listing.id,
+        amountUsdc: p.amountUsdc,
+        tier: p.tier,
+        verdict: p.ui,
+        auctionId: p.auctionId,
+        depositStatus: p.steps.deposit?.status ?? null,
+        txId: p.txId,
+      });
+    })
+    .catch((e) => {
+      console.error('[orchestrator] purchaseOne 실패:', e.message);
+      res.status(502).json({ error: 'purchase_failed', message: e.message });
+    })
+    .finally(() => {
+      purchaseRunning = false;
+    });
+});
 
 app.post('/api/purchase/start', (_req, res) => {
   if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
