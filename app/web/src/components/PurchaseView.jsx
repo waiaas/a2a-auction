@@ -10,7 +10,7 @@ import { verdictInfo, fmtUsdc } from '../lib/derive.js';
  * → 구매 3건(같은 정책이 금액마다 어떻게 반응하나). **판정 배지는 데몬이 내린 티어 이름을
  * 그대로 쓴다** — 화면 용어와 정책 엔진의 판정이 어긋나면 데모가 스스로를 증명하지 못한다.
  */
-export default function PurchaseView({ onBack }) {
+export default function PurchaseView({ onBack, onOpenReceipt }) {
   const [state, setState] = useState(null);
   const [listings, setListings] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -90,6 +90,9 @@ export default function PurchaseView({ onBack }) {
         </button>
         <button className="cta ghost" disabled={running || !settleable} onClick={() => run(settlePurchase)}>
           정산하기
+        </button>
+        <button className="cta ghost" disabled={!purchases.length} onClick={onOpenReceipt}>
+          영수증
         </button>
         {state?.phase && <span className="ph">phase: {state.phase}</span>}
       </div>

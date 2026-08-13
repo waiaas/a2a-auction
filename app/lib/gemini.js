@@ -263,10 +263,14 @@ export async function getResult(item, auctionId = null) {
     } catch { /* 캐시 없음/손상 → 재생성 */ }
   }
 
-  const cached = fixtureText('result.md');
+  // 폴백 원고는 **리스팅마다 다른 파일**을 쓴다. 하나를 공유하면 5 USDC짜리와 20 USDC짜리가
+  // 같은 결과물·같은 hash로 나와 "가격 차이가 납득되게" 하라는 콘티 컷 1의 요구가 무너진다.
+  // 라이브 생성이 실패하는 순간(쿼터 소진 등)에 바로 드러나는 자리라 폴백에서도 분량을 가른다.
+  const cached = fixtureText(item.fallbackFile || 'result.md');
+  const depthHint = item.depthHint ? `\n분량과 깊이: ${item.depthHint}` : '';
   const prompt =
     `"${item.task}"에 대한 전문 리서치 브리핑을 한국어 마크다운으로 작성하라. ` +
-    `한 줄 요약, 채택 신호, 병목, 시사점, 방법론 주석 순으로. 수치는 대표값임을 명시하라.`;
+    `한 줄 요약, 채택 신호, 병목, 시사점, 방법론 주석 순으로. 수치는 대표값임을 명시하라.${depthHint}`;
   const live = await generate(prompt, { timeoutMs: 20000 });
   const contentMarkdown = live || cached;
   const source = live ? 'live' : 'cache';

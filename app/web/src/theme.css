@@ -371,3 +371,16 @@ body::before {
 .buy-f .ok { color: var(--ok); font-weight: 700; }
 .buy-f .bad { color: var(--bad); font-weight: 700; }
 .buy-f .cta { margin-left: auto; font-size: 12.5px; padding: 8px 16px; }
+
+/* ── 구매 영수증 (컷 8) ─────────────────────────────────────────────── */
+/* 판정과 결말을 나란히 놓는다. 하나만 보이면 "왜 갈렸나"나 "그래서 어떻게 됐나" 중
+   하나가 사라진다. */
+.rc-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.rc-sum > div { padding: 12px 14px; border: 1px solid var(--edge); border-radius: 14px; background: var(--glass); }
+.rc-sum .l { display: block; font-size: 10.5px; color: var(--faint); }
+.rc-sum .v { display: block; margin-top: 5px; font-size: 17px; font-weight: 800; color: var(--ink); }
+.rc-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.rc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 14px; margin-top: 12px;
+  padding-top: 10px; border-top: 1px dashed var(--edge-soft); }
+.rc-grid > div { display: flex; align-items: center; gap: 8px; }
+.rc-grid .k { font-size: 10.5px; color: var(--faint); min-width: 74px; }

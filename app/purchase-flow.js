@@ -512,7 +512,15 @@ async function settleOne(state, deps, purchase) {
   // seller가 동일 hash를 재현한다(M2 원칙). 상품 메타(item)도 캐시에 실려 seller가
   // 리스팅 매핑을 몰라도 올바른 상품 정보를 내려준다.
   const result = await getResult(
-    { title: purchase.listing.title, task: purchase.task, seller: purchase.listing.sellerName },
+    {
+      title: purchase.listing.title,
+      task: purchase.task,
+      seller: purchase.listing.sellerName,
+      // 라이브는 이 힌트로 분량을 가르고, 실패하면 리스팅별 폴백 원고로 내려간다.
+      // 어느 경로든 세 건의 결과물이 서로 달라야 가격 차이가 설명된다.
+      depthHint: `${purchase.listing.deliverable.format}, 약 ${purchase.listing.deliverable.approxWords}자, 출처 ${purchase.listing.deliverable.sourceCount}건 수준`,
+      fallbackFile: `result-${purchase.listing.id}.md`,
+    },
     purchase.auctionId,
   );
   purchase.resultMeta = { hash: result.hash, source: result.source };
@@ -570,6 +578,98 @@ export async function settlePurchases(state, deps) {
   const waiting = state.purchases.filter((p) => isQueuedDecision(p.ui)).length;
   state.phase = waiting ? 'awaiting' : 'settled';
   pushLog(state, `정산 ${done}/${state.purchases.length}건 완료${waiting ? ` (대기 ${waiting}건 남음)` : ''}`);
+}
+
+/**
+ * 판정이 어떻게 끝났는지를 한 단어로. 티어는 "무엇으로 판정됐나"이고 이건 "그래서 어떻게
+ * 됐나"라서 층이 다르다 — 컷 8은 둘을 나란히 놓아야 "판단과 정산이 기록으로 남는다"가 된다.
+ */
+function outcomeOf(purchase) {
+  if (purchase.ui === 'DENY') return 'denied';
+  if (purchase.ui === 'REJECTED') return 'rejected';
+  if (isQueuedDecision(purchase.ui)) return 'waiting';
+  if (purchase.steps.settle) return 'settled';
+  if (purchase.settleError) return 'settle_failed';
+  return 'executed';
+}
+
+/**
+ * 컷 8: 세 건의 판정 기록을 하나의 증거 체인으로 조립한다.
+ *
+ * **화면이 주장하는 모든 수치에 온체인·데몬 근거를 붙인다.** 티어는 데몬이 내린 값,
+ * 결말은 온체인 상태, 금액은 정산 후 실제 잔고다. 진행 중에도 조립되므로(정산 전 호출 가능)
+ * 발표 중 아무 때나 열어도 그 시점까지의 기록이 나온다.
+ */
+export function assemblePurchaseReceipt(state) {
+  if (!state.purchases.length) return null;
+
+  const limits = TOKEN_LIMITS[BUYER];
+  const purchases = state.purchases.map((p) => ({
+    requestId: p.requestId,
+    request: { title: p.title, need: p.need, size: p.size },
+    listing: { id: p.listing.id, title: p.listing.title, seller: p.listing.sellerName },
+    amountUsdc: p.amountUsdc,
+    // 무엇을 왜 골랐나(컷 3) — 라이브 판단과 폴백 규칙을 구분해 싣는다.
+    decision: { reason: p.decision.reason, rejected: p.decision.rejected, source: p.decision.source },
+    // 어떤 티어로 판정됐나(컷 4)
+    tier: p.tier,
+    verdict: p.ui,
+    // 그래서 어떻게 끝났나(컷 5·6)
+    outcome: outcomeOf(p),
+    auctionId: p.auctionId,
+    addresses: p.addresses,
+    tx: {
+      createAuction: p.steps.createAuction?.txHash ?? null,
+      commit: p.steps.commit?.txHash ?? null,
+      deposit: p.steps.deposit?.txHash ?? null,
+      reveal: p.steps.reveal?.txHash ?? null,
+      settle: p.steps.settle?.txHash ?? null,
+    },
+    approvedAt: p.steps.deposit?.approvedAt ?? null,
+    onchain: p.result
+      ? { auctionStatus: p.result.auctionStatus, winnerIsBuyer: p.result.winnerIsBuyer, sellerUsdc: p.result.sellerUsdc }
+      : null,
+    // 결과물(컷 7). hash는 seller가 같은 값을 재현하므로 열람본과 대조할 수 있다.
+    result: p.resultMeta ? { hash: p.resultMeta.hash, source: p.resultMeta.source } : null,
+    // x402는 구매 대금과 별개 tx다. SPENDING_LIMIT 수량 티어는 CAIP-19 키로만 잡히고
+    // x402는 TRANSFER로 평가되므로 아래 합계에 섞지 않고 따로 싣는다.
+    x402: p.x402
+      ? {
+          amountUsdc: p.x402.amountUsdc,
+          daemonTxId: p.x402.daemonTxId,
+          onchainSignature: p.x402.onchainSignature,
+          payTo: p.x402.payTo,
+        }
+      : null,
+    error: p.settleError ?? p.unlockError ?? p.steps.deposit?.error ?? null,
+  }));
+
+  const settled = purchases.filter((p) => p.outcome === 'settled');
+  const round2 = (n) => Number(n.toFixed(2));
+
+  return {
+    mode: 'purchase',
+    buyer: state.buyer,
+    // 이 데모의 설계도 한 줄. 화면 문구가 아니라 데몬에 실제로 등록된 값에서 온다.
+    policy: {
+      notifyMaxUsdc: Number(limits.notify_max),
+      delayMaxUsdc: Number(limits.delay_max),
+      delaySeconds: DELAY_SECONDS,
+      note: `${limits.notify_max} USDC까지 알림, ${limits.delay_max} USDC까지 유예 ${DELAY_SECONDS}초, 초과는 사람 승인`,
+    },
+    purchases,
+    totals: {
+      requested: purchases.length,
+      settled: settled.length,
+      // 실제로 나간 돈만 센다. 대기·거부 건을 합계에 넣으면 영수증이 거짓을 말한다.
+      spentUsdc: round2(settled.reduce((s, p) => s + p.amountUsdc, 0)),
+      x402Usdc: round2(purchases.reduce((s, p) => s + (p.x402?.amountUsdc ?? 0), 0)),
+      sellerUsdc: settled.length ? settled[settled.length - 1].onchain?.sellerUsdc ?? null : null,
+    },
+    tierBreakdown: purchases.map((p) => ({ amountUsdc: p.amountUsdc, tier: p.tier, verdict: p.verdict, outcome: p.outcome })),
+    phase: state.phase,
+    startedAt: state.startedAt,
+  };
 }
 
 /**

@@ -24,6 +24,7 @@ import {
   refreshPurchases,
   settlePurchases,
   approvePurchase,
+  assemblePurchaseReceipt,
 } from './purchase-flow.js';
 import { loadListings } from './lib/decision.js';
 
@@ -194,6 +195,13 @@ app.post('/api/purchase/approve/:requestId', ownerGuard, async (req, res) => {
     console.error('[orchestrator] purchase 승인 실패:', e.message);
     res.status(502).json({ error: 'approve_failed', message: e.message });
   }
+});
+
+// 컷 8. 정산 전에도 그 시점까지의 기록을 낸다 — 발표 중 아무 때나 열 수 있어야 한다.
+app.get('/api/purchase/receipt', (_req, res) => {
+  const receipt = assemblePurchaseReceipt(purchaseState);
+  if (!receipt) return res.status(404).json({ error: 'no_round', phase: purchaseState.phase });
+  res.json({ ...receipt, network: NETWORK_LABEL });
 });
 
 app.post('/api/purchase/reset', (_req, res) => {

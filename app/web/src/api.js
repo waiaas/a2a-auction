@@ -73,6 +73,13 @@ export async function approvePurchase(requestId) {
   return res.json();
 }
 
+/** 컷 8 영수증. 정산 전에도 그 시점까지의 기록이 나온다. */
+export async function fetchPurchaseReceipt() {
+  const res = await fetch('/api/purchase/receipt', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`purchase receipt ${res.status}`);
+  return res.json();
+}
+
 export async function resetPurchase() {
   const res = await fetch('/api/purchase/reset', { method: 'POST', headers: JSON_HEADERS });
   if (!res.ok) throw new Error(`purchase reset ${res.status}`);

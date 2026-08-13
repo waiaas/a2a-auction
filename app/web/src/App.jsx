@@ -7,6 +7,7 @@ import Receipt from './components/Receipt.jsx';
 import SellerConsole from './components/SellerConsole.jsx';
 import OwnerConsole from './components/OwnerConsole.jsx';
 import PurchaseView from './components/PurchaseView.jsx';
+import PurchaseReceipt from './components/PurchaseReceipt.jsx';
 
 const POLL_MS = 1000;
 const INITIAL = { phase: 'idle', auctionId: null, buyers: {}, steps: {}, item: null, addresses: {} };
@@ -56,6 +57,7 @@ export default function App() {
     window.location.hash = '#purchase'; // 주소를 실제로 바꿔 공유·새로고침이 같은 화면을 연다
     setView('purchase');
   }, []);
+  const openPurchaseReceipt = useCallback(() => setView('purchase-receipt'), []);
   const openLive = useCallback(() => {
     if (window.location.hash) window.history.replaceState({}, '', window.location.pathname);
     setView('live');
@@ -88,7 +90,15 @@ export default function App() {
   if (view === 'purchase') {
     return (
       <div className="app">
-        <PurchaseView onBack={openLive} />
+        <PurchaseView onBack={openLive} onOpenReceipt={openPurchaseReceipt} />
+      </div>
+    );
+  }
+
+  if (view === 'purchase-receipt') {
+    return (
+      <div className="app">
+        <PurchaseReceipt onBack={openPurchase} />
       </div>
     );
   }
