@@ -14,7 +14,9 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
 
   const owner = me.owner ?? {};
   const agent = me.agent ?? {};
-  const canFaucet = me.faucet?.ok !== false;
+  // 가스를 서비스가 대주지 않는 환경에서는 SOL이 없으면 아무것도 못 한다. 잔고가 0인
+  // 채로 버튼만 눌리게 두면 사용자는 어디서 막혔는지 모른 채 같은 버튼을 반복한다.
+  const needsOwnSol = me.faucet?.grantsSol === false && !(owner.sol > 0);
 
   return (
     <div className="svc-wallets-grid">
@@ -28,10 +30,16 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
           <span className="svc-sub tnum">{fmt(owner.sol, 3)} SOL</span>
         </div>
         <p className="svc-note">여기 있는 돈은 에이전트가 손대지 못합니다.</p>
-        <button className="cta ghost" disabled={busy || !canFaucet} onClick={onFaucet}>
-          체험 자산 받기
+        <button className="cta ghost" disabled={busy} onClick={onFaucet}>
+          체험용 USDC 받기
         </button>
-        {!canFaucet && <p className="svc-hint">{me.faucet?.reason}</p>}
+        {needsOwnSol && (
+          <p className="svc-hint">
+            수수료를 낼 devnet SOL이 필요합니다.{' '}
+            <a href="https://faucet.solana.com" target="_blank" rel="noreferrer">공식 faucet</a>에서
+            받아 이 주소로 보내 주세요. USDC는 위 버튼으로 받으시면 됩니다.
+          </p>
+        )}
       </section>
 
       <section className="svc-arrow">
@@ -50,7 +58,9 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
             입금
           </button>
         </div>
-        <p className="svc-hint">내 서명으로 보냅니다. 보낸 만큼이 위임 한도의 상한이 됩니다.</p>
+        <p className="svc-hint">
+          내 서명으로 보냅니다. 보낸 만큼이 위임 한도의 상한이 되고, 에이전트가 쓸 가스도 함께 실립니다.
+        </p>
       </section>
 
       <section className="svc-card agent">
@@ -60,7 +70,7 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
         </header>
         <div className="svc-bal">
           <b className="tnum">{fmt(agent.usdc)}</b> USDC
-          <span className="svc-sub tnum">{fmt(agent.sol, 3)} SOL · 가스는 서비스 부담</span>
+          <span className="svc-sub tnum">가스 {fmt(agent.sol, 3)} SOL</span>
         </div>
         <p className="svc-note">에이전트가 쓸 수 있는 돈입니다. 정책이 이 안에서 다시 한 번 가릅니다.</p>
       </section>
