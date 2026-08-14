@@ -13,7 +13,7 @@ const NOTES = {
     '알림 센터는 준비 중입니다. 위임 한도를 넘은 지출의 승인 대기는 Owner 콘솔의 "승인 대기 큐"에서 확인합니다.',
 };
 
-/** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · 지갑 연결. */
+/** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · Connect Wallet. */
 export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, onOpenPurchase, onOpenService }) {
   const [note, setNote] = useState(null);
   const toggle = (key) => setNote((v) => (v === key ? null : key));
@@ -42,12 +42,12 @@ export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, on
       {btn(scrollTop, 'logo logobtn', <>A2A<b>House</b></>)}
       <div className="nav">
         {btn(scrollTop, 'on navbtn', 'Live Auctions')}
-        {/* 콘티 v3의 주무대. 심사위원이 루트로 들어와도 구매 라운드에 닿을 수 있어야 한다 —
-            해시 URL만으로는 링크를 받은 사람만 들어온다. */}
-        {/* 실제 서비스 진입점. 위 항목들이 발표용 고정 화면이라면 이쪽은 접속자 본인의 지갑과
-            에이전트로 도는 곳이라, 나란히 두되 이름으로 구분한다. */}
-        {btn(onOpenService, 'navbtn', '내 에이전트')}
-        {btn(onOpenPurchase, 'navbtn', '구매 라운드')}
+        {/* My Agent는 접속자 본인의 지갑으로 도는 실제 서비스, Purchase Round는 발표용 고정
+            라운드다. 해시 URL만으로는 링크를 받은 사람만 들어오므로 둘 다 내비에 둔다.
+            이름은 영문으로 통일한다 — 나머지가 영문이라 둘만 한국어면 눈에 띄는 게 아니라
+            섞여 보인다. 진입점 강조는 언어가 아니라 우측 Connect Wallet 버튼이 맡는다. */}
+        {btn(onOpenService, 'navbtn', 'My Agent')}
+        {btn(onOpenPurchase, 'navbtn', 'Purchase Round')}
         {btn(() => toggle('agents'), 'navbtn', 'Agents')}
         {btn(scrollToCatalogue, 'navbtn', 'Catalogue')}
         {btn(onOpenSeller, 'navbtn', 'Seller')}
@@ -57,7 +57,7 @@ export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, on
       <div className="sp" />
       {btn(() => toggle('search'), 'icirc ib', <Icon name="search" size={16} />)}
       {btn(() => toggle('bell'), 'icirc ib', <Icon name="bell" size={16} />)}
-      <button className="connect" onClick={() => onOpenService?.()}>지갑 연결</button>
+      <button className="connect" onClick={() => onOpenService?.()}>Connect Wallet</button>
       {note && (
         <div className={`bar-note ${note === 'agents' ? 'left' : 'right'}`}>{NOTES[note]}</div>
       )}
