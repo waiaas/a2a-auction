@@ -19,9 +19,8 @@ test-ledger/
 .DS_Store
 *.log
 app/registered-listings.json
-app/a2ahouse.db
-app/a2ahouse.db-wal
-app/a2ahouse.db-shm
+app/a2ahouse.json
+app/a2ahouse.json.tmp
 
 # 사용자 흐름 검증이 쓰는 테스트 오너 키 (브라우저 지갑 대역)
 app/.verify-owner.json
