@@ -28,7 +28,7 @@ export default function RequestBox({ onSubmit, busy, catalog }) {
   return (
     <section className="svc-card svc-request">
       <header>
-        <span className="svc-role">에이전트에게 시키기</span>
+        <span className="svc-role">여기서도 시켜볼 수 있습니다</span>
         {catalog?.length > 0 && (
           <span className="svc-sub">
             카탈로그 {catalog.length}건 · {Math.min(...catalog.map((l) => l.priceUsdc))}~
@@ -36,6 +36,13 @@ export default function RequestBox({ onSubmit, busy, catalog }) {
           </span>
         )}
       </header>
+
+      {/* 정식 경로는 MCP다. 이 입력창은 MCP 클라이언트가 없는 사람을 위한 보조라, 화면이
+          그 사실을 말하고 대응하는 도구 호출을 함께 보여준다. */}
+      <p className="svc-note">
+        MCP 클라이언트가 없어도 확인하실 수 있게 둔 보조 입력입니다. 아래에 적는 것은 도구로는{' '}
+        <code>request_work(prompt)</code> 호출과 같습니다.
+      </p>
 
       <textarea
         rows={3}

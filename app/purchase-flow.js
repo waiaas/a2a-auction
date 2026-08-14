@@ -347,12 +347,13 @@ async function purchaseAll(state, deps) {
  * **정책 판정을 그대로 반환한다**(콘티 §8의 설계 핵심). 5달러는 즉시 성공, 10달러는 유예 중,
  * 20달러는 승인 대기가 도구 응답에 찍히면 별도 설명 없이 정책 엔진이 스스로를 증명한다.
  */
-export async function purchaseOne(state, deps, { listingId, title, need }) {
+export async function purchaseOne(state, deps, { listingId, title, need, requestId }) {
   const listing = loadListings().find((l) => l.id === listingId);
   if (!listing) throw new Error(`카탈로그에 없는 리스팅이다: ${listingId}`);
 
   const purchase = newPurchase(state, deps, {
-    requestId: `mcp-${listingId}-${state.purchases.length + 1}`,
+    // 호출자가 id를 미리 알아야 진행을 따라갈 수 있다(MCP는 비동기 응답 뒤 이 id로 폴링한다).
+    requestId: requestId ?? `mcp-${listingId}-${state.purchases.length + 1}`,
     listing,
     title: title ?? listing.title,
     need: need ?? 'MCP 도구로 직접 구매',
@@ -388,7 +389,7 @@ export async function purchaseFromRequest(state, deps, req) {
   const { listing, reason, rejected, source } = await chooseListing(request, listings);
 
   const purchase = newPurchase(state, deps, {
-    requestId: `user-${Date.now().toString(36)}-${state.purchases.length + 1}`,
+    requestId: req.requestId ?? `user-${Date.now().toString(36)}-${state.purchases.length + 1}`,
     listing,
     title: request.title,
     need: request.need,

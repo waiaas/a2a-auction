@@ -14,6 +14,7 @@ import { MAIN_BUYER, NETWORK_LABEL } from './config.js';
 import { buildDeps } from './auction-flow.js';
 import {
   purchaseFromRequest,
+  purchaseOne,
   refreshPurchases,
   settlePurchases,
   approvePurchase,
@@ -261,8 +262,13 @@ export function createUserApi() {
     if (round.running) {
       return res.status(409).json({ error: 'busy', message: '앞선 요청이 아직 진행 중입니다.' });
     }
+    // 두 가지 방식이 있다. 자연어를 주면 우리 에이전트가 고르고(컷 3), 리스팅을 지정하면
+    // 호출자가 이미 골랐다는 뜻이다(MCP 클라이언트의 LLM이 list_skills로 판단한 경우).
+    const listingId = String(req.body?.listingId || '').trim();
     const prompt = String(req.body?.prompt || '').trim();
-    if (!prompt) return res.status(400).json({ error: 'bad_request', message: '무엇이 필요한지 적어 주세요.' });
+    if (!prompt && !listingId) {
+      return res.status(400).json({ error: 'bad_request', message: '무엇이 필요한지 적어 주세요.' });
+    }
 
     // 잔고를 미리 본다. 정책이 아니라 잔고 때문에 실패하는 것을 정책 거부로 오해하면
     // 이 데모가 설명하려는 것이 통째로 뒤집힌다.
@@ -291,14 +297,22 @@ export function createUserApi() {
       return fail(res, e);
     }
 
+    // id를 여기서 발급해 즉시 돌려준다. 이 요청은 오래 걸려 202로 끊기는데, 호출자가 id를
+    // 모르면 무엇을 폴링해야 할지 알 수 없다(MCP가 판정을 응답으로 싣기 위해 필요하다).
+    const requestId = `req-${Date.now().toString(36)}-${round.state.purchases.length + 1}`;
+
     round.running = true;
     round.state.error = null;
     round.state.phase = 'choosing';
-    purchaseFromRequest(round.state, req.deps, {
-      prompt,
-      title: req.body?.title,
-      need: req.body?.need,
-    })
+    const run = listingId
+      ? purchaseOne(round.state, req.deps, { listingId, title: req.body?.title, need: req.body?.need, requestId })
+      : purchaseFromRequest(round.state, req.deps, {
+          prompt,
+          title: req.body?.title,
+          need: req.body?.need,
+          requestId,
+        });
+    run
       .then(() => persistRound(owner, round.state))
       .catch((e) => {
         round.state.phase = 'error';
@@ -309,7 +323,7 @@ export function createUserApi() {
         round.running = false;
       });
 
-    res.status(202).json({ accepted: true });
+    res.status(202).json({ accepted: true, requestId });
   });
 
   router.get('/purchase/state', auth, async (req, res) => {

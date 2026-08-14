@@ -62,7 +62,9 @@ export default function PurchaseList({ purchases, busy, onApprove, onCancel, onS
 
               {p.ui === 'APPROVAL' && (
                 <>
-                  <button className="cta bad" disabled={busy} onClick={() => onApprove(p)}>
+                  {/* `bad`를 클래스로 쓰지 않는다 — `.buy-f .bad`(실패 문구용 빨간 글씨)가
+                      버튼에 걸려 글자색이 배경과 같아진다. */}
+                  <button className="cta svc-approve" disabled={busy} onClick={() => onApprove(p)}>
                     내 지갑으로 승인
                   </button>
                   <button className="cta ghost" disabled={busy} onClick={() => onCancel(p)}>

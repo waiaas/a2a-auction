@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import WalletGate from './WalletGate.jsx';
 import WalletCards from './WalletCards.jsx';
 import PolicyCard from './PolicyCard.jsx';
+import McpCard from './McpCard.jsx';
 import RequestBox from './RequestBox.jsx';
 import PurchaseList from './PurchaseList.jsx';
 import { connectStandard, connectLocal } from '../lib/wallet.js';
@@ -190,6 +191,8 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
 
       <WalletCards me={me} onFaucet={faucet} onDeposit={deposit} busy={running} />
       <PolicyCard policy={me?.policy} agentUsdc={me?.agent?.usdc} onSave={savePolicy} busy={running} />
+      {/* 정식 경로(MCP)를 보조 입력창보다 먼저 놓는다. 순서가 곧 어느 쪽이 주인지를 말한다. */}
+      <McpCard agentAddress={me?.agentAddress} />
       <RequestBox onSubmit={submitRequest} busy={running} catalog={catalog} />
       <PurchaseList
         purchases={round.purchases}

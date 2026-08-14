@@ -449,3 +449,17 @@ body::before {
   .svc-wallets-grid { grid-template-columns: 1fr; }
   .svc-arrow { min-width: 0; }
 }
+
+/* MCP 연결 카드 — 에이전트에게 시키는 정식 경로가 이쪽임을 화면이 말한다. */
+.svc-mcp .svc-code { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,0.35); border: 1px solid var(--edge-soft); font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--dim); overflow-x: auto; white-space: pre; }
+.svc-mcp-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.svc-mcp-actions .cta { padding: 9px 16px; font-size: 12.5px; }
+.svc-mcp .svc-hint { color: var(--faint); }
+.svc-mcp code { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,0.07); }
+.svc-request .svc-note { margin-top: 0; margin-bottom: 10px; }
+
+/* 승인 버튼. `.cta.bad`를 쓰면 `.buy-f .bad`(실패 문구 색)에 덮여 글자가 배경색과 같아진다. */
+.cta.svc-approve { color: #fff; background: var(--bad); box-shadow: 0 8px 26px rgba(244, 63, 94, 0.24); }
+.cta.svc-approve:hover { filter: brightness(1.06); }
+/* MCP 카드 버튼은 나란히 둔다 — 카드 기본 규칙(전체 폭)이 적용되면 세로로 쌓인다. */
+.svc-mcp-actions .cta.ghost { width: auto; margin-top: 0; }
