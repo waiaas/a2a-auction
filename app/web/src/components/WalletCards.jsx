@@ -14,9 +14,9 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
 
   const owner = me.owner ?? {};
   const agent = me.agent ?? {};
-  // 가스를 서비스가 대주지 않는 환경에서는 SOL이 없으면 아무것도 못 한다. 잔고가 0인
-  // 채로 버튼만 눌리게 두면 사용자는 어디서 막혔는지 모른 채 같은 버튼을 반복한다.
-  const needsOwnSol = me.faucet?.grantsSol === false && !(owner.sol > 0);
+  // 체험용 SOL이 소진되면 접속자가 직접 받아와야 한다. 잔고가 0인 채로 버튼만 눌리게 두면
+  // 사용자는 어디서 막혔는지 모른 채 같은 버튼을 반복한다.
+  const needsOwnSol = me.faucet?.ok === false && !(owner.sol > 0);
 
   return (
     <div className="svc-wallets-grid">
@@ -35,7 +35,7 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
         </button>
         {needsOwnSol && (
           <p className="svc-hint">
-            수수료를 낼 devnet SOL이 필요합니다.{' '}
+            {me.faucet?.reason ?? '체험용 SOL이 소진됐습니다.'}{' '}
             <a href="https://faucet.solana.com" target="_blank" rel="noreferrer">공식 faucet</a>에서
             받아 이 주소로 보내 주세요. USDC는 위 버튼으로 받으시면 됩니다.
           </p>

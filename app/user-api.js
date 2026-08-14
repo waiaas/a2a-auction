@@ -23,7 +23,7 @@ import {
 } from './purchase-flow.js';
 import { loadListings } from './lib/decision.js';
 import { ensureUser } from './lib/onboarding.js';
-import { grantToOwner, checkBudget, CAN_GRANT_SOL, PUBLIC_FAUCET_URL } from './lib/faucet.js';
+import { grantToOwner, checkBudget, PUBLIC_FAUCET_URL } from './lib/faucet.js';
 import { buildDepositTx, submitSignedTx } from './lib/deposit.js';
 import { issueNonce, verifyConnect, verifySignature, assertAddress, newAuthToken } from './lib/auth.js';
 import { buildUserDeps, readPolicyLimits, writePolicyLimits, readBalances } from './lib/user-context.js';
@@ -180,8 +180,9 @@ export function createUserApi() {
         throw new UserError(`오너 지갑 잔고가 부족합니다. 보유 ${owner.usdc} USDC, 요청 ${amountUsdc} USDC.`);
       }
       if (owner.sol <= 0) {
+        // 체험용 SOL이 남아 있으면 버튼 한 번으로 풀리고, 소진됐으면 외부 faucet뿐이다.
         throw new UserError(
-          CAN_GRANT_SOL
+          checkBudget().ok
             ? '지갑에 수수료용 SOL이 없습니다. 체험 자산을 먼저 받아 주세요.'
             : `지갑에 devnet SOL이 없어 트랜잭션을 보낼 수 없습니다. ${PUBLIC_FAUCET_URL} 에서 받아 주세요.`,
         );
