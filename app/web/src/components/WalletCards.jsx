@@ -63,7 +63,9 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
         </p>
       </section>
 
-      <section className="svc-card agent">
+      {/* 클래스명에 `agent`를 단독으로 쓰지 않는다 — 기존 에이전트 목록 스타일(`.agent`)이
+          display:flex라 카드 내부가 가로로 눕는다. */}
+      <section className="svc-card svc-agent">
         <header>
           <span className="svc-role">에이전트 지갑</span>
           <code className="mono">{shortAddress(me.agentAddress, 6, 6)}</code>
