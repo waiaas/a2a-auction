@@ -199,7 +199,14 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
   # WAIaaS 레포에서
   docker compose -f docker-compose.yml -f docker-compose.build.yml build
   ```
-  기본 브랜치(`dev`) 빌드면 x402 모드까지 그대로 동작합니다. x402 결제에 필요한 데몬 수정 1건([#406](https://github.com/waiaas/WAIaaS/pull/406))은 `dev`에 머지되어 있습니다. 그보다 앞선 커밋이나 배포된 이미지(npm 2.16.0, GHCR `latest`)에는 이 수정이 없어 x402 결제가 `X402_SERVER_ERROR`로 실패합니다(경매 경로는 영향 없음).
+  기본 브랜치(`dev`) 빌드면 x402 모드와 owner 승인까지 그대로 동작합니다. 필요한 데몬 수정 2건이 모두 `dev`에 머지되어 있습니다.
+
+  | 수정 | 없으면 |
+  |---|---|
+  | [#406](https://github.com/waiaas/WAIaaS/pull/406) x402 Solana RPC 배선 | x402 결제가 `X402_SERVER_ERROR`로 실패 (경매 경로는 영향 없음) |
+  | [#413](https://github.com/waiaas/WAIaaS/pull/413) owner 승인·거부 라우트 등록 | **컷 5(승인 개입)가 통째로 죽음.** `POST /v1/transactions/{id}/approve`·`/reject`가 404 |
+
+  배포된 이미지(npm 2.16.0, GHCR `latest`)에는 **둘 다 없습니다.** #413은 2026-08-18에 머지되었으므로, 그 이전에 빌드한 이미지를 쓰고 있다면 다시 빌드하세요. 등록 여부는 `GET /doc`에서 위 두 경로를 찾아 확인할 수 있습니다.
 - x402 모드를 쓸 때만: `cloudflared` (seller에 공개 HTTPS를 부여. 데몬의 SSRF 가드가 사설 IP·HTTP를 차단합니다)
 
 ### 1. 프로그램 빌드 + 로컬 밸리데이터 + 배포
