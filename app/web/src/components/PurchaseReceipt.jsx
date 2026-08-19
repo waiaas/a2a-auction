@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { fetchPurchaseReceipt } from '../api.js';
 import { verdictInfo, fmtUsdc } from '../lib/derive.js';
+import TxLink from './TxLink.jsx';
+import { ClusterContext } from '../lib/explorer.js';
 
 /**
  * 구매 라운드 영수증 (콘티 v3 컷 8). "모든 판단과 정산이 기록으로 남는다".
@@ -59,6 +61,7 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
   const t = receipt.totals;
 
   return (
+    <ClusterContext.Provider value={receipt.network || 'devnet'}>
     <div className="stage">
       <div className="sec-h">
         <h2>구매 영수증</h2>
@@ -98,13 +101,13 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
 
             <div className="rc-grid">
               <div><span className="k">auction</span><span className="tx">#{p.auctionId ?? '—'}</span></div>
-              <div><span className="k">commit</span><span className="tx">{short(p.tx.commit)}</span></div>
-              <div><span className="k">deposit</span><span className="tx">{short(p.tx.deposit)}</span></div>
-              <div><span className="k">reveal</span><span className="tx">{short(p.tx.reveal)}</span></div>
-              <div><span className="k">settle</span><span className="tx">{short(p.tx.settle)}</span></div>
+              <div><span className="k">commit</span><TxLink sig={p.tx?.commit} /></div>
+              <div><span className="k">deposit</span><TxLink sig={p.tx?.deposit} /></div>
+              <div><span className="k">reveal</span><TxLink sig={p.tx?.reveal} /></div>
+              <div><span className="k">settle</span><TxLink sig={p.tx?.settle} /></div>
               <div><span className="k">결과물 hash</span><span className="tx">{short(p.result?.hash, 20)}</span></div>
               {p.x402 && (
-                <div><span className="k">x402 서명</span><span className="tx">{short(p.x402.onchainSignature, 20)}</span></div>
+                <div><span className="k">x402 서명</span><TxLink sig={p.x402.onchainSignature} /></div>
               )}
               {p.approvedAt && (
                 <div><span className="k">승인 시각</span><span className="tx">{p.approvedAt.slice(11, 19)}</span></div>
@@ -114,5 +117,6 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
         );
       })}
     </div>
+    </ClusterContext.Provider>
   );
 }

@@ -227,6 +227,22 @@ body::before {
 .tx.tap:hover { color: var(--ink); border-color: var(--edge); }
 .tx.dim { color: var(--faint); }
 
+/*
+ * explorer 링크 칩. 서명이 "복사만 되는 회색 문자열"이 아니라 **누구나 검증할 수 있는
+ * 증거**라는 것을 색으로 말한다. 두 영수증 모두 어두운 글래스 카드(--glass) 위에 놓이므로
+ * 액센트 옐로우로 대비가 충분하다(밝은 무대 위에 놓게 되면 --stage-acc로 갈라야 한다).
+ */
+.tx.link {
+  display: inline-flex; align-items: center; gap: 4px;
+  text-decoration: none; color: var(--acc);
+  background: rgba(233, 230, 15, 0.08);
+  border-color: rgba(233, 230, 15, 0.32);
+}
+.tx.link:hover { background: rgba(233, 230, 15, 0.16); border-color: var(--acc); }
+.tx.link:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.tx-ext { opacity: 0.7; }
+.tx.link:hover .tx-ext { opacity: 1; }
+
 .unlock { position: sticky; top: 18px; }
 .ubody { padding: 16px 18px; }
 .uhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
