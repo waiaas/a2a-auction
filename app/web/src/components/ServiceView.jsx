@@ -7,6 +7,7 @@ import RequestBox from './RequestBox.jsx';
 import PurchaseList from './PurchaseList.jsx';
 import { connectStandard, connectLocal } from '../lib/wallet.js';
 import * as api from '../lib/user-api.js';
+import { ClusterContext } from '../lib/explorer.js';
 
 /**
  * 서비스 화면. 지갑을 연결한 사람이 자기 에이전트에게 일을 맡기는 전 과정을 한 화면에 둔다.
@@ -166,6 +167,7 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   const running = busy || round.running;
 
   return (
+    <ClusterContext.Provider value={round.network || 'devnet'}>
     <div className="stage">
       <div className="sec-h">
         <h2>내 에이전트</h2>
@@ -197,10 +199,12 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
       <PurchaseList
         purchases={round.purchases}
         busy={running}
+        running={running}
         onApprove={(p) => ownerAction(p, 'approve')}
         onCancel={(p) => ownerAction(p, 'reject')}
         onSettle={settle}
       />
     </div>
+    </ClusterContext.Provider>
   );
 }

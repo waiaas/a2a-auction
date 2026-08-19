@@ -227,6 +227,22 @@ body::before {
 .tx.tap:hover { color: var(--ink); border-color: var(--edge); }
 .tx.dim { color: var(--faint); }
 
+/*
+ * explorer 링크 칩. 서명이 "복사만 되는 회색 문자열"이 아니라 **누구나 검증할 수 있는
+ * 증거**라는 것을 색으로 말한다. 두 영수증 모두 어두운 글래스 카드(--glass) 위에 놓이므로
+ * 액센트 옐로우로 대비가 충분하다(밝은 무대 위에 놓게 되면 --stage-acc로 갈라야 한다).
+ */
+.tx.link {
+  display: inline-flex; align-items: center; gap: 4px;
+  text-decoration: none; color: var(--acc);
+  background: rgba(233, 230, 15, 0.08);
+  border-color: rgba(233, 230, 15, 0.32);
+}
+.tx.link:hover { background: rgba(233, 230, 15, 0.16); border-color: var(--acc); }
+.tx.link:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.tx-ext { opacity: 0.7; }
+.tx.link:hover .tx-ext { opacity: 1; }
+
 .unlock { position: sticky; top: 18px; }
 .ubody { padding: 16px 18px; }
 .uhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -380,6 +396,58 @@ body::before {
 .rc-sum .l { display: block; font-size: 10.5px; color: var(--faint); }
 .rc-sum .v { display: block; margin-top: 5px; font-size: 17px; font-weight: 800; color: var(--ink); }
 .rc-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/*
+ * 온체인 진행 5단계. 상태는 1.5초 폴링으로 갱신되므로 단계가 하나씩 켜지는 것이 그대로
+ * 보인다. 색으로 "지금 어디까지 왔고 어디서 멈췄는지"를 말한다 — 초록은 체인에 남았다,
+ * 주황은 사람을 기다린다, 빨강은 정책이 막았다.
+ */
+.os {
+  margin-top: 12px; padding: 10px 12px;
+  border: 1px solid var(--edge-soft); border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.os-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.os-t { font-size: 10.5px; color: var(--faint); letter-spacing: 0.02em; }
+.os-c { font-size: 11px; font-weight: 800; color: var(--dim); }
+.os-row { display: flex; flex-wrap: wrap; gap: 7px 14px; list-style: none; margin: 0; padding: 0; }
+.os-i { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--faint); }
+.os-l { white-space: nowrap; }
+.os-d { width: 7px; height: 7px; border-radius: 50%; background: var(--edge); flex: none; }
+.os-i.done { color: var(--dim); }
+.os-i.done .os-d { background: var(--ok); }
+.os-i.wait { color: var(--warn); }
+.os-i.wait .os-d { background: var(--warn); }
+.os-i.fail { color: var(--bad); }
+.os-i.fail .os-d { background: var(--bad); }
+.os-i.active { color: var(--acc); }
+.os-i.active .os-d { background: var(--acc); animation: os-pulse 1.2s ease-in-out infinite; }
+.os-n { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); }
+@keyframes os-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.4); }
+}
+/* 움직임을 줄여달라는 설정을 존중한다. 진행 중 표시는 색으로도 이미 구분된다. */
+@media (prefers-reduced-motion: reduce) { .os-i.active .os-d { animation: none; } }
+
+/*
+ * 온체인 잔액 이동. **"정산 완료"라는 라벨보다 숫자가 실제로 움직인 것이 강한 증거다.**
+ * 서명 격자(rc-grid)보다 위에 두고 크기로 우선순위를 준다 — 심사위원이 카드에서
+ * 가장 먼저 읽어야 하는 것이 이 줄이다.
+ */
+.rc-move {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 12px;
+  border: 1px solid rgba(74, 212, 140, 0.28); border-radius: 12px;
+  background: rgba(74, 212, 140, 0.08);
+}
+.mv-k { font-size: 10.5px; color: var(--faint); letter-spacing: 0.02em; }
+.mv-v { display: inline-flex; align-items: baseline; gap: 7px; }
+.mv-v .tnum { font-size: 17px; font-weight: 800; color: var(--ink); }
+.mv-ar { font-size: 13px; color: var(--faint); }
+.mv-u { font-size: 11px; color: var(--faint); }
+.mv-d { font-size: 12px; font-weight: 800; color: var(--ok); background: var(--ok-bg);
+  border-radius: 999px; padding: 2px 8px; margin-left: 2px; }
+
 .rc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 14px; margin-top: 12px;
   padding-top: 10px; border-top: 1px dashed var(--edge-soft); }
 .rc-grid > div { display: flex; align-items: center; gap: 8px; }

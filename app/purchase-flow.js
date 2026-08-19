@@ -661,6 +661,9 @@ async function settleOne(state, deps, purchase) {
   const sellerUsdc = await waitForTokenBalance(conn, config.sellerTokenAccount, expected);
   const onchainAuction = await fetchAuction(conn, auctionPda);
   purchase.result = {
+    // before를 함께 남긴다. "정산 완료"라는 라벨보다 **숫자가 실제로 움직인 것**이
+    // 훨씬 강한 증거이고, 그 대조는 before 없이는 화면에서 만들 수 없다.
+    sellerBefore,
     sellerUsdc,
     vaultUsdc: await tokenUiBalance(conn, vault),
     auctionStatus: onchainAuction?.status ?? null,
@@ -792,7 +795,12 @@ export function assemblePurchaseReceipt(state) {
     },
     approvedAt: p.steps.deposit?.approvedAt ?? null,
     onchain: p.result
-      ? { auctionStatus: p.result.auctionStatus, winnerIsBuyer: p.result.winnerIsBuyer, sellerUsdc: p.result.sellerUsdc }
+      ? {
+          auctionStatus: p.result.auctionStatus,
+          winnerIsBuyer: p.result.winnerIsBuyer,
+          sellerBefore: p.result.sellerBefore ?? null,
+          sellerUsdc: p.result.sellerUsdc,
+        }
       : null,
     // 결과물(컷 7). hash는 seller가 같은 값을 재현하므로 열람본과 대조할 수 있다.
     result: p.resultMeta ? { hash: p.resultMeta.hash, source: p.resultMeta.source } : null,
