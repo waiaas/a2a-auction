@@ -99,6 +99,19 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
             <div className="buy-why">{p.decision.reason}</div>
             {p.error && <div className="buy-rej">오류: {p.error}</div>}
 
+            {p.onchain?.sellerBefore != null && p.onchain?.sellerUsdc != null && (
+              <div className="rc-move">
+                <span className="mv-k">셀러 잔액 · 온체인 실측</span>
+                <span className="mv-v">
+                  <b className="tnum">{fmtUsdc(p.onchain.sellerBefore)}</b>
+                  <span className="mv-ar">→</span>
+                  <b className="tnum">{fmtUsdc(p.onchain.sellerUsdc)}</b>
+                  <span className="mv-u">USDC</span>
+                  <span className="mv-d">+{fmtUsdc(p.onchain.sellerUsdc - p.onchain.sellerBefore)}</span>
+                </span>
+              </div>
+            )}
+
             <div className="rc-grid">
               <div><span className="k">auction</span><span className="tx">#{p.auctionId ?? '—'}</span></div>
               <div><span className="k">commit</span><TxLink sig={p.tx?.commit} /></div>

@@ -396,6 +396,25 @@ body::before {
 .rc-sum .l { display: block; font-size: 10.5px; color: var(--faint); }
 .rc-sum .v { display: block; margin-top: 5px; font-size: 17px; font-weight: 800; color: var(--ink); }
 .rc-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/*
+ * 온체인 잔액 이동. **"정산 완료"라는 라벨보다 숫자가 실제로 움직인 것이 강한 증거다.**
+ * 서명 격자(rc-grid)보다 위에 두고 크기로 우선순위를 준다 — 심사위원이 카드에서
+ * 가장 먼저 읽어야 하는 것이 이 줄이다.
+ */
+.rc-move {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 12px;
+  border: 1px solid rgba(74, 212, 140, 0.28); border-radius: 12px;
+  background: rgba(74, 212, 140, 0.08);
+}
+.mv-k { font-size: 10.5px; color: var(--faint); letter-spacing: 0.02em; }
+.mv-v { display: inline-flex; align-items: baseline; gap: 7px; }
+.mv-v .tnum { font-size: 17px; font-weight: 800; color: var(--ink); }
+.mv-ar { font-size: 13px; color: var(--faint); }
+.mv-u { font-size: 11px; color: var(--faint); }
+.mv-d { font-size: 12px; font-weight: 800; color: var(--ok); background: var(--ok-bg);
+  border-radius: 999px; padding: 2px 8px; margin-left: 2px; }
+
 .rc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 14px; margin-top: 12px;
   padding-top: 10px; border-top: 1px dashed var(--edge-soft); }
 .rc-grid > div { display: flex; align-items: center; gap: 8px; }
