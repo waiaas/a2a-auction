@@ -35,36 +35,36 @@
       "sample": {
         "file": "sample-quick-scan.md",
         "title": "스테이블코인 결제 시장 스냅샷",
-        "score": 52,
+        "score": 47,
         "breakdown": [
           {
             "id": "evidence",
-            "score": 13,
-            "note": "지표는 있으나 어디서 온 수치인지 밝히지 않았다."
+            "score": 17,
+            "note": null
           },
           {
             "id": "scenario",
-            "score": 6,
-            "note": "결론 하나만 제시하고 갈릴 경로를 나누지 않았다."
+            "score": 4,
+            "note": null
           },
           {
             "id": "risk",
-            "score": 9,
-            "note": "집계 방식 차이를 언급했으나 판단이 틀릴 조건은 없다."
+            "score": 5,
+            "note": null
           },
           {
             "id": "source",
-            "score": 12,
-            "note": "대시보드 5건이라고만 하고 어느 것인지 밝히지 않았다."
+            "score": 13,
+            "note": null
           },
           {
             "id": "actionable",
-            "score": 12,
-            "note": "현황 파악에는 충분하나 다음 행동을 정하기는 어렵다."
+            "score": 8,
+            "note": null
           }
         ],
-        "scoredAt": null,
-        "source": "seed"
+        "scoredAt": "2026-08-19T15:52:11.280Z",
+        "source": "signals"
       },
       "recentScores": [
         72,
@@ -107,36 +107,36 @@
       "sample": {
         "file": "sample-market-brief.md",
         "title": "L2 경쟁 구도 브리핑",
-        "score": 76,
+        "score": 57,
         "breakdown": [
           {
             "id": "evidence",
-            "score": 17,
-            "note": "비교표의 수치가 구체적이고 추이까지 붙였다."
+            "score": 20,
+            "note": null
           },
           {
             "id": "scenario",
-            "score": 12,
-            "note": "변화 방향은 짚었으나 갈릴 경로를 나누지는 않았다."
+            "score": 4,
+            "note": null
           },
           {
             "id": "risk",
-            "score": 16,
-            "note": "집중도 취약성을 리스크로 명시했다."
+            "score": 14,
+            "note": null
           },
           {
             "id": "source",
-            "score": 16,
-            "note": "출처 수와 오차 범위를 밝혔으나 개별 출처는 없다."
+            "score": 6,
+            "note": null
           },
           {
             "id": "actionable",
-            "score": 15,
-            "note": "어디를 봐야 할지는 알 수 있으나 행동까지는 아니다."
+            "score": 13,
+            "note": null
           }
         ],
-        "scoredAt": null,
-        "source": "seed"
+        "scoredAt": "2026-08-19T15:52:11.280Z",
+        "source": "signals"
       },
       "recentScores": [
         86,
@@ -180,36 +180,36 @@
       "sample": {
         "file": "sample-deep-research.md",
         "title": "리스테이킹 시장 심층 리포트",
-        "score": 94,
+        "score": 93,
         "breakdown": [
           {
             "id": "evidence",
-            "score": 19,
-            "note": "널리 인용되는 수치를 직접 재계산하고 방법을 밝혔다."
+            "score": 14,
+            "note": null
           },
           {
             "id": "scenario",
             "score": 20,
-            "note": "세 경로를 전제와 함께 나눴다."
+            "note": null
           },
           {
             "id": "risk",
-            "score": 18,
-            "note": "이 리포트가 틀릴 조건을 항목으로 적었다."
+            "score": 20,
+            "note": null
           },
           {
             "id": "source",
-            "score": 19,
-            "note": "컨트랙트 주소와 블록 범위까지 부록에 뒀다."
+            "score": 20,
+            "note": null
           },
           {
             "id": "actionable",
-            "score": 18,
-            "note": "반대 논거까지 두어 판단 재료가 갖춰졌다."
+            "score": 19,
+            "note": null
           }
         ],
-        "scoredAt": null,
-        "source": "seed"
+        "scoredAt": "2026-08-19T15:52:11.280Z",
+        "source": "signals"
       },
       "recentScores": [
         96,

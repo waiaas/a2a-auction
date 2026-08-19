@@ -81,13 +81,21 @@ if (me0.agent.usdc < 26) {
   console.log(`입금 ${need} USDC`);
 }
 
-// 두 구매 모두 통과시켜야 선택 결과를 비교할 수 있다. 한도는 넉넉히 연다.
-await call('PUT', '/policy', { notifyMaxUsdc: 25, delayMaxUsdc: 25 });
+// **데모 각본과 같은 한도로 돌린다.** 넉넉히 열어 두면 두 구매가 모두 NOTIFY로 끝나
+// "품질 가중치를 올리면 한도를 넘어 서명이 발동한다"(결정 ⑭)가 검증 범위 밖으로 빠진다.
+// 스크립트가 끝난 뒤에도 이 값이라 이어서 리허설해도 승인 장면이 그대로 나온다.
+await call('PUT', '/policy', { notifyMaxUsdc: 5, delayMaxUsdc: 10 });
 
 const { listings } = await call('GET', '/catalog');
 
 console.log('[1] 브라우저 계산과 서버 구매가 같은 것을 고르는가');
-for (const weight of [1.0, 0.0]) {
+// 한도 5/10이므로 5 USDC는 알림만 가고, 20 USDC는 유예 한도를 넘어 서명을 요구해야 한다.
+const CASES = [
+  { weight: 1.0, expectTier: 'NOTIFY' },
+  { weight: 0.0, expectTier: 'APPROVAL' },
+];
+
+for (const { weight, expectTier } of CASES) {
   const expected = rankCandidates(listings, weight)[0];
   console.log(`\n  가격비중 ${Math.round(weight * 100)}% → 화면 1위: ${expected.id} (${expected.priceUsdc} USDC, 종합 ${expected.scores.total})`);
 
@@ -109,6 +117,22 @@ for (const weight of [1.0, 0.0]) {
 
   if (bought.decision?.priceWeight === weight) ok(`가중치가 판단 기록에 남았다 — ${bought.decision.priceWeight}`);
   else bad(`가중치가 기록되지 않았다 — ${JSON.stringify(bought.decision?.priceWeight)}`);
+
+  // 결정 ⑭의 핵심. 품질 쪽으로 밀면 비싼 것이 1위가 되고 한도를 넘어 서명이 발동한다.
+  if (bought.ui === expectTier) ok(`판정이 기대와 같다 — ${expectTier}`);
+  else bad(`판정이 ${expectTier}가 아니라 ${bought.ui}다 (한도 5/10 기준)`);
+
+  if (expectTier === 'APPROVAL') {
+    const msg = await call('GET', `/purchase/approve-message/${requestId}?action=approve`);
+    await call('POST', `/purchase/approve/${requestId}`, {
+      message: msg.message,
+      signature: signEd25519(owner.secretKey, msg.message).toString('base64'),
+    });
+    const after = await waitIdle();
+    const approved = after.purchases.find((p) => p.requestId === requestId);
+    if (approved?.ui === 'APPROVED') ok('오너 지갑 서명으로 승인 통과 — APPROVED');
+    else bad(`승인 후 판정이 APPROVED가 아니다 — ${approved?.ui}`);
+  }
 
   console.log(`  근거(${bought.decision.source}): ${bought.decision.reason}`);
   if (bought.decision.rejected) console.log(`  기각: ${bought.decision.rejected}`);

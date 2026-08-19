@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchPurchaseReceipt } from '../api.js';
 import { verdictInfo, fmtUsdc } from '../lib/derive.js';
+import Stepper from './Stepper.jsx';
 import TxLink from './TxLink.jsx';
 import { ClusterContext } from '../lib/explorer.js';
 
@@ -68,6 +69,10 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
         <button className="cta ghost" onClick={onBack}>← 돌아가기</button>
       </div>
 
+      {/* 영수증이 스테퍼의 마지막 칸이다. 여기서 렌더하지 않으면 그 칸은 어떤 경로로도
+          도달하지 않는 장식이 된다(감사 발견 5). */}
+      <Stepper current="receipt" />
+
       <p className="pol">
         정책: <b>{receipt.policy.note}</b> · {receipt.network} · phase {receipt.phase}
       </p>
@@ -121,6 +126,9 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
 
             <div className="rc-grid">
               <div><span className="k">auction</span><span className="tx">#{p.auctionId ?? '—'}</span></div>
+              {/* 온체인 5단계 중 createAuction만 빠져 있었다. 진행 화면은 5단계를 보여주는데
+                  영수증이 4개만 남기면 "전부 온체인에 있다"는 주장에 구멍이 생긴다. */}
+              <div><span className="k">거래 개설</span><TxLink sig={p.tx?.createAuction} /></div>
               <div><span className="k">commit</span><TxLink sig={p.tx?.commit} /></div>
               <div><span className="k">deposit</span><TxLink sig={p.tx?.deposit} /></div>
               <div><span className="k">reveal</span><TxLink sig={p.tx?.reveal} /></div>

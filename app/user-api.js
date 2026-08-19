@@ -10,7 +10,7 @@
  * 조작할 수 있었다.
  */
 import express from 'express';
-import { MAIN_BUYER, NETWORK_LABEL } from './config.js';
+import { MAIN_BUYER, NETWORK_LABEL, X402_UNLOCK } from './config.js';
 import { buildDeps } from './auction-flow.js';
 import {
   purchaseFromRequest,
@@ -23,7 +23,7 @@ import {
 } from './purchase-flow.js';
 import { loadListings } from './lib/decision.js';
 import { readResultCache } from './lib/gemini.js';
-import { loadCriteria } from './lib/scoring.js';
+import { loadCriteria, clearScores } from './lib/scoring.js';
 import { readSampleMarkdown } from './lib/listings-store.js';
 import { ensureUser } from './lib/onboarding.js';
 import { grantToOwner, checkBudget, PUBLIC_FAUCET_URL } from './lib/faucet.js';
@@ -485,10 +485,31 @@ export function createUserApi() {
     if (!purchase) {
       return res.status(404).json({ error: 'not_found', message: '그런 구매 건이 없습니다.' });
     }
+    // 거부·정책거부로 끝난 건은 영원히 정산되지 않는다. "정산을 마치면"이라고 안내하면
+    // 사용자가 오지 않을 상태를 기다리게 된다.
+    if (purchase.ui === 'REJECTED' || purchase.ui === 'DENY') {
+      return res.status(409).json({
+        error: 'not_purchased',
+        message:
+          purchase.ui === 'REJECTED'
+            ? '거부하신 건이라 결제가 일어나지 않았고 결과물도 없습니다.'
+            : '정책이 막아 결제되지 않았습니다. 한도를 조정한 뒤 다시 맡겨 주세요.',
+      });
+    }
     if (!purchase.steps?.settle) {
       return res.status(409).json({
         error: 'not_settled',
         message: '아직 정산되지 않았습니다. 정산을 마치면 결과물을 볼 수 있습니다.',
+      });
+    }
+    // x402를 켠 환경에서는 **열람 결제가 확인돼야** 본문을 준다. 정산 여부만 보면 unlock이
+    // 실패한 건(터널 끊김·402 실패)도 본문이 나가, "결제해야 열람한다"가 문구로만 남는다.
+    // 킬 스위치가 꺼진 로컬에서는 이 조건 자체가 없으므로 무료 열람 경로는 그대로다.
+    if (X402_UNLOCK && !purchase.x402) {
+      return res.status(402).json({
+        error: 'payment_required',
+        message: '결과물 열람 결제가 아직 확인되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+        detail: purchase.unlockError ?? null,
       });
     }
 
@@ -524,9 +545,14 @@ export function createUserApi() {
     const owner = req.user.owner_address;
     const round = getRound(owner);
     if (round.running) return res.status(409).json({ error: 'busy', message: '진행 중입니다.' });
+    // 채점 이력은 리스팅 전역이라 사용자별 초기화와 층이 다르다. 그래서 명시적으로 요청할
+    // 때만 지운다. 이 경로가 없으면 리허설을 돌릴수록 평점이 한쪽으로만 내려가고, 발표 당일
+    // 카탈로그가 계획한 숫자와 달라진다(결과물 채점이 씨앗값보다 낮게 나오기 때문).
+    let clearedScores = 0;
     if (req.body?.purgeHistory) clearPurchases(owner);
+    if (req.body?.purgeScores) clearedScores = clearScores();
     dropRound(owner);
-    res.json({ reset: true });
+    res.json({ reset: true, clearedScores });
   });
 
   /** 라운드 상태에 실을 사용자 정보(표시용 + 실제 정책값). */

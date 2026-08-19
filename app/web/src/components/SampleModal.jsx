@@ -54,9 +54,14 @@ export default function SampleModal({ listing, criteria, onClose }) {
               <span className="svc-role">샘플 채점</span>
               <span className="svc-sub">{sample.score} / 100</span>
             </header>
+            {/* 어떤 채점기가 매겼는지 밝힌다. 결과물 채점 화면과 같은 표시 규칙을 쓴다. */}
+            <span className={`tag ${sample.source === 'live' ? 'ok' : 'warn'}`}>
+              {sample.source === 'live' ? 'AI 채점' : '규칙으로 채점'}
+            </span>
             <ScoreTable breakdown={sample.breakdown} criteria={criteria} />
             <p className="svc-note">
-              같은 기준으로 후보 전체를 채점했습니다. 이 점수가 후보 순위의 품질 축에 들어갑니다.
+              후보 전체를 같은 기준·같은 채점기로 한 번 채점해 둔 결과입니다. 샘플과 기준이
+              고정이라 매번 다시 매기지 않고, 이 점수가 후보 순위의 품질 축에 들어갑니다.
             </p>
           </section>
         )}

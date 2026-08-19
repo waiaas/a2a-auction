@@ -60,11 +60,16 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
     }
   }, []);
 
+  // 정산이 하나 끝날 때마다 카탈로그를 다시 읽는다. 채점이 평점을 바꾸는데 화면이 로드
+  // 시점 스냅샷을 계속 쓰면 두 가지가 어긋난다. ① "평점은 채점이 쌓여 만들어진다"를
+  // 보여주는 카드가 정작 갱신되지 않는다 ② 서버는 구매 시점의 평점으로 순위를 매기므로,
+  // 굳은 화면과 서버의 1위가 갈릴 수 있다.
+  const settledCount = round.purchases.filter((p) => p.steps?.settle).length;
   useEffect(() => {
     api.fetchCatalog()
       .then((d) => { setCatalog(d.listings); setCriteria(d.criteria ?? []); })
       .catch(() => {});
-  }, []);
+  }, [settledCount]);
 
   useEffect(() => {
     if (!connected) return undefined;
@@ -91,7 +96,9 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
       return out;
     } catch (e) {
       setError(e.message);
-      throw e;
+      // 다시 던지지 않는다. 오류는 이미 화면에 실렸고 호출부는 전부 onClick 핸들러라
+      // 받아 주는 곳이 없다 — 던지면 미처리 rejection이 콘솔에 그대로 남는다.
+      return undefined;
     } finally {
       setBusy(false);
     }
@@ -258,6 +265,13 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
         <>
           <WalletCards me={me} onFaucet={faucet} onDeposit={deposit} busy={running} />
           <PolicyCard policy={me?.policy} agentUsdc={me?.agent?.usdc} onSave={savePolicy} busy={running} />
+
+          {/* 결정 ⑲. 주소만 치고 들어온 사람은 TRY-IT.md를 보지 않는다. 밝히지 않으면
+              "self-hosted라며 왜 서버가 키를 갖고 있냐"를 상대가 먼저 발견하게 된다. */}
+          <p className="svc-trial">
+            이 체험판은 저희가 데몬을 대신 띄운 것입니다. 실제 제품(WAIaaS)은 자기 기계에 데몬을
+            띄우고 키가 그 기계를 떠나지 않습니다.
+          </p>
           {/* 정식 경로(MCP)를 보조 입력창보다 먼저 놓는다. 순서가 곧 어느 쪽이 주인지를 말한다. */}
           <McpCard agentAddress={me?.agentAddress} />
 
@@ -307,9 +321,16 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
 function currentStep({ draft, purchases, result }) {
   if (result) return 'result';
   if (draft) return 'choose';
+  if (!purchases.length) return 'request';
+
+  // 사람이 개입해야 하는 건이 하나라도 있으면 그것이 지금 할 일이다. 마지막 건만 보면
+  // 앞 건의 승인 대기가 화면에서 사라진다(뒷 건이 정산되면 스테퍼가 "결과물"로 가버린다).
+  if (purchases.some((p) => p.ui === 'APPROVAL' || p.ui === 'DELAY')) return 'approve';
+
   const last = purchases[purchases.length - 1];
-  if (!last) return 'request';
-  if (last.ui === 'APPROVAL' || last.ui === 'DELAY') return 'approve';
+  // 거부·정책거부로 끝난 건은 결제 단계가 아니다. 돈이 나가지 않았는데 "승인 완료 후
+  // 결제 중"으로 칠하면 화면이 사실과 반대를 말한다. 새 요청을 받을 수 있는 상태로 둔다.
+  if (last.ui === 'REJECTED' || last.ui === 'DENY') return 'request';
   if (!last.steps?.settle) return 'settle';
   return 'result';
 }

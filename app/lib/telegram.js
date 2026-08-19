@@ -72,6 +72,31 @@ export async function notifyApprovalNeeded(purchase, limits = {}) {
   return true;
 }
 
+/**
+ * 유예 알림. 화면은 "60초 유예 후 진행되고 그 사이 취소할 수 있습니다"라고 안내하는데,
+ * 그 60초를 폰으로 알 수 없으면 취소할 기회가 자리를 지키고 있는 사람에게만 열린다.
+ */
+export async function notifyDelayed(purchase, limits = {}) {
+  if (!isTelegramEnabled) return false;
+
+  const seconds = limits.delaySeconds ?? 60;
+  const lines = [
+    '⏳ *에이전트가 잠시 기다립니다*',
+    '',
+    `${escapeMd(purchase.listing.sellerEmoji ?? '')} ${escapeMd(purchase.listing.sellerName)}`,
+    `*${escapeMd(String(purchase.amountUsdc))} USDC*`,
+    '',
+    escapeMd(`${seconds}초 뒤 스스로 진행합니다. 그 사이에 취소할 수 있습니다.`),
+    escapeMd(`의뢰: ${purchase.title}`),
+  ];
+  const markup = PUBLIC_URL
+    ? { inline_keyboard: [[{ text: '지금 취소하러 가기', url: PUBLIC_URL }]] }
+    : undefined;
+
+  await send(lines.join('\n'), markup);
+  return true;
+}
+
 /** 승인·거부의 결말. 알림만 오고 결과를 모르면 사람이 웹을 계속 들여다봐야 한다. */
 export async function notifyResolved(purchase, action) {
   if (!isTelegramEnabled) return false;

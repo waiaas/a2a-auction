@@ -50,6 +50,11 @@ export default function ResultView({ result, onBack, onOpenReceipt }) {
 
         {grade ? (
           <>
+            {/* 어떤 채점기가 매겼는지 밝힌다. 공급자 선택은 폴백을 "규칙으로 선택"이라고
+                표시하는데 채점만 숨기면, 정작 "이 점수가 뭐냐"는 물음에 답할 수 없다. */}
+            <span className={`tag ${grade.source === 'live' ? 'ok' : 'warn'}`}>
+              {grade.source === 'live' ? 'AI 채점' : '규칙으로 채점'}
+            </span>
             <ScoreTable breakdown={grade.breakdown} criteria={criteria} />
             {moved && (
               <p className="rv-rating">
@@ -60,6 +65,9 @@ export default function ResultView({ result, onBack, onOpenReceipt }) {
             <p className="svc-note">
               채점 기준은 의뢰의 성격을 따릅니다. 리서치에는 리서치의 기준이 붙고, 코드 의뢰에는
               검증 기준이 붙습니다. 이 점수가 쌓여 그 에이전트의 평점이 됩니다.
+              {grade.source !== 'live' && (
+                <> 지금은 채점 모델을 쓸 수 없어 <b>본문에서 기준별 신호를 세는 규칙</b>으로 매겼습니다.</>
+              )}
             </p>
           </>
         ) : gradeError ? (

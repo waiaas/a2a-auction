@@ -43,7 +43,7 @@ import {
 } from './lib/onchain-wait.js';
 import { getResult, readResultCache } from './lib/gemini.js';
 import { gradeResult } from './lib/grading.js';
-import { notifyApprovalNeeded, notifyResolved, isTelegramEnabled } from './lib/telegram.js';
+import { notifyApprovalNeeded, notifyDelayed, notifyResolved, isTelegramEnabled } from './lib/telegram.js';
 import { readPolicyLimits } from './lib/user-context.js';
 import { unlockViaX402 } from './lib/x402-unlock.js';
 import { loadListings, loadRequests, chooseListing, explainPick } from './lib/decision.js';
@@ -316,11 +316,17 @@ async function executePurchase(state, deps, purchase, ctx) {
     };
     pushLog(state, `구매 ${purchase.listing.id} ${purchase.amountUsdc} USDC → ${decision} (${fin.status})`);
 
-    // 한도를 넘어 사람의 승인이 필요해진 순간이 이 데모의 핵심 장면이다. 알림은 부가 채널이라
-    // await 하지 않고, 실패해도 구매를 막지 않는다 — 텔레그램이 죽었다고 결제가 멈추면 안 된다.
-    if (decision === 'APPROVAL' && isTelegramEnabled) {
+    // 사람이 개입할 수 있는 판정은 폰으로 알린다. APPROVAL은 서명을 기다리고, DELAY는
+    // 유예 동안 취소할 기회가 있다 — 그 기회를 화면 앞에 앉아 있는 사람만 쓸 수 있으면
+    // "필요할 때만 나를 찾아온다"가 성립하지 않는다.
+    // 알림은 부가 채널이라 await 하지 않고, 실패해도 구매를 막지 않는다.
+    if (isQueuedDecision(decision) && isTelegramEnabled) {
       readPolicyLimits(deps)
-        .then((limits) => notifyApprovalNeeded(purchase, limits))
+        .then((limits) =>
+          decision === 'APPROVAL'
+            ? notifyApprovalNeeded(purchase, limits)
+            : notifyDelayed(purchase, limits),
+        )
         .catch((e) => pushLog(state, `텔레그램 알림 실패: ${e.message}`));
     }
   }

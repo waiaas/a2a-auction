@@ -17,8 +17,8 @@ export default function ScoreTable({ breakdown, criteria }) {
           return (
             <tr key={b.id}>
               <th scope="row">{labelOf(b.id)}</th>
-              <td className="score-bar">
-                <span className="bar"><i style={{ width: `${(b.score / max) * 100}%` }} /></span>
+              <td className="score-bar-cell">
+                <span className="score-bar"><i style={{ width: `${(b.score / max) * 100}%` }} /></span>
               </td>
               <td className="score-n">{b.score}<span className="score-max"> / {max}</span></td>
               {b.note && <td className="score-note">{b.note}</td>}

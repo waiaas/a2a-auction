@@ -31,7 +31,11 @@ export function ratingOf(scores) {
  * @param {number} priceWeight - 0(품질만) ~ 1(가격만)
  */
 export function rankCandidates(listings, priceWeight = DEFAULT_PRICE_WEIGHT) {
-  const w = Math.min(1, Math.max(0, Number(priceWeight)));
+  // `Math.max(0, NaN)`은 NaN이라 클램프만으로는 못 거른다. NaN이 통과하면 모든 종합점수가
+  // NaN이 되어 정렬이 무의미해지고, 화면에는 "가격 NaN%"가 찍힌다. 슬라이더로는 도달하지
+  // 않지만 API·MCP 클라이언트는 임의의 값을 보낼 수 있다(시스템 경계).
+  const raw = Number(priceWeight);
+  const w = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : DEFAULT_PRICE_WEIGHT;
   // 샘플이 없으면 품질을 잴 수 없어 비교가 성립하지 않는다. 품질 0점으로 목록에 남기면
   // "얘는 왜 항상 꼴찌인가"라는, 화면이 설명할 수 없는 줄이 생긴다.
   const eligible = listings.filter((l) => l.sample?.score != null);
