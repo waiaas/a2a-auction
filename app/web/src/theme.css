@@ -397,6 +397,39 @@ body::before {
 .rc-sum .v { display: block; margin-top: 5px; font-size: 17px; font-weight: 800; color: var(--ink); }
 .rc-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 /*
+ * 온체인 진행 5단계. 상태는 1.5초 폴링으로 갱신되므로 단계가 하나씩 켜지는 것이 그대로
+ * 보인다. 색으로 "지금 어디까지 왔고 어디서 멈췄는지"를 말한다 — 초록은 체인에 남았다,
+ * 주황은 사람을 기다린다, 빨강은 정책이 막았다.
+ */
+.os {
+  margin-top: 12px; padding: 10px 12px;
+  border: 1px solid var(--edge-soft); border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.os-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.os-t { font-size: 10.5px; color: var(--faint); letter-spacing: 0.02em; }
+.os-c { font-size: 11px; font-weight: 800; color: var(--dim); }
+.os-row { display: flex; flex-wrap: wrap; gap: 7px 14px; list-style: none; margin: 0; padding: 0; }
+.os-i { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--faint); }
+.os-l { white-space: nowrap; }
+.os-d { width: 7px; height: 7px; border-radius: 50%; background: var(--edge); flex: none; }
+.os-i.done { color: var(--dim); }
+.os-i.done .os-d { background: var(--ok); }
+.os-i.wait { color: var(--warn); }
+.os-i.wait .os-d { background: var(--warn); }
+.os-i.fail { color: var(--bad); }
+.os-i.fail .os-d { background: var(--bad); }
+.os-i.active { color: var(--acc); }
+.os-i.active .os-d { background: var(--acc); animation: os-pulse 1.2s ease-in-out infinite; }
+.os-n { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); }
+@keyframes os-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.4); }
+}
+/* 움직임을 줄여달라는 설정을 존중한다. 진행 중 표시는 색으로도 이미 구분된다. */
+@media (prefers-reduced-motion: reduce) { .os-i.active .os-d { animation: none; } }
+
+/*
  * 온체인 잔액 이동. **"정산 완료"라는 라벨보다 숫자가 실제로 움직인 것이 강한 증거다.**
  * 서명 격자(rc-grid)보다 위에 두고 크기로 우선순위를 준다 — 심사위원이 카드에서
  * 가장 먼저 읽어야 하는 것이 이 줄이다.

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Icon from './Icon.jsx';
+import OnchainSteps from './OnchainSteps.jsx';
+import { ClusterContext } from '../lib/explorer.js';
 import { fetchPurchaseState, fetchCatalog, startPurchase, settlePurchase, approvePurchase } from '../api.js';
 import { verdictInfo, fmtUsdc } from '../lib/derive.js';
 
@@ -52,6 +54,7 @@ export default function PurchaseView({ onBack, onOpenReceipt }) {
   const settleable = purchases.some((p) => !p.steps?.settle && ['NOTIFY', 'INSTANT', 'RELEASED', 'APPROVED'].includes(p.ui));
 
   return (
+    <ClusterContext.Provider value={state?.network || 'devnet'}>
     <div className="stage">
       <div className="sec-h">
         <h2>에이전트 구매 라운드</h2>
@@ -122,6 +125,8 @@ export default function PurchaseView({ onBack, onOpenReceipt }) {
             <div className="buy-why">{p.decision.reason}</div>
             {p.decision.rejected && <div className="buy-rej">기각: {p.decision.rejected}</div>}
 
+            <OnchainSteps steps={p.steps} ui={p.ui} running={running} />
+
             <div className="buy-f">
               <span>{v.sub}</span>
               {p.auctionId != null && <span>auction #{p.auctionId}</span>}
@@ -140,5 +145,6 @@ export default function PurchaseView({ onBack, onOpenReceipt }) {
         );
       })}
     </div>
+    </ClusterContext.Provider>
   );
 }

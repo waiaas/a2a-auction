@@ -1,4 +1,5 @@
 import { verdictInfo, fmtUsdc } from '../lib/derive.js';
+import OnchainSteps from './OnchainSteps.jsx';
 
 /**
  * 내 구매 목록.
@@ -9,7 +10,7 @@ import { verdictInfo, fmtUsdc } from '../lib/derive.js';
  *
  * 실패도 같은 자리에 같은 무게로 적는다. 원인을 말하지 않는 실패는 서비스 고장으로 읽힌다.
  */
-export default function PurchaseList({ purchases, busy, onApprove, onCancel, onSettle }) {
+export default function PurchaseList({ purchases, busy, running, onApprove, onCancel, onSettle }) {
   if (!purchases.length) {
     return <p className="svc-empty">아직 맡긴 일이 없습니다. 위에 필요한 것을 적어 보세요.</p>;
   }
@@ -52,6 +53,8 @@ export default function PurchaseList({ purchases, busy, onApprove, onCancel, onS
             </div>
             <div className="buy-why">{p.decision.reason}</div>
             {p.decision.rejected && <div className="buy-rej">고르지 않은 것: {p.decision.rejected}</div>}
+
+            <OnchainSteps steps={p.steps} ui={p.ui} running={running} />
 
             <div className="buy-f">
               <span>{tierExplain(p)}</span>
