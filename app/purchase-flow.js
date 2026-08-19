@@ -41,9 +41,13 @@ import {
   waitForVaultDeposit,
   waitForTokenBalance,
 } from './lib/onchain-wait.js';
-import { getResult } from './lib/gemini.js';
+import { getResult, readResultCache } from './lib/gemini.js';
+import { gradeResult } from './lib/grading.js';
+import { notifyApprovalNeeded, notifyResolved, isTelegramEnabled } from './lib/telegram.js';
+import { readPolicyLimits } from './lib/user-context.js';
 import { unlockViaX402 } from './lib/x402-unlock.js';
-import { loadListings, loadRequests, chooseListing } from './lib/decision.js';
+import { loadListings, loadRequests, chooseListing, explainPick } from './lib/decision.js';
+import { rankCandidates, recordScore } from './lib/scoring.js';
 import { bumpNextAuctionId, loadOwnerKeypair } from './lib/state.js';
 
 /** 이 시나리오의 주인공 바이어. owner가 verified라 APPROVAL이 실제로 큐에 걸린다. */
@@ -311,6 +315,14 @@ async function executePurchase(state, deps, purchase, ctx) {
       error: fin.error || fin.errorMessage || null,
     };
     pushLog(state, `구매 ${purchase.listing.id} ${purchase.amountUsdc} USDC → ${decision} (${fin.status})`);
+
+    // 한도를 넘어 사람의 승인이 필요해진 순간이 이 데모의 핵심 장면이다. 알림은 부가 채널이라
+    // await 하지 않고, 실패해도 구매를 막지 않는다 — 텔레그램이 죽었다고 결제가 멈추면 안 된다.
+    if (decision === 'APPROVAL' && isTelegramEnabled) {
+      readPolicyLimits(deps)
+        .then((limits) => notifyApprovalNeeded(purchase, limits))
+        .catch((e) => pushLog(state, `텔레그램 알림 실패: ${e.message}`));
+    }
   }
   return purchase;
 }
@@ -386,7 +398,12 @@ export async function purchaseFromRequest(state, deps, req) {
     need: req.need?.trim() || '사용자가 직접 입력한 요청',
     size: 'medium', // 폴백 판정용 기본 깊이. 라이브가 성공하면 쓰이지 않는다
   };
-  const { listing, reason, rejected, source } = await chooseListing(request, listings);
+  // 가중치가 들어오면 사용자가 후보 화면에서 순위를 보고 정한 것이다. 그 1위를 그대로 산다 —
+  // 여기서 모델이 다시 고르면 화면이 보여준 1위와 실제 구매가 어긋난다.
+  const ranked = req.priceWeight != null ? rankCandidates(listings, req.priceWeight) : null;
+  const { listing, reason, rejected, source } = ranked?.length
+    ? await explainPick(request, ranked, Number(req.priceWeight))
+    : await chooseListing(request, listings);
 
   const purchase = newPurchase(state, deps, {
     requestId: req.requestId ?? `user-${Date.now().toString(36)}-${state.purchases.length + 1}`,
@@ -395,7 +412,7 @@ export async function purchaseFromRequest(state, deps, req) {
     need: request.need,
     task: request.prompt,
     size: listing.depth,
-    decision: { reason, rejected, source },
+    decision: { reason, rejected, source, priceWeight: ranked ? Number(req.priceWeight) : null },
   });
   pushLog(state, `선택 ${request.id} → ${listing.id} (${listing.priceUsdc} USDC, ${source})`);
   return runOnePurchase(state, deps, purchase);
@@ -480,6 +497,10 @@ export async function approvePurchase(state, deps, requestId, ownerSig = null) {
 
   await clients[BUYER].approveTx(purchase.txId, ownerAddress, message, signature);
   pushLog(state, `승인 ${purchase.listing.id} ${purchase.amountUsdc} USDC (owner 서명)`);
+  // 알림만 오고 결말을 모르면 사람이 웹을 계속 들여다봐야 한다. 실패해도 승인을 되돌리지 않는다.
+  if (isTelegramEnabled) {
+    notifyResolved(purchase, 'approve').catch((e) => pushLog(state, `텔레그램 알림 실패: ${e.message}`));
+  }
 
   // 승인은 큐에서 풀어줄 뿐이고 실행은 파이프라인이 이어서 한다 — 정지 상태까지 따라간다.
   const fin = await clients[BUYER].pollTx(purchase.txId, ['CONFIRMED', 'SUBMITTED', 'FAILED', 'CANCELLED'], 30000);
@@ -522,6 +543,9 @@ export async function cancelPurchase(state, deps, requestId, ownerSig = null) {
   purchase.ui = 'REJECTED';
   purchase.steps.deposit = { ...purchase.steps.deposit, status: 'CANCELLED', rejectedAt: new Date().toISOString() };
   pushLog(state, `대기 취소 ${purchase.listing.id} ${purchase.amountUsdc} USDC`);
+  if (isTelegramEnabled) {
+    notifyResolved(purchase, 'reject').catch((e) => pushLog(state, `텔레그램 알림 실패: ${e.message}`));
+  }
   if (!state.purchases.some((p) => isQueuedDecision(p.ui))) state.phase = 'settling';
   return purchase;
 }
@@ -715,6 +739,35 @@ async function unlockOne(state, deps, purchase) {
 }
 
 /**
+ * 받은 결과물을 채점한다 (8/19 퀵싱크 반영분).
+ *
+ * **이 점수가 그 리스팅의 평점이 된다.** 구매 전 화면이 보여주는 샘플 채점은 저장된 값이지만
+ * 여기는 방금 받은 결과물을 그 자리에서 재는 것이라, "평점이 어디서 나온 숫자냐"는 물음에
+ * 화면이 답할 수 있게 하는 유일한 지점이다.
+ *
+ * 실패해도 정산을 되돌리지 않는다 — 채점은 구매의 성립 요건이 아니다.
+ */
+async function gradeOne(state, purchase) {
+  try {
+    const markdown = readResultCache(purchase.auctionId);
+    if (!markdown) throw new Error('결과물 캐시를 찾지 못했다');
+
+    const { score, breakdown, source } = await gradeResult(markdown, { task: purchase.task });
+    // 이력이 비어 있으면 fixtures의 초기 창을 씨앗으로 넘긴다. 그래야 첫 채점이 평점을
+    // 0에서 시작시키지 않는다.
+    const seed = loadListings().find((l) => l.id === purchase.listing.id)?.recentScores ?? [];
+    const { before, after } = recordScore(purchase.listing.id, score, seed);
+
+    purchase.grade = { score, breakdown, source, ratingBefore: before, ratingAfter: after };
+    purchase.gradeError = null;
+    pushLog(state, `채점 ${purchase.listing.id}: ${score}점 (${source}) 평점 ${before} → ${after}`);
+  } catch (e) {
+    purchase.gradeError = e.message;
+    pushLog(state, `채점 실패 ${purchase.listing.id}: ${e.message}`);
+  }
+}
+
+/**
  * 컷 6: 실행이 끝난 건들을 온체인 정산한다.
  *
  * 대기 중인 건은 건너뛴다 — 승인이나 유예가 풀린 뒤 다시 부르면 그때 정산된다.
@@ -738,6 +791,12 @@ export async function settlePurchases(state, deps) {
     for (const purchase of state.purchases) {
       if (purchase.steps.settle && !purchase.x402) await unlockOne(state, deps, purchase);
     }
+  }
+
+  // 정산된 건을 채점한다. x402가 켜져 있든 아니든 결과물은 이미 확정돼 있으므로 settle을
+  // 기준으로 잡는다. 재시도 조건도 같다(settle 있음 + grade 없음).
+  for (const purchase of state.purchases) {
+    if (purchase.steps.settle && !purchase.grade) await gradeOne(state, purchase);
   }
 
   const done = state.purchases.filter((p) => p.steps.settle).length;
@@ -784,6 +843,11 @@ export function assemblePurchaseReceipt(state) {
     verdict: p.ui,
     // 그래서 어떻게 끝났나(컷 5·6)
     outcome: outcomeOf(p),
+    // 받은 결과물이 몇 점이었나. 이 점수가 그 에이전트의 평점이 되므로 영수증에도 남긴다 —
+    // 거래 기록만 있고 품질 기록이 없으면 "무엇을 샀는지"의 절반이 빠진다.
+    grade: p.grade
+      ? { score: p.grade.score, ratingBefore: p.grade.ratingBefore, ratingAfter: p.grade.ratingAfter }
+      : null,
     auctionId: p.auctionId,
     addresses: p.addresses,
     tx: {

@@ -10,7 +10,7 @@ import OnchainSteps from './OnchainSteps.jsx';
  *
  * 실패도 같은 자리에 같은 무게로 적는다. 원인을 말하지 않는 실패는 서비스 고장으로 읽힌다.
  */
-export default function PurchaseList({ purchases, busy, running, onApprove, onCancel, onSettle }) {
+export default function PurchaseList({ purchases, busy, running, onApprove, onCancel, onSettle, onOpenResult }) {
   if (!purchases.length) {
     return <p className="svc-empty">아직 맡긴 일이 없습니다. 위에 필요한 것을 적어 보세요.</p>;
   }
@@ -57,11 +57,21 @@ export default function PurchaseList({ purchases, busy, running, onApprove, onCa
             <OnchainSteps steps={p.steps} ui={p.ui} running={running} />
 
             <div className="buy-f">
+              {/* 이 판정을 누가 내렸는지 화면이 말해야 한다. 어드민 탭을 빼기로 한 대신
+                  (8/19 결정 ⑰ 번복) WAIaaS가 드러나는 자리를 여기에 둔다. */}
+              <span className="wai-tag">WAIaaS 정책</span>
               <span>{tierExplain(p)}</span>
               {p.auctionId != null && <span>거래 #{p.auctionId}</span>}
               {p.steps?.settle && <span className="ok">정산 완료</span>}
               {p.x402 && <span className="ok">열람 결제 {p.x402.amountUsdc} USDC</span>}
+              {/* 채점은 받은 결과물을 그 자리에서 잰 점수다. 이 점수가 셀러 평점이 된다. */}
+              {p.grade && <span className="ok">채점 {p.grade.score}점</span>}
               {failure && <span className="bad">{failure}</span>}
+              {p.steps?.settle && onOpenResult && (
+                <button className="cta svc-approve" disabled={busy} onClick={() => onOpenResult(p)}>
+                  결과물 보기
+                </button>
+              )}
 
               {p.ui === 'APPROVAL' && (
                 <>

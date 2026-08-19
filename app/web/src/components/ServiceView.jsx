@@ -1,19 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WalletGate from './WalletGate.jsx';
 import WalletCards from './WalletCards.jsx';
 import PolicyCard from './PolicyCard.jsx';
 import McpCard from './McpCard.jsx';
 import RequestBox from './RequestBox.jsx';
 import PurchaseList from './PurchaseList.jsx';
+import CandidateList from './CandidateList.jsx';
+import AgentCard from './AgentCard.jsx';
+import SampleModal from './SampleModal.jsx';
+import ResultView from './ResultView.jsx';
+import Stepper from './Stepper.jsx';
 import { connectStandard, connectLocal } from '../lib/wallet.js';
 import * as api from '../lib/user-api.js';
 import { ClusterContext } from '../lib/explorer.js';
+import { rankCandidates, DEFAULT_PRICE_WEIGHT } from '../../../lib/ranking.js';
 
 /**
- * 서비스 화면. 지갑을 연결한 사람이 자기 에이전트에게 일을 맡기는 전 과정을 한 화면에 둔다.
+ * 서비스 화면. 지갑을 연결한 사람이 자기 에이전트에게 일을 맡기는 전 과정을 담는다.
  *
- * 순서가 곧 설명이다. **연결 → 자금 → 한도 → 요청 → 판정.** 앞 단계를 건너뛰면 뒤가 왜
- * 그렇게 되는지 알 수 없으므로, 각 카드가 다음에 무엇을 해야 하는지 스스로 말하게 했다.
+ * 순서가 곧 설명이다. **연결 → 자금 → 한도 → 요청 → 후보 → 판정 → 결과물.** 앞 단계를
+ * 건너뛰면 뒤가 왜 그렇게 되는지 알 수 없으므로, 각 카드가 다음에 무엇을 해야 하는지
+ * 스스로 말하게 했다.
+ *
+ * 요청 이후는 한 화면에 쌓지 않고 단계로 나눈다(8/19 퀵싱크). 전 과정을 한 페이지에 늘어
+ * 놓으면 지금 무엇이 일어나는지 설명할 수 없다는 지적을 받았고, 라우팅 대신 단계 표시로
+ * 같은 효과를 낸다 — 새로고침이나 뒤로가기로 진행 중인 구매가 끊기지 않는다.
  *
  * 지갑 객체는 상태가 아니라 ref에 둔다. 서명 함수는 렌더와 무관하고, 상태로 두면 서명 도중
  * 리렌더가 일어날 때 오래된 지갑 참조를 잡을 수 있다.
@@ -24,12 +35,21 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   const [me, setMe] = useState(null);
   const [round, setRound] = useState({ purchases: [], phase: 'idle', running: false });
   const [catalog, setCatalog] = useState([]);
+  const [criteria, setCriteria] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
+  // 요청을 넣으면 바로 사지 않고 후보를 먼저 보여준다. 그 사이 상태가 여기 머문다.
+  const [draft, setDraft] = useState(null);
+  const [priceWeight, setPriceWeight] = useState(DEFAULT_PRICE_WEIGHT);
+  const [sampleOf, setSampleOf] = useState(null);
+  const [result, setResult] = useState(null);
+
   // 토큰이 남아 있어도 지갑 객체는 새로고침에 사라진다. 서명이 필요한 동작에서만 다시 요구한다.
   const needsWallet = connected && !wallet.current;
+
+  const candidates = useMemo(() => rankCandidates(catalog, priceWeight), [catalog, priceWeight]);
 
   const refreshMe = useCallback(async () => {
     try {
@@ -41,7 +61,9 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   }, []);
 
   useEffect(() => {
-    api.fetchCatalog().then((d) => setCatalog(d.listings)).catch(() => {});
+    api.fetchCatalog()
+      .then((d) => { setCatalog(d.listings); setCriteria(d.criteria ?? []); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -124,12 +146,26 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   }, [refreshMe]);
 
   // ---- 구매 ----
-  const submitRequest = useCallback((prompt) => run(
-    () => api.submitRequest(prompt),
-    '에이전트가 카탈로그를 살펴보고 있습니다…',
-  ), [run]);
+  /** 요청은 후보 화면을 거친다. 여기서 바로 사면 "왜 이걸 골랐나"를 말할 자리가 없어진다. */
+  const openCandidates = useCallback((prompt) => {
+    setError(null);
+    setNotice(null);
+    setDraft(prompt);
+  }, []);
+
+  const submitDraft = useCallback((weight) => run(async () => {
+    const out = await api.submitRequest(draft, weight);
+    setDraft(null);
+    return out;
+  }, '에이전트가 진행합니다. 한도를 넘으면 승인을 요청합니다.'), [run, draft]);
 
   const settle = useCallback(() => run(() => api.settleRound()), [run]);
+
+  const openResult = useCallback((purchase) => run(async () => {
+    const out = await api.fetchResult(purchase.requestId);
+    setResult(out);
+    return out;
+  }), [run]);
 
   /** 승인·거부 모두 지갑 서명이 필요하다. 서버는 서명을 중계만 한다. */
   const ownerAction = useCallback((purchase, action) => run(async () => {
@@ -150,6 +186,8 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
     setConnected(false);
     setMe(null);
     setRound({ purchases: [], phase: 'idle', running: false });
+    setDraft(null);
+    setResult(null);
   }, []);
 
   if (!connected) {
@@ -157,7 +195,7 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
       <div className="stage">
         <div className="sec-h">
           <h2>A2AHouse</h2>
-          <button className="cta ghost" onClick={onBack}>← 돌아가기</button>
+          {onBack && <button className="cta ghost" onClick={onBack}>← 돌아가기</button>}
         </div>
         <WalletGate onConnect={connect} busy={busy} error={error} />
       </div>
@@ -165,6 +203,18 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   }
 
   const running = busy || round.running;
+  const step = currentStep({ draft, purchases: round.purchases, result });
+
+  if (result) {
+    return (
+      <ClusterContext.Provider value={round.network || 'devnet'}>
+        <div className="stage">
+          <Stepper current="result" />
+          <ResultView result={result} onBack={() => setResult(null)} onOpenReceipt={onOpenReceipt} />
+        </div>
+      </ClusterContext.Provider>
+    );
+  }
 
   return (
     <ClusterContext.Provider value={round.network || 'devnet'}>
@@ -176,9 +226,11 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
             <button className="cta ghost" onClick={onOpenReceipt}>영수증</button>
           )}
           <button className="cta ghost" onClick={disconnect}>연결 해제</button>
-          <button className="cta ghost" onClick={onBack}>← 돌아가기</button>
+          {onBack && <button className="cta ghost" onClick={onBack}>← 돌아가기</button>}
         </div>
       </div>
+
+      <Stepper current={step} />
 
       {needsWallet && (
         <div className="svc-reattach">
@@ -191,20 +243,73 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
       {error && <div className="errbar">{error}</div>}
       {round.error && <div className="errbar">{round.error}</div>}
 
-      <WalletCards me={me} onFaucet={faucet} onDeposit={deposit} busy={running} />
-      <PolicyCard policy={me?.policy} agentUsdc={me?.agent?.usdc} onSave={savePolicy} busy={running} />
-      {/* 정식 경로(MCP)를 보조 입력창보다 먼저 놓는다. 순서가 곧 어느 쪽이 주인지를 말한다. */}
-      <McpCard agentAddress={me?.agentAddress} />
-      <RequestBox onSubmit={submitRequest} busy={running} catalog={catalog} />
-      <PurchaseList
-        purchases={round.purchases}
-        busy={running}
-        running={running}
-        onApprove={(p) => ownerAction(p, 'approve')}
-        onCancel={(p) => ownerAction(p, 'reject')}
-        onSettle={settle}
-      />
+      {draft ? (
+        <CandidateList
+          prompt={draft}
+          candidates={candidates}
+          priceWeight={priceWeight}
+          onWeight={setPriceWeight}
+          onSubmit={submitDraft}
+          onOpenSample={setSampleOf}
+          onCancel={() => setDraft(null)}
+          busy={running}
+        />
+      ) : (
+        <>
+          <WalletCards me={me} onFaucet={faucet} onDeposit={deposit} busy={running} />
+          <PolicyCard policy={me?.policy} agentUsdc={me?.agent?.usdc} onSave={savePolicy} busy={running} />
+          {/* 정식 경로(MCP)를 보조 입력창보다 먼저 놓는다. 순서가 곧 어느 쪽이 주인지를 말한다. */}
+          <McpCard agentAddress={me?.agentAddress} />
+
+          {/* 무엇을 살 수 있는지 먼저 보여야 무엇을 시킬지 정할 수 있다. 셀러 등록 화면은
+              두지 않는다(8/19 퀵싱크) — 이미 등록된 것만 놓는다. */}
+          {candidates.length > 0 && (
+            <section className="svc-catalog">
+              <header className="svc-catalog-h">
+                <span className="svc-role">등록된 에이전트</span>
+                <span className="svc-sub">{candidates.length}건 · 평점과 샘플을 보고 고릅니다</span>
+              </header>
+              <div className="cand-grid">
+                {candidates.map((l) => (
+                  <AgentCard key={l.id} listing={l} onOpenSample={setSampleOf} busy={running} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 건수·가격대는 실제로 고를 수 있는 후보 기준이어야 한다. 샘플이 없어 후보에서
+              빠지는 리스팅까지 세면 화면이 아래 카드 수와 다른 숫자를 말한다. */}
+          <RequestBox onSubmit={openCandidates} busy={running} catalog={candidates} />
+          <PurchaseList
+            purchases={round.purchases}
+            busy={running}
+            running={running}
+            onApprove={(p) => ownerAction(p, 'approve')}
+            onCancel={(p) => ownerAction(p, 'reject')}
+            onSettle={settle}
+            onOpenResult={openResult}
+          />
+        </>
+      )}
+
+      {sampleOf && (
+        <SampleModal listing={sampleOf} criteria={criteria} onClose={() => setSampleOf(null)} />
+      )}
     </div>
     </ClusterContext.Provider>
   );
+}
+
+/**
+ * 지금 어느 단계인가. 스테퍼는 진행 상태를 읽어 표시할 뿐이므로 별도 상태를 두지 않는다 —
+ * 화면 상태와 실제 진행이 어긋나면 스테퍼가 거짓말을 하게 된다.
+ */
+function currentStep({ draft, purchases, result }) {
+  if (result) return 'result';
+  if (draft) return 'choose';
+  const last = purchases[purchases.length - 1];
+  if (!last) return 'request';
+  if (last.ui === 'APPROVAL' || last.ui === 'DELAY') return 'approve';
+  if (!last.steps?.settle) return 'settle';
+  return 'result';
 }

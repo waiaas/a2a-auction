@@ -19,6 +19,8 @@ test-ledger/
 .DS_Store
 *.log
 app/registered-listings.json
+# 결과물 채점이 쌓이는 평점 이력. 리허설마다 바뀌므로 추적하지 않는다.
+app/listing-scores.json
 app/a2ahouse.json
 app/a2ahouse.json.tmp
 

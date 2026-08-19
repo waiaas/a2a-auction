@@ -22,6 +22,9 @@ import {
   assemblePurchaseReceipt,
 } from './purchase-flow.js';
 import { loadListings } from './lib/decision.js';
+import { readResultCache } from './lib/gemini.js';
+import { loadCriteria } from './lib/scoring.js';
+import { readSampleMarkdown } from './lib/listings-store.js';
 import { ensureUser } from './lib/onboarding.js';
 import { grantToOwner, checkBudget, PUBLIC_FAUCET_URL } from './lib/faucet.js';
 import { buildDepositTx, submitSignedTx } from './lib/deposit.js';
@@ -249,7 +252,19 @@ export function createUserApi() {
 
   // ---- 구매 ----
 
-  router.get('/catalog', (_req, res) => res.json({ listings: loadListings() }));
+  /**
+   * 카탈로그. 샘플 본문과 채점 기준을 함께 싣는다.
+   *
+   * 샘플은 결제 게이트가 없는 공개 포트폴리오이고, 세 건을 합쳐도 몇 KB라 나눠 부를 이유가
+   * 없다. 이 응답 하나로 후보 화면의 순위 계산과 미리보기가 모두 가능해진다.
+   */
+  router.get('/catalog', (_req, res) => {
+    const listings = loadListings().map((l) => ({
+      ...l,
+      sample: l.sample ? { ...l.sample, markdown: readSampleMarkdown(l.sample.file) } : null,
+    }));
+    res.json({ listings, criteria: loadCriteria().items });
+  });
 
   /**
    * 자유 요청 구매. 사용자가 필요한 것을 쓰면 에이전트가 카탈로그에서 고르고 산다.
@@ -311,6 +326,9 @@ export function createUserApi() {
           prompt,
           title: req.body?.title,
           need: req.body?.need,
+          // 후보 화면에서 사용자가 정한 가격 비중. 없으면 모델이 직접 고르는 기존 경로로 간다
+          // (MCP는 후보 화면을 거치지 않으므로 이 값을 보내지 않는다).
+          priceWeight: req.body?.priceWeight,
           requestId,
         });
     run
@@ -452,6 +470,46 @@ export function createUserApi() {
         ` | tx: ${purchase.txId} | time: ${new Date().toISOString()}`,
       // 화면이 사람에게 보여줄 설명. 서명 원문과 다른 층이다.
       summary: `${purchase.listing.title} · ${purchase.amountUsdc} USDC`,
+    });
+  });
+
+  /**
+   * 결과물 열람. 정산이 끝나야 열린다 — 이 게이트가 이 서비스의 거래 구조 그 자체다.
+   *
+   * 본문은 상태가 아니라 캐시에서 읽는다. 폴링 응답(`/purchase/state`)에 본문을 실으면
+   * 매초 수 KB가 오간다.
+   */
+  router.get('/purchase/result/:requestId', auth, (req, res) => {
+    const round = getRound(req.user.owner_address);
+    const purchase = round.state.purchases.find((p) => p.requestId === req.params.requestId);
+    if (!purchase) {
+      return res.status(404).json({ error: 'not_found', message: '그런 구매 건이 없습니다.' });
+    }
+    if (!purchase.steps?.settle) {
+      return res.status(409).json({
+        error: 'not_settled',
+        message: '아직 정산되지 않았습니다. 정산을 마치면 결과물을 볼 수 있습니다.',
+      });
+    }
+
+    const markdown = readResultCache(purchase.auctionId);
+    if (!markdown) {
+      return res.status(404).json({
+        error: 'result_missing',
+        message: '결과물을 찾지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      });
+    }
+
+    res.json({
+      requestId: purchase.requestId,
+      title: purchase.title,
+      task: purchase.task,
+      listing: purchase.listing,
+      markdown,
+      grade: purchase.grade ?? null,
+      gradeError: purchase.gradeError ?? null,
+      criteria: loadCriteria().items,
+      x402: purchase.x402 ?? null,
     });
   });
 

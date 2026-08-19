@@ -93,10 +93,17 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
               <div className="rc-badges">
                 <span className={`pill ${v.cls}`}><span className="d" />{v.label}</span>
                 <span className={`pill ${o.cls}`}><span className="d" />{o.label}</span>
+                {/* 거래 기록만 있고 품질 기록이 없으면 "무엇을 샀는지"의 절반이 빠진다. */}
+                {p.grade && <span className="pill gold"><span className="d" />채점 {p.grade.score}</span>}
               </div>
             </div>
 
             <div className="buy-why">{p.decision.reason}</div>
+            {p.grade?.ratingAfter != null && (
+              <div className="buy-rej">
+                이 결과물 채점 {p.grade.score}점 · {p.listing.seller} 평점 {p.grade.ratingBefore} → {p.grade.ratingAfter}
+              </div>
+            )}
             {p.error && <div className="buy-rej">오류: {p.error}</div>}
 
             {p.onchain?.sellerBefore != null && p.onchain?.sellerUsdc != null && (

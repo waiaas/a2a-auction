@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PATHS } from '../config.js';
+import { withRatings } from './scoring.js';
 
 const REGISTERED_PATH = path.join(PATHS.fixtures, '..', 'registered-listings.json');
 
@@ -37,7 +38,9 @@ export function loadCatalog() {
   const registered = registeredListings();
   const byId = new Map(base.map((l) => [l.id, l]));
   for (const l of registered) byId.set(l.id, l);
-  return [...byId.values()].sort((a, b) => a.priceUsdc - b.priceUsdc);
+  // 평점은 저장값이 아니라 채점 이력에서 나온다. 카탈로그를 읽는 모든 경로가 같은 평점을
+  // 보도록 여기서 한 번 얹는다 — 화면과 에이전트 판단이 다른 숫자를 보면 설명이 어긋난다.
+  return withRatings([...byId.values()].sort((a, b) => a.priceUsdc - b.priceUsdc));
 }
 
 /**
@@ -93,4 +96,19 @@ export function clearRegistered() {
   const count = registeredListings().length;
   fs.rmSync(REGISTERED_PATH, { force: true });
   return count;
+}
+
+/**
+ * 샘플 결과물 본문. 카탈로그 화면이 "이 에이전트가 어느 정도까지 하는가"를 보여주는 재료다.
+ *
+ * 샘플은 공개 포트폴리오라 결제 게이트가 없다 — 게이트가 걸리는 것은 **내가 의뢰한**
+ * 결과물이다. 파일이 없으면 미리보기만 빠지고 카탈로그는 그대로 뜬다(시스템 경계).
+ */
+export function readSampleMarkdown(file) {
+  if (!file) return null;
+  try {
+    return fs.readFileSync(path.join(PATHS.fixtures, file), 'utf8');
+  } catch {
+    return null;
+  }
 }

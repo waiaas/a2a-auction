@@ -33,7 +33,9 @@ export default function PolicyCard({ policy, agentUsdc, onSave, busy }) {
   return (
     <section className="svc-card svc-policy">
       <header>
-        <span className="svc-role">내가 정한 한도</span>
+        {/* 이 카드가 실제로 WAIaaS 데몬의 정책 API를 호출한다. 라벨이 그 사실을 말해야
+            "뒤에서 WAIaaS가 돈다"가 화면에 드러난다(8/19 퀵싱크, 어드민 탭 대체). */}
+        <span className="svc-role">WAIaaS 정책 · 내가 정한 한도</span>
         {/* 상한의 근거는 "총 얼마를 보냈나"가 아니라 "지금 에이전트에게 얼마가 있나"다.
             이미 쓴 돈까지 한도로 열어 두면 정책이 실제로는 아무것도 제한하지 못한다. */}
         {typeof agentUsdc === 'number' && <span className="svc-sub">에이전트 잔고 {agentUsdc} USDC까지 설정 가능</span>}

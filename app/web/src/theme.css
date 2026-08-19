@@ -531,3 +531,124 @@ body::before {
 .cta.svc-approve:hover { filter: brightness(1.06); }
 /* MCP 카드 버튼은 나란히 둔다 — 카드 기본 규칙(전체 폭)이 적용되면 세로로 쌓인다. */
 .svc-mcp-actions .cta.ghost { width: auto; margin-top: 0; }
+
+/* ============================================================
+   8/19 퀵싱크 반영분 — 단계 표시 · 후보 나열 · 채점 · 결과물
+   글래스 카드 밖에 놓이는 요소는 --stage-ink 계열을 쓴다.
+   무대는 밝은 그레이라 --ink(흰색)를 쓰면 대비가 1.2:1까지 떨어진다(8/3 사고).
+   ============================================================ */
+
+/* ---- 단계 표시 ---- */
+.stepper { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0 0 18px; padding: 0 4px; }
+.step { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; color: rgba(22, 23, 27, 0.42); }
+.step-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.step.done { color: #1c6b43; }
+.step.cur { color: var(--stage-ink); }
+.step.cur .step-dot { box-shadow: 0 0 0 4px rgba(233, 230, 15, 0.5); background: var(--stage-ink); }
+
+/* ---- 카탈로그 / 후보 공통 ---- */
+.svc-catalog { margin-bottom: 14px; }
+.svc-catalog-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0 4px 10px; }
+.svc-catalog-h .svc-role { color: var(--stage-acc); }
+.svc-catalog-h .svc-sub { color: rgba(22, 23, 27, 0.6); }
+
+.cand-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.cand-grid .svc-card { margin-bottom: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.cand-card header { margin-bottom: 0; align-items: center; }
+.cand-rank { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--faint); }
+.cand-top { border-color: rgba(233, 230, 15, 0.55); box-shadow: 0 0 0 1px rgba(233, 230, 15, 0.2); }
+.cand-top .cand-rank { color: var(--acc); }
+
+.cand-id { display: flex; align-items: center; gap: 10px; }
+.cand-emoji { font-size: 22px; line-height: 1; flex: none; }
+.cand-id b { display: block; font-size: 14px; font-weight: 800; letter-spacing: -0.01em; }
+.cand-id .svc-sub { display: block; }
+
+.cand-price { font-family: var(--mono); font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.cand-price small { font-size: 12px; font-weight: 600; color: var(--faint); }
+
+.cand-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--edge-soft); }
+.cand-stats > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cand-stats dt { font-size: 11.5px; color: var(--faint); }
+.cand-stats dd { margin: 0; font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--dim); }
+.cand-stats .cand-total { color: var(--acc); font-size: 15px; }
+
+.cand-sum { font-size: 12.5px; line-height: 1.6; color: var(--dim); margin: 0; }
+
+/* ---- 후보 화면 ---- */
+.cand-h { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; margin: 0 4px 14px; }
+.cand-h .svc-role { color: var(--stage-acc); }
+.cand-prompt { margin: 4px 0 0; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; color: var(--stage-ink); }
+
+.cand-weight .weight-row { display: flex; align-items: center; gap: 12px; }
+.weight-cap { font-size: 12px; font-weight: 700; color: var(--faint); white-space: nowrap; }
+.weight-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--acc); height: 4px; cursor: pointer; }
+.weight-row input[type="range"]:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.cand-go { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; margin: 16px 4px 0; }
+.cand-go .svc-note { margin: 0; flex: 1; min-width: 260px; color: rgba(22, 23, 27, 0.72); }
+
+/* ---- 채점표 ---- */
+.score-tbl { width: 100%; border-collapse: collapse; }
+.score-tbl th { text-align: left; font-size: 12.5px; font-weight: 600; color: var(--dim); padding: 5px 0; white-space: nowrap; }
+.score-tbl td { padding: 5px 0 5px 10px; vertical-align: middle; }
+.score-bar { width: 45%; }
+.bar { display: block; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--acc); border-radius: 999px; }
+.score-n { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--ink); text-align: right; white-space: nowrap; }
+.score-max { font-size: 11px; font-weight: 400; color: var(--faint); }
+.score-note { font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+
+/* ---- 샘플 모달 ---- */
+.modal-shade { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(16, 17, 20, 0.62); backdrop-filter: blur(3px); }
+.modal { width: min(680px, 100%); max-height: 86vh; overflow-y: auto; padding: 22px 24px; border-radius: 20px; border: 1px solid var(--edge); color: var(--ink); }
+.modal-h { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.modal-h > div { flex: 1; min-width: 0; }
+.modal-h b { display: block; font-size: 15px; font-weight: 800; }
+.modal-h .svc-sub { display: block; }
+.modal-emoji { font-size: 24px; line-height: 1; }
+.modal-body { position: relative; max-height: 320px; overflow: hidden; }
+.modal-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: linear-gradient(to bottom, rgba(18, 19, 22, 0), rgba(18, 19, 22, 0.92)); pointer-events: none; }
+.modal-score { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--edge-soft); }
+.modal-score header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+
+/* ---- 결과물 ---- */
+.rv-meta header, .rv-grade header { align-items: baseline; }
+.rv-rating { margin: 12px 0 0; font-size: 13.5px; color: var(--dim); }
+.rv-rating b { font-family: var(--mono); font-size: 16px; color: var(--acc); }
+.rv-body { padding: 22px 26px; }
+
+/* ---- 마크다운 ---- */
+.md { font-size: 13.5px; line-height: 1.75; color: var(--dim); }
+.md-h { color: var(--ink); font-weight: 800; letter-spacing: -0.01em; margin: 20px 0 8px; }
+.md-h:first-child { margin-top: 0; }
+.md-h1 { font-size: 19px; }
+.md-h2 { font-size: 16px; }
+.md-h3, .md-h4 { font-size: 14px; }
+.md-p { margin: 0 0 10px; }
+.md-ul { margin: 0 0 12px; padding-left: 20px; }
+.md-ul li { margin-bottom: 5px; }
+.md-hr { height: 1px; background: var(--edge-soft); margin: 18px 0; }
+.md-tablewrap { overflow-x: auto; margin: 0 0 14px; }
+.md-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.md-table th, .md-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--edge-soft); white-space: nowrap; }
+.md-table th { color: var(--faint); font-weight: 700; font-size: 11.5px; }
+.md-table td { font-family: var(--mono); color: var(--dim); }
+.md-table td:first-child { font-family: var(--sans); }
+
+@media (max-width: 640px) {
+  .cand-stats { grid-template-columns: 1fr; }
+  .modal { padding: 18px 16px; }
+  .rv-body { padding: 18px 16px; }
+}
+
+/* 브랜드명은 대문자로 바꾸지 않는다. `.svc-role`의 uppercase가 걸리면 WAIaaS가 WAIAAS로 뜬다. */
+.svc-policy .svc-role { text-transform: none; }
+
+/* 판정을 내린 주체를 표시한다. 어드민 탭을 빼기로 한 대신 WAIaaS가 드러나는 자리다. */
+.wai-tag {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--acc); border: 1px solid rgba(233, 230, 15, 0.4); border-radius: 999px;
+  padding: 2px 8px; white-space: nowrap;
+}

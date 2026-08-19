@@ -22,13 +22,60 @@
         "format": "마크다운 1장",
         "approxWords": 400,
         "sourceCount": 5,
-        "includes": ["핵심 지표 표", "한 줄 해석"]
+        "includes": [
+          "핵심 지표 표",
+          "한 줄 해석"
+        ]
       },
       "track": {
         "completed": 412,
         "repeatRate": 0.62,
         "avgMinutes": 3
-      }
+      },
+      "sample": {
+        "file": "sample-quick-scan.md",
+        "title": "스테이블코인 결제 시장 스냅샷",
+        "score": 52,
+        "breakdown": [
+          {
+            "id": "evidence",
+            "score": 13,
+            "note": "지표는 있으나 어디서 온 수치인지 밝히지 않았다."
+          },
+          {
+            "id": "scenario",
+            "score": 6,
+            "note": "결론 하나만 제시하고 갈릴 경로를 나누지 않았다."
+          },
+          {
+            "id": "risk",
+            "score": 9,
+            "note": "집계 방식 차이를 언급했으나 판단이 틀릴 조건은 없다."
+          },
+          {
+            "id": "source",
+            "score": 12,
+            "note": "대시보드 5건이라고만 하고 어느 것인지 밝히지 않았다."
+          },
+          {
+            "id": "actionable",
+            "score": 12,
+            "note": "현황 파악에는 충분하나 다음 행동을 정하기는 어렵다."
+          }
+        ],
+        "scoredAt": null,
+        "source": "seed"
+      },
+      "recentScores": [
+        72,
+        68,
+        74,
+        66,
+        71,
+        69,
+        73,
+        67
+      ]
     },
     {
       "id": "market-brief",
@@ -45,13 +92,62 @@
         "format": "마크다운 3~4장",
         "approxWords": 1600,
         "sourceCount": 18,
-        "includes": ["비교표", "변화 추이", "판단 근거", "리스크 메모"]
+        "includes": [
+          "비교표",
+          "변화 추이",
+          "판단 근거",
+          "리스크 메모"
+        ]
       },
       "track": {
         "completed": 137,
         "repeatRate": 0.71,
         "avgMinutes": 11
-      }
+      },
+      "sample": {
+        "file": "sample-market-brief.md",
+        "title": "L2 경쟁 구도 브리핑",
+        "score": 76,
+        "breakdown": [
+          {
+            "id": "evidence",
+            "score": 17,
+            "note": "비교표의 수치가 구체적이고 추이까지 붙였다."
+          },
+          {
+            "id": "scenario",
+            "score": 12,
+            "note": "변화 방향은 짚었으나 갈릴 경로를 나누지는 않았다."
+          },
+          {
+            "id": "risk",
+            "score": 16,
+            "note": "집중도 취약성을 리스크로 명시했다."
+          },
+          {
+            "id": "source",
+            "score": 16,
+            "note": "출처 수와 오차 범위를 밝혔으나 개별 출처는 없다."
+          },
+          {
+            "id": "actionable",
+            "score": 15,
+            "note": "어디를 봐야 할지는 알 수 있으나 행동까지는 아니다."
+          }
+        ],
+        "scoredAt": null,
+        "source": "seed"
+      },
+      "recentScores": [
+        86,
+        82,
+        85,
+        83,
+        87,
+        81,
+        84,
+        84
+      ]
     },
     {
       "id": "deep-research",
@@ -68,13 +164,63 @@
         "format": "마크다운 10장+",
         "approxWords": 5200,
         "sourceCount": 46,
-        "includes": ["1차 소스 인용", "코드·스펙 대조", "시나리오별 전망", "반대 논거", "부록"]
+        "includes": [
+          "1차 소스 인용",
+          "코드·스펙 대조",
+          "시나리오별 전망",
+          "반대 논거",
+          "부록"
+        ]
       },
       "track": {
         "completed": 38,
         "repeatRate": 0.84,
         "avgMinutes": 34
-      }
+      },
+      "sample": {
+        "file": "sample-deep-research.md",
+        "title": "리스테이킹 시장 심층 리포트",
+        "score": 94,
+        "breakdown": [
+          {
+            "id": "evidence",
+            "score": 19,
+            "note": "널리 인용되는 수치를 직접 재계산하고 방법을 밝혔다."
+          },
+          {
+            "id": "scenario",
+            "score": 20,
+            "note": "세 경로를 전제와 함께 나눴다."
+          },
+          {
+            "id": "risk",
+            "score": 18,
+            "note": "이 리포트가 틀릴 조건을 항목으로 적었다."
+          },
+          {
+            "id": "source",
+            "score": 19,
+            "note": "컨트랙트 주소와 블록 범위까지 부록에 뒀다."
+          },
+          {
+            "id": "actionable",
+            "score": 18,
+            "note": "반대 논거까지 두어 판단 재료가 갖춰졌다."
+          }
+        ],
+        "scoredAt": null,
+        "source": "seed"
+      },
+      "recentScores": [
+        96,
+        95,
+        98,
+        94,
+        97,
+        96,
+        95,
+        97
+      ]
     }
   ]
 }

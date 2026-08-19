@@ -19,9 +19,12 @@ const INITIAL = { phase: 'idle', auctionId: null, buyers: {}, steps: {}, item: n
  * 라운드다. 둘을 같은 주소에 두면 심사위원이 어느 쪽을 보고 있는지 구분하지 못한다.
  */
 function viewFromHash(hash) {
-  if (hash === '#me') return 'service';
+  // 8/19 결정: 루트가 곧 서비스 화면이다. 주소만 치고 들어온 사람이 3주 전 경매 화면을
+  // 먼저 보면 안 된다. 8/3 제출본은 deprecated로 내리되 해시로는 남긴다.
+  if (hash === '#live') return 'live';
   if (hash === '#purchase') return 'purchase';
-  return 'live';
+  if (hash === '#me') return 'service'; // 예전에 공유된 링크가 죽지 않게 남긴다
+  return 'service';
 }
 
 export default function App() {
@@ -69,12 +72,13 @@ export default function App() {
   }, []);
   const openPurchaseReceipt = useCallback(() => setView('purchase-receipt'), []);
   const openService = useCallback(() => {
-    window.location.hash = '#me'; // 주소를 실제로 바꿔 공유·새로고침이 같은 화면을 연다
+    // 서비스가 루트다. 해시를 지워 주소가 화면과 일치하게 둔다.
+    if (window.location.hash) window.history.replaceState({}, '', window.location.pathname);
     setView('service');
   }, []);
   const openMyReceipt = useCallback(() => setView('my-receipt'), []);
   const openLive = useCallback(() => {
-    if (window.location.hash) window.history.replaceState({}, '', window.location.pathname);
+    window.location.hash = '#live'; // deprecated된 8/3 제출본. 주소를 남겨 링크가 죽지 않게 한다
     setView('live');
   }, []);
 
@@ -119,9 +123,10 @@ export default function App() {
   }
 
   if (view === 'service') {
+    // 루트 화면이라 "돌아가기"를 넘기지 않는다 — 돌아갈 곳이 없다.
     return (
       <div className="app">
-        <ServiceView onBack={openLive} onOpenReceipt={openMyReceipt} />
+        <ServiceView onOpenReceipt={openMyReceipt} />
       </div>
     );
   }
