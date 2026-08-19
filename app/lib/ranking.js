@@ -13,6 +13,21 @@ export const DEFAULT_PRICE_WEIGHT = 0.5;
 /** 품질 점수에서 샘플 채점이 차지하는 비중. 나머지는 평점 몫이다. */
 const SAMPLE_WEIGHT = 0.7;
 
+/**
+ * 가중치를 0~1로 정규화한다.
+ *
+ * **순위·근거 문장·영수증 기록이 같은 값을 써야 한다.** 정규화가 순위 계산 안에만 있으면
+ * 정렬은 멀쩡한데 화면에는 "가격 NaN%"가 찍히고 기록에는 원시값이 남는다. 그래서 클램프를
+ * 밖으로 꺼내 호출부가 한 번 정규화한 값을 세 곳에 함께 넘기게 한다.
+ *
+ * `Math.max(0, NaN)`이 NaN이라 클램프만으로는 못 거른다. 슬라이더로는 도달하지 않지만
+ * API·MCP 클라이언트는 임의의 값을 보낼 수 있다(시스템 경계).
+ */
+export function normalizeWeight(priceWeight) {
+  const raw = Number(priceWeight);
+  return Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : DEFAULT_PRICE_WEIGHT;
+}
+
 /** 100점 만점 점수들 → 5점 만점 평점. 소수 둘째 자리까지 남겨야 한 건의 변화가 보인다. */
 export function ratingOf(scores) {
   if (!scores?.length) return null;
@@ -31,11 +46,7 @@ export function ratingOf(scores) {
  * @param {number} priceWeight - 0(품질만) ~ 1(가격만)
  */
 export function rankCandidates(listings, priceWeight = DEFAULT_PRICE_WEIGHT) {
-  // `Math.max(0, NaN)`은 NaN이라 클램프만으로는 못 거른다. NaN이 통과하면 모든 종합점수가
-  // NaN이 되어 정렬이 무의미해지고, 화면에는 "가격 NaN%"가 찍힌다. 슬라이더로는 도달하지
-  // 않지만 API·MCP 클라이언트는 임의의 값을 보낼 수 있다(시스템 경계).
-  const raw = Number(priceWeight);
-  const w = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : DEFAULT_PRICE_WEIGHT;
+  const w = normalizeWeight(priceWeight);
   // 샘플이 없으면 품질을 잴 수 없어 비교가 성립하지 않는다. 품질 0점으로 목록에 남기면
   // "얘는 왜 항상 꼴찌인가"라는, 화면이 설명할 수 없는 줄이 생긴다.
   const eligible = listings.filter((l) => l.sample?.score != null);

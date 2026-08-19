@@ -20,7 +20,7 @@ import { ratingOf } from './ranking.js';
 
 // 순위 계산은 브라우저도 쓰므로 파일 IO 없는 `ranking.js`에 두고 여기서 다시 내보낸다.
 // 서버 코드가 import 경로를 둘로 나눠 외울 필요는 없다.
-export { rankCandidates, ratingOf, DEFAULT_PRICE_WEIGHT } from './ranking.js';
+export { rankCandidates, ratingOf, normalizeWeight, DEFAULT_PRICE_WEIGHT } from './ranking.js';
 
 const SCORES_PATH = path.join(PATHS.fixtures, '..', 'listing-scores.json');
 

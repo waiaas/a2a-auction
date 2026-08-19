@@ -64,12 +64,15 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   // 시점 스냅샷을 계속 쓰면 두 가지가 어긋난다. ① "평점은 채점이 쌓여 만들어진다"를
   // 보여주는 카드가 정작 갱신되지 않는다 ② 서버는 구매 시점의 평점으로 순위를 매기므로,
   // 굳은 화면과 서버의 1위가 갈릴 수 있다.
-  const settledCount = round.purchases.filter((p) => p.steps?.settle).length;
+  // **`steps.settle`이 아니라 `grade`를 센다.** 서버는 정산을 먼저 세우고 그 뒤에 채점하는데,
+  // 그 사이(폴백 채점 기준 약 600ms)에 폴링이 걸리면 채점 전 평점을 읽고 굳는다. 라이브
+  // 채점이 살아나면 창이 수 초로 넓어져 거의 항상 걸린다.
+  const gradedCount = round.purchases.filter((p) => p.grade).length;
   useEffect(() => {
     api.fetchCatalog()
       .then((d) => { setCatalog(d.listings); setCriteria(d.criteria ?? []); })
       .catch(() => {});
-  }, [settledCount]);
+  }, [gradedCount]);
 
   useEffect(() => {
     if (!connected) return undefined;
@@ -302,6 +305,7 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
             onCancel={(p) => ownerAction(p, 'reject')}
             onSettle={settle}
             onOpenResult={openResult}
+            x402Enabled={round.x402Enabled}
           />
         </>
       )}
@@ -319,18 +323,22 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
  * 화면 상태와 실제 진행이 어긋나면 스테퍼가 거짓말을 하게 된다.
  */
 function currentStep({ draft, purchases, result }) {
-  if (result) return 'result';
   if (draft) return 'choose';
   if (!purchases.length) return 'request';
 
-  // 사람이 개입해야 하는 건이 하나라도 있으면 그것이 지금 할 일이다. 마지막 건만 보면
-  // 앞 건의 승인 대기가 화면에서 사라진다(뒷 건이 정산되면 스테퍼가 "결과물"로 가버린다).
+  // **사람이 개입해야 하는 건이 가장 앞선다.** 마지막 건만 보면 앞 건의 승인 대기가
+  // 사라지고, 결과물을 여는 동안에도 같은 일이 일어난다 — 그래서 결과물 화면보다 먼저 본다.
   if (purchases.some((p) => p.ui === 'APPROVAL' || p.ui === 'DELAY')) return 'approve';
+  if (result) return 'result';
 
   const last = purchases[purchases.length - 1];
   // 거부·정책거부로 끝난 건은 결제 단계가 아니다. 돈이 나가지 않았는데 "승인 완료 후
-  // 결제 중"으로 칠하면 화면이 사실과 반대를 말한다. 새 요청을 받을 수 있는 상태로 둔다.
-  if (last.ui === 'REJECTED' || last.ui === 'DENY') return 'request';
+  // 결제 중"으로 칠하면 화면이 사실과 반대를 말한다.
+  // 다만 앞서 받아 둔 결과물이 있으면 맨 앞으로 되돌리지 않는다. 거부 한 번에 그때까지의
+  // 진행이 화면에서 지워지면, 이번에는 반대 방향으로 사실과 어긋난다.
+  if (last.ui === 'REJECTED' || last.ui === 'DENY') {
+    return purchases.some((p) => p.steps?.settle) ? 'result' : 'request';
+  }
   if (!last.steps?.settle) return 'settle';
   return 'result';
 }

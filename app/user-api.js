@@ -356,7 +356,9 @@ export function createUserApi() {
         console.error('[user-api] 상태 갱신 실패:', e.message);
       }
     }
-    res.json({ ...round.state, running: round.running, network: NETWORK_LABEL });
+    // 열람 결제가 켜져 있는지 화면이 알아야 한다. 결제가 실패한 건에 재시도 버튼을 띄울지
+    // 판단하는 값이고, 이게 없으면 402를 받은 사용자가 빠져나올 길이 없다.
+    res.json({ ...round.state, running: round.running, network: NETWORK_LABEL, x402Enabled: X402_UNLOCK });
   });
 
   router.post('/purchase/settle', auth, (req, res) => {

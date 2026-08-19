@@ -73,12 +73,34 @@ function gradeBySignals(markdown, criteria) {
     actionable: Math.min(1, (headings / 6) * 0.5 + Math.min(1, chars / 2500) * 0.5),
   };
 
-  const breakdown = criteria.items.map((c) => ({
+  // **무엇을 보고 이 점수가 됐는지 그대로 적는다.** 근거 없는 점수는 화면에서 "정규식이
+  // 매긴 숫자"로만 남고, 그러면 "평점 어뷰징을 무엇으로 막나"에 답할 자리가 사라진다.
+  // 규칙으로 잰 것이 부끄러운 게 아니라 무엇을 쟀는지 숨기는 것이 문제다.
+  const note = {
+    evidence: `수치 표현 ${numbers}개, 표 ${tableRows}행을 셌다.`,
+    scenario: has(/시나리오|경로 [ABC]|가능성 (높|낮)|전망을 나눠|세 가지/)
+      ? '갈리는 경로를 나눈 표현이 있다.'
+      : has(/전망|추세/)
+        ? '방향은 언급했으나 경로를 나누지는 않았다.'
+        : '결론 하나만 제시하고 경로를 나누지 않았다.',
+    risk: has(/틀릴 조건|한계/)
+      ? '이 판단이 틀릴 조건을 밝혔다.'
+      : has(/리스크|위험|취약|오차|주의해야/)
+        ? '위험은 언급했으나 틀릴 조건까지는 밝히지 않았다.'
+        : '틀릴 조건이나 위험을 밝힌 표현이 없다.',
+    source: has(/부록|1차 소스|블록 범위/)
+      ? '따라갈 수 있는 출처(부록·1차 소스)를 남겼다.'
+      : has(/출처|참고|링크/)
+        ? '출처를 언급했으나 개별 항목까지는 밝히지 않았다.'
+        : '출처를 밝힌 표현이 없다.',
+    actionable: `제목 ${headings}개, 분량 ${chars}자로 구조와 깊이를 봤다.`,
+  };
+
+  return criteria.items.map((c) => ({
     id: c.id,
     score: Math.max(1, Math.round((signal[c.id] ?? 0.5) * c.max)),
-    note: null,
+    note: note[c.id] ?? null,
   }));
-  return breakdown;
 }
 
 /**

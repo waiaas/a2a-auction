@@ -158,8 +158,15 @@ function fallbackPickReason(picked, priceWeight) {
   const w = Math.round(priceWeight * 100);
   const best = [...(picked.sample?.breakdown ?? [])].sort((a, b) => b.score - a.score)[0];
   // 항목 id를 그대로 쓰면 화면에 `scenario`가 뜬다. 사람이 읽는 자리라 라벨로 바꾼다.
-  const label = best ? (loadCriteria().items.find((c) => c.id === best.id)?.label ?? best.id) : null;
-  const detail = best ? `, 특히 ${label} 항목이 ${best.score}점 만점이었다` : '';
+  const item = best ? loadCriteria().items.find((c) => c.id === best.id) : null;
+  const label = item?.label ?? best?.id ?? null;
+  // **최고점이 곧 만점은 아니다.** 17점을 "만점"이라 쓰면 바로 옆 채점표의 `17 / 20`과
+  // 화면 안에서 모순이 생긴다. 만점일 때만 만점이라 부른다.
+  const detail = best
+    ? item && best.score === item.max
+      ? `, 특히 ${label} 항목이 만점이었다`
+      : `, ${label} 항목이 ${best.score}/${item?.max ?? '?'}로 가장 높았다`
+    : '';
   return (
     `가격 ${w}% · 품질 ${100 - w}% 기준으로 종합 ${picked.scores.total}점을 받아 1위다. ` +
     `샘플 채점 ${picked.sample?.score}점${detail}.`

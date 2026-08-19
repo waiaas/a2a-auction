@@ -40,30 +40,30 @@
           {
             "id": "evidence",
             "score": 17,
-            "note": null
+            "note": "수치 표현 8개, 표 6행을 셌다."
           },
           {
             "id": "scenario",
             "score": 4,
-            "note": null
+            "note": "결론 하나만 제시하고 경로를 나누지 않았다."
           },
           {
             "id": "risk",
             "score": 5,
-            "note": null
+            "note": "틀릴 조건이나 위험을 밝힌 표현이 없다."
           },
           {
             "id": "source",
             "score": 13,
-            "note": null
+            "note": "출처를 언급했으나 개별 항목까지는 밝히지 않았다."
           },
           {
             "id": "actionable",
             "score": 8,
-            "note": null
+            "note": "제목 4개, 분량 321자로 구조와 깊이를 봤다."
           }
         ],
-        "scoredAt": "2026-08-19T15:52:11.280Z",
+        "scoredAt": "2026-08-19T23:25:11.486Z",
         "source": "signals"
       },
       "recentScores": [
@@ -112,30 +112,30 @@
           {
             "id": "evidence",
             "score": 20,
-            "note": null
+            "note": "수치 표현 18개, 표 5행을 셌다."
           },
           {
             "id": "scenario",
             "score": 4,
-            "note": null
+            "note": "결론 하나만 제시하고 경로를 나누지 않았다."
           },
           {
             "id": "risk",
             "score": 14,
-            "note": null
+            "note": "위험은 언급했으나 틀릴 조건까지는 밝히지 않았다."
           },
           {
             "id": "source",
             "score": 6,
-            "note": null
+            "note": "출처를 밝힌 표현이 없다."
           },
           {
             "id": "actionable",
             "score": 13,
-            "note": null
+            "note": "제목 6개, 분량 779자로 구조와 깊이를 봤다."
           }
         ],
-        "scoredAt": "2026-08-19T15:52:11.280Z",
+        "scoredAt": "2026-08-19T23:25:11.486Z",
         "source": "signals"
       },
       "recentScores": [
@@ -185,30 +185,30 @@
           {
             "id": "evidence",
             "score": 14,
-            "note": null
+            "note": "수치 표현 8개, 표 0행을 셌다."
           },
           {
             "id": "scenario",
             "score": 20,
-            "note": null
+            "note": "갈리는 경로를 나눈 표현이 있다."
           },
           {
             "id": "risk",
             "score": 20,
-            "note": null
+            "note": "이 판단이 틀릴 조건을 밝혔다."
           },
           {
             "id": "source",
             "score": 20,
-            "note": null
+            "note": "따라갈 수 있는 출처(부록·1차 소스)를 남겼다."
           },
           {
             "id": "actionable",
             "score": 19,
-            "note": null
+            "note": "제목 8개, 분량 1429자로 구조와 깊이를 봤다."
           }
         ],
-        "scoredAt": "2026-08-19T15:52:11.280Z",
+        "scoredAt": "2026-08-19T23:25:11.486Z",
         "source": "signals"
       },
       "recentScores": [

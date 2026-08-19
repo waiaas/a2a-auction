@@ -20,9 +20,15 @@ const APP_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const LISTINGS = path.join(APP_DIR, 'fixtures', 'listings.json');
 const isDry = process.argv.includes('--dry');
 
+// 라이브 채점이 안 될 때 조용히 규칙 채점으로 내려앉으면, fixtures가 429 한 번에 바뀌고
+// 그 사실이 아무 데도 남지 않는다. 이 파일은 git 추적 대상이라 워킹트리도 함께 더러워진다.
+// 그래서 폴백 저장은 명시적으로 요구할 때만 허용한다.
+const allowFallback = process.argv.includes('--allow-fallback');
+
 const doc = JSON.parse(fs.readFileSync(LISTINGS, 'utf8'));
 const stampedAt = new Date().toISOString();
-let changed = 0;
+const pending = [];
+let sawFallback = false;
 
 for (const listing of doc.listings) {
   const file = listing.sample?.file;
@@ -47,15 +53,20 @@ for (const listing of doc.listings) {
       `(${source})  ${breakdown.map((b) => `${b.id.slice(0, 4)}:${b.score}`).join(' ')}`,
   );
 
-  if (!isDry) {
-    listing.sample = { ...listing.sample, score, breakdown, scoredAt: stampedAt, source };
-    changed += 1;
-  }
+  if (source !== 'live') sawFallback = true;
+  pending.push({ listing, next: { ...listing.sample, score, breakdown, scoredAt: stampedAt, source } });
 }
 
 if (isDry) {
   console.log('\n--dry 라서 저장하지 않았다.');
+} else if (sawFallback && !allowFallback) {
+  console.log(
+    '\n채점 모델을 쓰지 못해 규칙 채점으로 떨어졌다. **저장하지 않았다.**\n' +
+      '  모델이 살아난 뒤 다시 돌리거나, 규칙 채점 결과를 그대로 쓰려면 --allow-fallback 을 붙여라.',
+  );
+  process.exit(1);
 } else {
+  for (const { listing, next } of pending) listing.sample = next;
   fs.writeFileSync(LISTINGS, `${JSON.stringify(doc, null, 2)}\n`);
-  console.log(`\nfixtures/listings.json 갱신 — ${changed}건`);
+  console.log(`\nfixtures/listings.json 갱신 — ${pending.length}건${sawFallback ? ' (규칙 채점, --allow-fallback)' : ''}`);
 }

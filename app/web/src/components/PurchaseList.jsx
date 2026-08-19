@@ -10,14 +10,18 @@ import OnchainSteps from './OnchainSteps.jsx';
  *
  * 실패도 같은 자리에 같은 무게로 적는다. 원인을 말하지 않는 실패는 서비스 고장으로 읽힌다.
  */
-export default function PurchaseList({ purchases, busy, running, onApprove, onCancel, onSettle, onOpenResult }) {
+export default function PurchaseList({ purchases, busy, running, onApprove, onCancel, onSettle, onOpenResult, x402Enabled }) {
   if (!purchases.length) {
     return <p className="svc-empty">아직 맡긴 일이 없습니다. 위에 필요한 것을 적어 보세요.</p>;
   }
 
-  const settleable = purchases.some(
+  const needsSettle = purchases.some(
     (p) => !p.steps?.settle && ['NOTIFY', 'INSTANT', 'RELEASED', 'APPROVED'].includes(p.ui),
   );
+  // 정산은 끝났는데 열람 결제가 실패한 건. 이 조건이 없으면 정산 버튼이 사라져서, 돈을 낸
+  // 사람이 결과물을 영영 못 본다(unlock 재시도가 정산 경로 안에만 있기 때문).
+  const needsUnlock = Boolean(x402Enabled) && purchases.some((p) => p.steps?.settle && !p.x402);
+  const settleable = needsSettle || needsUnlock;
 
   return (
     <div className="svc-list">
@@ -25,7 +29,7 @@ export default function PurchaseList({ purchases, busy, running, onApprove, onCa
         <h3>맡긴 일 {purchases.length}건</h3>
         {settleable && (
           <button className="cta ghost" disabled={busy} onClick={onSettle}>
-            결과물 받기 (정산)
+            {needsSettle ? '결과물 받기 (정산)' : '열람 결제 다시 시도'}
           </button>
         )}
       </div>

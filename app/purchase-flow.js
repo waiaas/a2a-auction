@@ -47,7 +47,7 @@ import { notifyApprovalNeeded, notifyDelayed, notifyResolved, isTelegramEnabled 
 import { readPolicyLimits } from './lib/user-context.js';
 import { unlockViaX402 } from './lib/x402-unlock.js';
 import { loadListings, loadRequests, chooseListing, explainPick } from './lib/decision.js';
-import { rankCandidates, recordScore } from './lib/scoring.js';
+import { rankCandidates, normalizeWeight, recordScore } from './lib/scoring.js';
 import { bumpNextAuctionId, loadOwnerKeypair } from './lib/state.js';
 
 /** 이 시나리오의 주인공 바이어. owner가 verified라 APPROVAL이 실제로 큐에 걸린다. */
@@ -406,9 +406,11 @@ export async function purchaseFromRequest(state, deps, req) {
   };
   // 가중치가 들어오면 사용자가 후보 화면에서 순위를 보고 정한 것이다. 그 1위를 그대로 산다 —
   // 여기서 모델이 다시 고르면 화면이 보여준 1위와 실제 구매가 어긋난다.
-  const ranked = req.priceWeight != null ? rankCandidates(listings, req.priceWeight) : null;
+  // 정규화는 여기서 한 번만 하고 그 값을 순위·근거·기록 세 곳에 함께 넘긴다.
+  const weight = req.priceWeight != null ? normalizeWeight(req.priceWeight) : null;
+  const ranked = weight != null ? rankCandidates(listings, weight) : null;
   const { listing, reason, rejected, source } = ranked?.length
-    ? await explainPick(request, ranked, Number(req.priceWeight))
+    ? await explainPick(request, ranked, weight)
     : await chooseListing(request, listings);
 
   const purchase = newPurchase(state, deps, {
@@ -418,7 +420,7 @@ export async function purchaseFromRequest(state, deps, req) {
     need: request.need,
     task: request.prompt,
     size: listing.depth,
-    decision: { reason, rejected, source, priceWeight: ranked ? Number(req.priceWeight) : null },
+    decision: { reason, rejected, source, priceWeight: ranked ? weight : null },
   });
   pushLog(state, `선택 ${request.id} → ${listing.id} (${listing.priceUsdc} USDC, ${source})`);
   return runOnePurchase(state, deps, purchase);
