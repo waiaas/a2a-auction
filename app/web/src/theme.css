@@ -227,6 +227,22 @@ body::before {
 .tx.tap:hover { color: var(--ink); border-color: var(--edge); }
 .tx.dim { color: var(--faint); }
 
+/*
+ * explorer 링크 칩. 서명이 "복사만 되는 회색 문자열"이 아니라 **누구나 검증할 수 있는
+ * 증거**라는 것을 색으로 말한다. 두 영수증 모두 어두운 글래스 카드(--glass) 위에 놓이므로
+ * 액센트 옐로우로 대비가 충분하다(밝은 무대 위에 놓게 되면 --stage-acc로 갈라야 한다).
+ */
+.tx.link {
+  display: inline-flex; align-items: center; gap: 4px;
+  text-decoration: none; color: var(--acc);
+  background: rgba(233, 230, 15, 0.08);
+  border-color: rgba(233, 230, 15, 0.32);
+}
+.tx.link:hover { background: rgba(233, 230, 15, 0.16); border-color: var(--acc); }
+.tx.link:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.tx-ext { opacity: 0.7; }
+.tx.link:hover .tx-ext { opacity: 1; }
+
 .unlock { position: sticky; top: 18px; }
 .ubody { padding: 16px 18px; }
 .uhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -327,3 +343,191 @@ body::before {
   .cats { grid-template-columns: 1fr; }
   .unlock { position: static; }
 }
+
+/* ── 구매 라운드 (콘티 v3 컷 1~6) ─────────────────────────────────────── */
+/* 세로로 세 장면을 쌓는다: 카탈로그 → 정책 한 줄 → 구매 3건. 판정 배지는 기존 .pill을
+   그대로 쓴다 — 티어 색을 여기서 다시 정의하면 화면마다 같은 판정이 달라 보인다. */
+/* stage 배경은 밝다 — 카드 밖 텍스트(제목·상태·보조 버튼)는 어두운 잉크를 쓴다.
+   카드 안은 어두운 유리라 --ink 계열 그대로다. 이 둘을 섞으면 상단이 배경에 묻힌다. */
+.stage { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+.stage .cta.ghost { color: var(--stage-ink); background: rgba(22, 23, 27, 0.08); border-color: var(--stage-edge); }
+.stage .cta.ghost:disabled { opacity: 0.4; }
+
+.pol { margin: 0 0 20px; padding: 14px 18px; border: 1px solid var(--edge); border-radius: 14px;
+  background: var(--tile); color: var(--dim); font-size: 14px; line-height: 1.6; }
+.pol b { color: var(--acc); font-weight: 800; }
+
+.lst { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.lst-c { padding: 14px 16px; border: 1px solid var(--edge); border-radius: 14px; background: var(--glass); }
+.lst-h { display: flex; align-items: center; gap: 10px; }
+.lst-h .e { font-size: 20px; }
+.lst-h .t { font-size: 14px; font-weight: 800; color: var(--ink); }
+.lst-h .s { font-size: 11px; color: var(--faint); margin-top: 2px; }
+.lst-h .p { margin-left: auto; font-size: 20px; font-weight: 800; color: var(--acc); }
+.lst-h .p u { font-size: 10px; text-decoration: none; margin-left: 3px; color: var(--faint); }
+.lst-m { margin-top: 10px; font-size: 12.5px; color: var(--dim); line-height: 1.5; }
+.lst-f { margin-top: 8px; font-size: 10.5px; color: var(--faint); }
+
+.acts { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.acts .ph { font-family: var(--mono); font-size: 11px; color: var(--stage-acc); font-weight: 700; }
+
+.buy { padding: 16px 18px; border: 1px solid var(--edge); border-radius: 16px; background: var(--glass); margin-bottom: 12px; }
+.buy.hl { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn-bg); }
+.buy-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.buy-h .t { font-size: 15px; font-weight: 800; color: var(--ink); }
+.buy-h .s { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
+.buy-pick { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; font-size: 13px; color: var(--dim); }
+.buy-pick .e { font-size: 16px; }
+.buy-pick b { color: var(--ink); }
+.buy-pick .a { margin-left: 2px; font-weight: 800; color: var(--acc); }
+.buy-why { margin-top: 8px; font-size: 12.5px; color: var(--dim); line-height: 1.6; }
+.buy-rej { margin-top: 5px; font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+.buy-f { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 10px;
+  border-top: 1px dashed var(--edge-soft); font-size: 11px; color: var(--faint); flex-wrap: wrap; }
+.buy-f .ok { color: var(--ok); font-weight: 700; }
+.buy-f .bad { color: var(--bad); font-weight: 700; }
+.buy-f .cta { margin-left: auto; font-size: 12.5px; padding: 8px 16px; }
+
+/* ── 구매 영수증 (컷 8) ─────────────────────────────────────────────── */
+/* 판정과 결말을 나란히 놓는다. 하나만 보이면 "왜 갈렸나"나 "그래서 어떻게 됐나" 중
+   하나가 사라진다. */
+.rc-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.rc-sum > div { padding: 12px 14px; border: 1px solid var(--edge); border-radius: 14px; background: var(--glass); }
+.rc-sum .l { display: block; font-size: 10.5px; color: var(--faint); }
+.rc-sum .v { display: block; margin-top: 5px; font-size: 17px; font-weight: 800; color: var(--ink); }
+.rc-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/*
+ * 온체인 진행 5단계. 상태는 1.5초 폴링으로 갱신되므로 단계가 하나씩 켜지는 것이 그대로
+ * 보인다. 색으로 "지금 어디까지 왔고 어디서 멈췄는지"를 말한다 — 초록은 체인에 남았다,
+ * 주황은 사람을 기다린다, 빨강은 정책이 막았다.
+ */
+.os {
+  margin-top: 12px; padding: 10px 12px;
+  border: 1px solid var(--edge-soft); border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.os-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.os-t { font-size: 10.5px; color: var(--faint); letter-spacing: 0.02em; }
+.os-c { font-size: 11px; font-weight: 800; color: var(--dim); }
+.os-row { display: flex; flex-wrap: wrap; gap: 7px 14px; list-style: none; margin: 0; padding: 0; }
+.os-i { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--faint); }
+.os-l { white-space: nowrap; }
+.os-d { width: 7px; height: 7px; border-radius: 50%; background: var(--edge); flex: none; }
+.os-i.done { color: var(--dim); }
+.os-i.done .os-d { background: var(--ok); }
+.os-i.wait { color: var(--warn); }
+.os-i.wait .os-d { background: var(--warn); }
+.os-i.fail { color: var(--bad); }
+.os-i.fail .os-d { background: var(--bad); }
+.os-i.active { color: var(--acc); }
+.os-i.active .os-d { background: var(--acc); animation: os-pulse 1.2s ease-in-out infinite; }
+.os-n { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); }
+@keyframes os-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.4); }
+}
+/* 움직임을 줄여달라는 설정을 존중한다. 진행 중 표시는 색으로도 이미 구분된다. */
+@media (prefers-reduced-motion: reduce) { .os-i.active .os-d { animation: none; } }
+
+/*
+ * 온체인 잔액 이동. **"정산 완료"라는 라벨보다 숫자가 실제로 움직인 것이 강한 증거다.**
+ * 서명 격자(rc-grid)보다 위에 두고 크기로 우선순위를 준다 — 심사위원이 카드에서
+ * 가장 먼저 읽어야 하는 것이 이 줄이다.
+ */
+.rc-move {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 12px;
+  border: 1px solid rgba(74, 212, 140, 0.28); border-radius: 12px;
+  background: rgba(74, 212, 140, 0.08);
+}
+.mv-k { font-size: 10.5px; color: var(--faint); letter-spacing: 0.02em; }
+.mv-v { display: inline-flex; align-items: baseline; gap: 7px; }
+.mv-v .tnum { font-size: 17px; font-weight: 800; color: var(--ink); }
+.mv-ar { font-size: 13px; color: var(--faint); }
+.mv-u { font-size: 11px; color: var(--faint); }
+.mv-d { font-size: 12px; font-weight: 800; color: var(--ok); background: var(--ok-bg);
+  border-radius: 999px; padding: 2px 8px; margin-left: 2px; }
+
+.rc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 14px; margin-top: 12px;
+  padding-top: 10px; border-top: 1px dashed var(--edge-soft); }
+.rc-grid > div { display: flex; align-items: center; gap: 8px; }
+.rc-grid .k { font-size: 10.5px; color: var(--faint); min-width: 74px; }
+
+/* ---- 서비스 화면 (#me) — 내 지갑 · 내 에이전트 ----
+   무대(밝은 배경) 위에 다크 글래스 카드를 얹는 기존 규칙을 그대로 따른다. */
+.svc-gate { max-width: 620px; margin: 40px auto; text-align: center; color: var(--stage-ink); }
+.svc-gate h2 { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 12px; }
+.svc-lede { font-size: 15px; line-height: 1.7; color: rgba(22, 23, 27, 0.78); margin-bottom: 28px; }
+.svc-wallets { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.svc-hint { margin-top: 16px; font-size: 12.5px; color: rgba(22, 23, 27, 0.62); line-height: 1.6; }
+
+.svc-top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.svc-notice { margin-bottom: 16px; padding: 11px 16px; border-radius: 14px; background: rgba(74, 212, 140, 0.14); border: 1px solid rgba(74, 212, 140, 0.5); color: #1c6b43; font-weight: 600; font-size: 13px; }
+.svc-reattach { margin-bottom: 18px; padding: 14px 18px; border-radius: 16px; border: 1px dashed var(--stage-edge); color: var(--stage-ink); font-size: 13px; }
+.svc-reattach .svc-gate { margin: 12px auto 0; }
+.svc-reattach .svc-gate h2, .svc-reattach .svc-lede { display: none; }
+
+.svc-card { padding: 18px 20px; border: 1px solid var(--edge); border-radius: 18px; background: var(--glass); backdrop-filter: var(--blur); color: var(--ink); margin-bottom: 14px; }
+.svc-card header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 12px; }
+.svc-role { font-size: 12px; font-weight: 800; letter-spacing: 0.02em; color: var(--acc); text-transform: uppercase; white-space: nowrap; }
+.svc-sub { font-size: 11.5px; color: var(--faint); }
+.svc-note { font-size: 12.5px; color: var(--dim); line-height: 1.6; margin-top: 10px; }
+.svc-ok { margin-top: 10px; font-size: 12.5px; color: var(--ok); font-weight: 600; }
+.svc-bad { margin-top: 10px; font-size: 12.5px; color: var(--bad); font-weight: 600; }
+.svc-card code.mono { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+
+.svc-wallets-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 240px) minmax(0, 1fr); gap: 14px; align-items: stretch; margin-bottom: 14px; }
+.svc-wallets-grid .svc-card { margin-bottom: 0; }
+.svc-card.svc-agent { border-color: rgba(233, 230, 15, 0.35); }
+.svc-bal { font-size: 15px; color: var(--dim); display: flex; align-items: baseline; gap: 4px 8px; flex-wrap: wrap; }
+.svc-bal b { font-size: 30px; font-weight: 900; color: var(--ink); letter-spacing: -0.02em; }
+.svc-bal .svc-sub { margin-left: auto; white-space: nowrap; }
+.svc-card .cta.ghost { margin-top: 14px; width: 100%; font-size: 13px; padding: 10px 16px; }
+
+.svc-arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 210px; padding: 18px 12px; color: var(--stage-ink); }
+.svc-arrow > span { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; }
+.svc-arrow-line { width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--stage-edge), transparent); }
+.svc-deposit { display: flex; gap: 6px; width: 100%; }
+.svc-deposit input { flex: 1; min-width: 0; font-family: var(--mono); font-size: 14px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--stage-edge); background: rgba(255,255,255,0.7); color: var(--stage-ink); }
+.svc-deposit .cta { padding: 9px 16px; font-size: 13px; }
+.svc-arrow .svc-hint { margin-top: 2px; text-align: center; font-size: 11.5px; }
+
+.svc-policy-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.svc-policy-row label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--dim); }
+.svc-policy-row label span { font-weight: 600; }
+.svc-policy-row input { width: 120px; font-family: var(--mono); font-size: 15px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--edge); background: rgba(255,255,255,0.07); color: var(--ink); }
+.svc-policy-row em { display: none; }
+.svc-policy-row .cta { padding: 10px 20px; font-size: 13.5px; }
+.svc-policy .svc-note b { color: var(--acc); }
+
+.svc-request textarea { width: 100%; box-sizing: border-box; font-family: var(--sans); font-size: 14.5px; line-height: 1.6; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--edge); background: rgba(255,255,255,0.07); color: var(--ink); resize: vertical; }
+.svc-request textarea::placeholder { color: rgba(236, 239, 244, 0.45); }
+.svc-req-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.svc-examples { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.svc-chip { font-family: var(--sans); font-size: 11.5px; color: var(--dim); background: rgba(255,255,255,0.06); border: 1px solid var(--edge-soft); border-radius: 999px; padding: 6px 11px; cursor: pointer; }
+.svc-chip:hover { background: rgba(255,255,255,0.12); }
+.svc-request .cta { padding: 11px 24px; font-size: 14px; }
+
+.svc-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 12px; color: var(--stage-ink); }
+.svc-list-head h3 { font-size: 17px; font-weight: 800; }
+.svc-empty { margin: 24px 0; text-align: center; font-size: 13.5px; color: rgba(22, 23, 27, 0.6); }
+.svc-list .buy-f .cta { margin-top: 0; }
+
+@media (max-width: 860px) {
+  .svc-wallets-grid { grid-template-columns: 1fr; }
+  .svc-arrow { min-width: 0; }
+}
+
+/* MCP 연결 카드 — 에이전트에게 시키는 정식 경로가 이쪽임을 화면이 말한다. */
+.svc-mcp .svc-code { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,0.35); border: 1px solid var(--edge-soft); font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--dim); overflow-x: auto; white-space: pre; }
+.svc-mcp-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.svc-mcp-actions .cta { padding: 9px 16px; font-size: 12.5px; }
+.svc-mcp .svc-hint { color: var(--faint); }
+.svc-mcp code { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,0.07); }
+.svc-request .svc-note { margin-top: 0; margin-bottom: 10px; }
+
+/* 승인 버튼. `.cta.bad`를 쓰면 `.buy-f .bad`(실패 문구 색)에 덮여 글자가 배경색과 같아진다. */
+.cta.svc-approve { color: #fff; background: var(--bad); box-shadow: 0 8px 26px rgba(244, 63, 94, 0.24); }
+.cta.svc-approve:hover { filter: brightness(1.06); }
+/* MCP 카드 버튼은 나란히 둔다 — 카드 기본 규칙(전체 폭)이 적용되면 세로로 쌓인다. */
+.svc-mcp-actions .cta.ghost { width: auto; margin-top: 0; }

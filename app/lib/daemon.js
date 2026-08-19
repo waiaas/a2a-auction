@@ -166,5 +166,76 @@ export function daemonClient(wallet, masterPassword) {
       if (r.status >= 300) throw new Error(`tx ${id} 거부 실패 ${r.status}: ${JSON.stringify(r.json)}`);
       return r.json; // { id, status: 'CANCELLED', rejectedAt }
     },
+
+    /**
+     * 대기 큐 전량 정리.
+     *
+     * **라운드를 시작하기 전에 반드시 부른다.** 남은 대기 건은 이후 판정을 전부 APPROVAL로
+     * 밀어올려 티어 대조를 무너뜨린다(실측: 큐 13건 상태에서 5 USDC도 APPROVAL, 비우니
+     * 즉시 복귀). 리허설을 반복할수록 조용히 쌓이는 함정이다.
+     *
+     * DELAY와 APPROVAL은 대기 큐가 다르므로 경로를 나눈다 — 섞으면 DELAY 건이 404로 남는다.
+     */
+    async drainPending() {
+      const pending = await this.pendingTxs();
+      for (const t of pending) {
+        try {
+          if (t.tier === 'DELAY') await this.cancelDelayedTx(t.id);
+          else await this.adminRejectTx(t.id);
+        } catch (e) {
+          // 한 건이 안 지워져도 나머지는 지운다. 조용히 넘기면 다음 라운드가 무너진 뒤에야 드러난다.
+          console.error(`  [daemon] 대기 tx ${t.id}(${t.tier}) 정리 실패: ${e.message}`);
+        }
+      }
+      return pending.length;
+    },
+
+    /**
+     * 승인 대기 tx 승인. **owner 서명이 유일한 경로다** — 거부와 달리 어드민 우회가 없다
+     * (`/v1/admin/transactions/{id}/approve`는 존재하지 않는다). 그래서 시드가 owner 키를
+     * 보존한다. 익스텐션 승인 경로가 준비되면 서명만 지갑에서 받아 이 호출로 중계하면 된다.
+     */
+    async approveTx(txId, ownerAddress, message, signatureB64) {
+      // 세션 토큰과 owner 서명을 **둘 다** 요구한다(실측: 서명만 보내면 401 INVALID_TOKEN).
+      // 세션은 "누가 이 지갑을 쓰는가", owner 서명은 "사람이 이 건을 허락했는가"로 층이 다르다.
+      const r = await http('POST', `${base}/v1/transactions/${txId}/approve`, {
+        ...authHdr,
+        'X-Owner-Signature': signatureB64,
+        'X-Owner-Message': message,
+        'X-Owner-Address': ownerAddress,
+      }, {});
+      if (r.status >= 300) throw new Error(`tx ${txId} 승인 실패 ${r.status}: ${JSON.stringify(r.json)}`);
+      return r.json;
+    },
+
+    /**
+     * 승인 대기 tx를 **오너 서명으로** 거부한다.
+     *
+     * 어드민 거부(`adminRejectTx`)와 결과는 같지만 주체가 다르다. 사용자별 에이전트 지갑에서는
+     * 서비스가 남의 지갑 건을 마스터 권한으로 취소하면 안 된다 — 맡긴 사람이 거두는 것이
+     * 위임 모델과 맞는다. 승인과 같은 헤더 규약을 쓴다.
+     */
+    async rejectTxAsOwner(txId, ownerAddress, message, signatureB64) {
+      const r = await http('POST', `${base}/v1/transactions/${txId}/reject`, {
+        ...authHdr,
+        'X-Owner-Signature': signatureB64,
+        'X-Owner-Message': message,
+        'X-Owner-Address': ownerAddress,
+      }, {});
+      if (r.status >= 300) throw new Error(`tx ${txId} 거부 실패 ${r.status}: ${JSON.stringify(r.json)}`);
+      return r.json;
+    },
+
+    /**
+     * 유예(DELAY) tx 취소. **승인 거부와 경로가 다르다** — DELAY는 승인 요청이 아니라
+     * 유예 큐 대기라 `adminRejectTx`를 쓰면 `APPROVAL_NOT_FOUND`(404)로 실패한다(실측).
+     * 이 구분을 놓치면 DELAY 건이 큐에 계속 남고, 남은 대기 건은 이후 판정을 전부
+     * APPROVAL로 밀어올려 데모의 티어 대조를 무너뜨린다.
+     */
+    async cancelDelayedTx(id) {
+      const r = await http('POST', `${base}/v1/transactions/${id}/cancel`, authHdr, {});
+      if (r.status >= 300) throw new Error(`tx ${id} 유예 취소 실패 ${r.status}: ${JSON.stringify(r.json)}`);
+      return r.json; // { id, status: 'CANCELLED' }
+    },
   };
 }

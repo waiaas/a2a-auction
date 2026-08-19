@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "바이어가 자기 에이전트에게 맡기는 일 3건 (콘티 v3 컷 2~3).",
+    "일의 크기가 서로 달라야 '무엇을 쓸지는 에이전트가 정한다'가 성립한다.",
+    "expectedListingId는 정답이 아니라 **폴백**이다 — 의사결정 레이어(Gemini)가 못 돌 때",
+    "데모가 멈추지 않도록 두는 값이고, 라이브 판단이 다른 리스팅을 고르면 그것을 따른다."
+  ],
+  "requests": [
+    {
+      "id": "req-snapshot",
+      "title": "오늘 시황 한 장 요약",
+      "prompt": "지금 스테이블코인 결제 쪽에서 무슨 일이 벌어지고 있는지 한 장으로 정리해줘.",
+      "need": "회의 들어가기 전에 훑을 것",
+      "size": "light",
+      "expectedListingId": "quick-scan"
+    },
+    {
+      "id": "req-brief",
+      "title": "경쟁사 동향 브리핑",
+      "prompt": "에이전트 결제 프로토콜 경쟁 구도를 비교해줘. 어디가 앞서고 왜 그런지까지.",
+      "need": "다음 주 로드맵 논의 자료",
+      "size": "standard",
+      "expectedListingId": "market-brief"
+    },
+    {
+      "id": "req-deep",
+      "title": "시장 심층 리포트",
+      "prompt": "에이전트 결제 시장을 심층 분석해줘. 1차 소스와 코드까지 확인하고 반대 논거도 달아줘.",
+      "need": "투자 검토 문서에 첨부",
+      "size": "deep",
+      "expectedListingId": "deep-research"
+    }
+  ]
+}

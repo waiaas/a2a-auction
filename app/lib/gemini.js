@@ -155,6 +155,61 @@ async function generate(prompt, { timeoutMs = 12000 } = {}) {
 }
 
 /**
+ * function calling 1회 호출. 모델이 **반드시 함수를 부르도록**(`mode: 'ANY'`) 강제해
+ * 자유 텍스트 파싱을 없앤다 — 라이브 데모에서 형식이 흔들리면 그대로 장면이 깨진다.
+ *
+ * 실패·키 없음이면 null을 돌려주고 호출부가 폴백한다(생성 경로의 공통 규약).
+ * @param {string} prompt
+ * @param {{name:string, description:string, parameters:object}} declaration
+ * @returns {Promise<object|null>} 모델이 채운 인자 객체
+ */
+export async function generateFunctionCall(prompt, declaration, { timeoutMs = 12000 } = {}) {
+  const isVertex = Boolean(VERTEX_PROJECT);
+  if (!isVertex && !API_KEY) return null;
+
+  let url = `${ENDPOINT(MODEL)}?key=${API_KEY}`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (isVertex) {
+    const token = await vertexAccessToken();
+    if (!token) return null;
+    url = VERTEX_ENDPOINT(MODEL);
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        tools: [{ function_declarations: [declaration] }],
+        tool_config: { function_calling_config: { mode: 'ANY', allowed_function_names: [declaration.name] } },
+      }),
+      signal: ctl.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      console.error(
+        `[gemini] function call 실패 HTTP ${res.status} (model=${MODEL}, fn=${declaration.name}) — 폴백`,
+      );
+      return null;
+    }
+    const json = await res.json();
+    const call = json?.candidates?.[0]?.content?.parts?.find((p) => p.functionCall)?.functionCall;
+    if (!call?.args) {
+      console.error(`[gemini] function call 응답에 인자가 없음 (fn=${declaration.name}) — 폴백`);
+      return null;
+    }
+    return call.args;
+  } catch (e) {
+    console.error(`[gemini] function call 예외: ${e.message} — 폴백`);
+    return null;
+  }
+}
+
+/**
  * buyer별 make-vs-buy 견적 + rationale. 라이브 성공 시 rationale만 재생성하고
  * 정량 견적(diyTokens 등)은 캐시값 유지(금액 고정 원칙, 스펙 3.4).
  * @returns {Promise<{quote:object, rationale:string, source:'live'|'cache'}>}
@@ -194,17 +249,28 @@ export async function getResult(item, auctionId = null) {
   // 캐시 히트: 파일 I/O는 시스템 경계 — 없거나 손상되면 미스로 보고 아래 생성 경로로 폴백한다.
   if (cachePath) {
     try {
-      const { source, contentMarkdown } = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-      if (typeof contentMarkdown === 'string') {
-        return { contentMarkdown, hash: sha256Hex(contentMarkdown), source };
+      const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+      if (typeof cached.contentMarkdown === 'string') {
+        return {
+          contentMarkdown: cached.contentMarkdown,
+          hash: sha256Hex(cached.contentMarkdown),
+          source: cached.source,
+          // 구매 라운드는 경매마다 상품이 다르다 — 생성 시점의 item을 캐시에 실어
+          // seller가 (자기는 매핑을 모르면서도) 올바른 상품 메타를 돌려줄 수 있게 한다.
+          item: cached.item ?? item,
+        };
       }
     } catch { /* 캐시 없음/손상 → 재생성 */ }
   }
 
-  const cached = fixtureText('result.md');
+  // 폴백 원고는 **리스팅마다 다른 파일**을 쓴다. 하나를 공유하면 5 USDC짜리와 20 USDC짜리가
+  // 같은 결과물·같은 hash로 나와 "가격 차이가 납득되게" 하라는 콘티 컷 1의 요구가 무너진다.
+  // 라이브 생성이 실패하는 순간(쿼터 소진 등)에 바로 드러나는 자리라 폴백에서도 분량을 가른다.
+  const cached = fixtureText(item.fallbackFile || 'result.md');
+  const depthHint = item.depthHint ? `\n분량과 깊이: ${item.depthHint}` : '';
   const prompt =
     `"${item.task}"에 대한 전문 리서치 브리핑을 한국어 마크다운으로 작성하라. ` +
-    `한 줄 요약, 채택 신호, 병목, 시사점, 방법론 주석 순으로. 수치는 대표값임을 명시하라.`;
+    `한 줄 요약, 채택 신호, 병목, 시사점, 방법론 주석 순으로. 수치는 대표값임을 명시하라.${depthHint}`;
   const live = await generate(prompt, { timeoutMs: 20000 });
   const contentMarkdown = live || cached;
   const source = live ? 'live' : 'cache';
@@ -214,11 +280,11 @@ export async function getResult(item, auctionId = null) {
     try {
       fs.mkdirSync(PATHS.resultCache, { recursive: true });
       const tmp = `${cachePath}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ source, contentMarkdown }));
+      fs.writeFileSync(tmp, JSON.stringify({ source, contentMarkdown, item }));
       fs.renameSync(tmp, cachePath);
     } catch (e) {
       console.error(`[gemini] result 캐시 쓰기 실패 auction=${auctionId}: ${e.message}`);
     }
   }
-  return { contentMarkdown, hash: sha256Hex(contentMarkdown), source };
+  return { contentMarkdown, hash: sha256Hex(contentMarkdown), source, item };
 }

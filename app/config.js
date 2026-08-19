@@ -81,22 +81,58 @@ export const AMOUNTS = {
   'buyer-c': 2_200_000n, // 2.20 USDC
 };
 
-/** 시드가 각 buyer ATA를 채워 두는 목표 잔고 (여러 라운드분). 부족분만 mint. */
+/**
+ * 시드가 각 buyer ATA를 채워 두는 목표 잔고 (여러 라운드분). 부족분만 mint.
+ *
+ * buyer-b가 새 시나리오(콘티 v3)의 주인공 바이어다. 한 라운드에 5+10+20 = 35 USDC를
+ * 쓰므로(20은 승인 후 실행) 여러 라운드분을 확보한다.
+ */
 export const FUND_TARGET = {
-  'buyer-a': 30_000_000n, // 30 USDC (≈10라운드)
-  'buyer-b': 10_000_000n, // 10 USDC (B는 예치 불발이라 소모 없음)
+  'buyer-a': 200_000_000n, // 200 USDC (라운드당 35 → ≈5라운드)
+  'buyer-b': 30_000_000n, // 30 USDC (구 시나리오용)
   'buyer-c': 10_000_000n, // 10 USDC (C도 거부라 소모 없음)
 };
 
 /**
- * token_limits (human-readable, SPENDING_LIMIT). 스파이크 검증값.
- * A: 2.80 ≤ 3 → INSTANT 티어지만 오라클 notListed로 NOTIFY 격상(자동 실행).
- * B: 6.50 > 5(delay_max) → APPROVAL(owner verified 필수) → QUEUED.
+ * token_limits (human-readable, SPENDING_LIMIT).
+ *
+ * **세 값을 벌리는 것이 콘티 v3 컷 4의 전부다.** 값이 같으면 중간 티어가 구조적으로
+ * 발생할 수 없어(`spending-limit.ts` 티어 판정이 `amount <= instant_max` → INSTANT,
+ * `<= notify_max` → NOTIFY, `<= delay_max` → DELAY, 초과 → APPROVAL) WAIaaS 4단계 중
+ * 2단계만 쓰게 된다.
+ *
+ * **INSTANT는 이 데모에서 쓸 수 없다(2026-08-12 실측).** 자체 발행 mint는 Pyth 피드에
+ * 없어 가격 조회가 notListed로 끝나고, 데몬이 이를 **최소 NOTIFY로 강제 격상**한다
+ * (`stage3-policy.ts:181-205`, "unknown price != price of 0"). 5/10/10으로 두면 5달러가
+ * INSTANT가 아니라 NOTIFY로 나와 5와 10이 같은 티어로 접힌다. 그래서 instant_max를 0으로
+ * 두어 INSTANT 구간을 비우고, 격상이 건드리지 못하는 위쪽 세 구간으로 3단계를 만든다.
+ *
+ * buyer-a(주인공 바이어): 5 → NOTIFY(알림만, 실행은 통과) / 10 → DELAY(유예 대기, 그 사이
+ *   취소 가능) / 20 → APPROVAL(owner 승인). 셋 다 실행으로 확인했다.
+ * buyer-b: 구 시나리오(3자 경매) 값 유지.
+ *
+ * **주인공이 buyer-b가 아니라 buyer-a인 이유**: 승인(컷 5)은 owner 서명이 유일한 경로인데
+ * buyer-b는 이미 LOCKED이고 그 owner 키가 폐기돼(과거 시드 정책) 교체조차 막힌다
+ * (`OWNER_ALREADY_CONNECTED`). buyer-a는 owner가 NONE이라 우리가 키를 쥔 채 등록할 수 있고,
+ * x402 도메인 정책도 이미 갖고 있어 컷 7까지 그대로 이어진다.
  */
 export const TOKEN_LIMITS = {
-  'buyer-a': { instant_max: '3', notify_max: '3', delay_max: '3' },
+  'buyer-a': { instant_max: '0', notify_max: '5', delay_max: '10' },
   'buyer-b': { instant_max: '5', notify_max: '5', delay_max: '5' },
 };
+
+/**
+ * 콘티 v3 시나리오의 주인공 바이어. 시드·구매 흐름·검증이 같은 값을 봐야 하므로 여기서 고정한다.
+ * 선정 근거는 위 TOKEN_LIMITS 주석 참조(owner 등록 가능 + x402 정책 보유).
+ */
+export const MAIN_BUYER = 'buyer-a';
+
+/**
+ * DELAY 티어 유예 시간(초). 스키마 최소값이 60이라 더 줄일 수 없다
+ * (`policy.schema.ts:108`, `z.number().int().min(60)`). 발표에서는 이 60초를 컷 5(승인)
+ * 진행 중 백그라운드로 흘려 흡수한다.
+ */
+export const DELAY_SECONDS = 60;
 
 /** Anchor instruction discriminator (sha256("global:<name>")[..8]). 스파이크 검증값. */
 export const DISC = {
@@ -119,6 +155,10 @@ export const PATHS = {
   fixtures: path.join(__dirname, 'fixtures'),
   resultCache: path.join(ROOT, 'app/result-cache'), // 라운드별 낙찰 결과물 확정 캐시(orchestrator↔seller hash 일관성)
   facilitator: path.join(ROOT, 'app/facilitator-keypair.json'), // x402 feePayer 대납 키 (에이전트 지갑이 아님)
+  // 지갑 owner(사람) 서명 키. **승인(컷 5)이 owner 서명을 유일한 경로로 요구해서** 보존한다
+  // — 어드민 우회가 없다. 익스텐션 승인 경로가 준비되면 서명 주체가 이 키에서 지갑으로
+  // 옮겨가고 이 파일은 사라진다. 그때까지의 임시 보관이다(0600, gitignore).
+  owner: path.join(ROOT, 'app/owner-keypair.json'),
 };
 
 /** hero 경매 카탈로그 (무대 소품, 스펙 7.1). */

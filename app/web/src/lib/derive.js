@@ -56,24 +56,50 @@ export function commitStat(commit) {
   return ok ? { cls: 'ok', label: '확정' } : { cls: 'bad', label: commit.status || '실패' };
 }
 
+/**
+ * 판정 표시의 단일 소스.
+ *
+ * **키는 WAIaaS 정책 티어 이름 그대로다.** 화면에 ALLOW/DENY 같은 자체 용어를 쓰면
+ * 심사위원이 보는 라벨과 데몬이 실제로 내린 판정이 어긋난다(콘티 v3 컷 4). 티어가
+ * 그대로 보여야 정책 엔진이 스스로를 증명한다.
+ *
+ * 구 시나리오(3자 경매)의 ALLOW·APPROVAL_REQUIRED·DENY는 흐름 재구성이 끝날 때까지
+ * 화면이 깨지지 않도록 함께 남겨 둔다.
+ */
+const VERDICT = {
+  // WAIaaS 정책 티어
+  INSTANT: { cls: 'ok', short: 'INSTANT', label: 'INSTANT', step: '즉시 실행', sub: '한도 내 · 즉시 실행' },
+  NOTIFY: { cls: 'ok', short: 'NOTIFY', label: 'NOTIFY', step: '실행', sub: '알림 발송 · 실행은 통과' },
+  DELAY: { cls: 'warn', short: 'DELAY', label: 'DELAY', step: '유예 대기', sub: '유예 중 · 취소 가능' },
+  APPROVAL: { cls: 'warn', short: 'APPROVAL', label: 'APPROVAL', step: '승인 대기', sub: 'owner 승인 대기' },
+  // 승인을 거쳐 실행된 상태. APPROVAL과 같은 배지로 두면 사람이 승인한 뒤에도 화면이
+  // 멈춰 있는 것처럼 보인다 — 컷 5의 결말이 안 보인다.
+  APPROVED: { cls: 'gold', short: 'APPROVED', label: 'APPROVED', step: '승인 후 실행', sub: 'owner 서명으로 실행됨' },
+  // 유예가 끝나 스스로 실행된 상태. 사람이 승인한 APPROVED와 다른 사건이라 라벨을 나눈다.
+  RELEASED: { cls: 'ok', short: 'RELEASED', label: 'RELEASED', step: '유예 후 실행', sub: '유예 만료 · 취소 없이 통과' },
+  // 사람이 거부했거나 유예 중 취소된 결말. 대기와 같은 배지로 두면 이미 끝난 건에
+  // 승인 버튼이 계속 떠 있게 된다.
+  REJECTED: { cls: 'bad', short: 'REJECTED', label: 'REJECTED', step: '거부됨', sub: '사람이 거부 · 실행되지 않음' },
+  // 정책 판정이 아니라 관측 실패(데몬 응답 타임아웃) — 거부와 같은 배지로 보이면 서사가 뒤집힌다.
+  TIMEOUT: { cls: 'pending', short: 'TIMEOUT', label: 'TIMEOUT', step: '관측 실패', sub: '판정 관측 실패' },
+  // 구 시나리오 호환
+  ALLOW: { cls: 'ok', short: 'ALLOW', label: 'ALLOW', step: '실행', sub: '위임 한도 내 · 자동 실행' },
+  APPROVAL_REQUIRED: { cls: 'warn', short: 'APPROVAL', label: 'APPROVAL REQUIRED', step: '승인 대기', sub: 'owner 승인 대기' },
+  DENY: { cls: 'bad', short: 'DENY', label: 'DENY', step: '거부', sub: '수신처 정책 거부' },
+};
+
+const VERDICT_PENDING = { cls: 'pending', short: '대기', label: '판정 대기', step: '대기', sub: '' };
+
 /** 예치 상태 → 표시용 {cls,label}. 판정(ui) 기준. */
 export function depositStat(ui) {
-  switch (ui) {
-    case 'ALLOW': return { cls: 'ok', label: '실행' };
-    case 'APPROVAL_REQUIRED': return { cls: 'warn', label: '승인 대기' };
-    case 'DENY': return { cls: 'bad', label: '거부' };
-    default: return { cls: 'pending', label: '대기' };
-  }
+  const v = VERDICT[ui];
+  return v ? { cls: v.cls, label: v.step } : { cls: 'pending', label: '대기' };
 }
 
 /** 최종 판정 배지 → {cls,label,sub}. */
 export function verdictInfo(ui) {
-  switch (ui) {
-    case 'ALLOW': return { cls: 'ok', label: 'ALLOW', sub: '위임 한도 내 · 자동 실행' };
-    case 'APPROVAL_REQUIRED': return { cls: 'warn', label: 'APPROVAL REQUIRED', sub: 'owner 승인 대기' };
-    case 'DENY': return { cls: 'bad', label: 'DENY', sub: '수신처 정책 거부' };
-    default: return { cls: 'pending', label: '판정 대기', sub: '' };
-  }
+  const v = VERDICT[ui] ?? VERDICT_PENDING;
+  return { cls: v.cls, label: v.label, sub: v.sub };
 }
 
 /** 파이프라인 스텝: phase로 각 단계의 done/active/pending을 계산. */
@@ -105,14 +131,8 @@ export function isRunning(phase) {
 
 /** v4 판정 pill (짧은 라벨). */
 export function verdictShort(ui) {
-  switch (ui) {
-    case 'ALLOW': return { cls: 'ok', label: 'ALLOW' };
-    case 'APPROVAL_REQUIRED': return { cls: 'warn', label: 'APPROVAL' };
-    case 'DENY': return { cls: 'bad', label: 'DENY' };
-    // 정책 판정이 아니라 관측 실패(데몬 응답 타임아웃) — DENY와 같은 배지로 보이면 서사가 뒤집힌다.
-    case 'TIMEOUT': return { cls: 'pending', label: 'TIMEOUT' };
-    default: return { cls: 'pending', label: '대기' };
-  }
+  const v = VERDICT[ui] ?? VERDICT_PENDING;
+  return { cls: v.cls, label: v.short };
 }
 
 /** hero 상단 상태 pill: phase → {cls,label}. */
@@ -151,13 +171,21 @@ export function liveActivity(state) {
       sub: `winner Analyst · vault→seller ${s != null ? Number(s).toFixed(2) : '—'}`,
     });
   }
+  // 실물은 "데몬의 대기 큐에 등재"까지다. 알림 외부 발송(푸시·문자)은 미구성이므로
+  // 화면이 발송된 것처럼 말하지 않는다 — NOTIFY도 "알림 기록"까지만 적는다.
+  const TIMELINE = {
+    INSTANT: { act: 'deposit 실행', sub: 'INSTANT · 즉시 실행' },
+    NOTIFY: { act: 'deposit 실행', sub: 'NOTIFY · 알림 기록 · 실행은 통과' },
+    DELAY: { act: '유예 대기', sub: 'DELAY · 유예 큐 등재 · 취소 가능' },
+    APPROVAL: { act: '승인 대기', sub: 'APPROVAL · 데몬 승인 큐 등재' },
+    TIMEOUT: { act: '판정 관측 실패', sub: '데몬 응답 타임아웃' },
+    ALLOW: { act: 'deposit 실행', sub: 'ALLOW · 자동 실행' },
+    APPROVAL_REQUIRED: { act: '승인 대기', sub: '데몬 승인 큐 등재' },
+    DENY: { act: '정책 거부', sub: 'WHITELIST 미등록' },
+  };
   for (const b of orderedBuyers(state.buyers)) {
-    if (b.ui === 'ALLOW') items.push({ icon: b.role, who: b.name, act: 'deposit 실행', sub: `${fmtUsdc(b.bidUsdc)} · ALLOW · 자동 실행` });
-    // 실물은 "데몬의 승인 대기 큐에 등재"까지다. 알림 외부 발송(푸시·문자)은 미구성이므로
-    // 화면이 발송된 것처럼 말하지 않는다.
-    else if (b.ui === 'APPROVAL_REQUIRED') items.push({ icon: b.role, who: b.name, act: '승인 대기', sub: `${fmtUsdc(b.bidUsdc)} · 데몬 승인 큐 등재` });
-    else if (b.ui === 'DENY') items.push({ icon: b.role, who: b.name, act: '정책 거부', sub: `${fmtUsdc(b.bidUsdc)} · WHITELIST 미등록` });
-    else if (b.ui === 'TIMEOUT') items.push({ icon: b.role, who: b.name, act: '판정 관측 실패', sub: `${fmtUsdc(b.bidUsdc)} · 데몬 응답 타임아웃` });
+    const t = TIMELINE[b.ui];
+    if (t) items.push({ icon: b.role, who: b.name, act: t.act, sub: `${fmtUsdc(b.bidUsdc)} · ${t.sub}` });
   }
   const committed = orderedBuyers(state.buyers).filter((b) => b.commit).length;
   if (committed) items.push({ icon: 'chain', who: `${committed} agents`, act: 'committed bids', sub: '입찰 해시 선등록 · reveal 전' });

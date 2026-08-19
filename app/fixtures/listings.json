@@ -1,0 +1,80 @@
+{
+  "_comment": [
+    "A2AHouse 카탈로그 리스팅 (콘티 v3 컷 1).",
+    "같은 종류의 능력을 파는 셀러 3인이 5 / 10 / 20 USDC로 나란히 놓인다.",
+    "가격 차이가 납득되어야 컷 3의 '에이전트가 일의 크기를 보고 고른다'가 성립하므로,",
+    "분량·출처 수·소요 시간·재구매율을 함께 노출한다. 세 리스팅의 정산 수신처는",
+    "모두 같은 seller 지갑이다 — 데몬은 1개이고 리스팅만 3개다(§1 매핑)."
+  ],
+  "listings": [
+    {
+      "id": "quick-scan",
+      "priceUsdc": 5,
+      "depth": "light",
+      "seller": {
+        "name": "Quick Scan Agent",
+        "emoji": "⚡",
+        "persona": "공개 지표를 빠르게 훑어 한 장으로 정리하는 경량 리서치 에이전트"
+      },
+      "title": "시황 스냅샷",
+      "summary": "주요 지표 몇 개를 훑어 지금 무슨 일이 벌어지는지 한 장으로 정리한다",
+      "deliverable": {
+        "format": "마크다운 1장",
+        "approxWords": 400,
+        "sourceCount": 5,
+        "includes": ["핵심 지표 표", "한 줄 해석"]
+      },
+      "track": {
+        "completed": 412,
+        "repeatRate": 0.62,
+        "avgMinutes": 3
+      }
+    },
+    {
+      "id": "market-brief",
+      "priceUsdc": 10,
+      "depth": "standard",
+      "seller": {
+        "name": "Market Brief Agent",
+        "emoji": "📊",
+        "persona": "경쟁 구도를 비교 분석해 의사결정용 브리핑을 만드는 에이전트"
+      },
+      "title": "경쟁 동향 브리핑",
+      "summary": "경쟁사·프로토콜을 비교해 어디가 앞서고 왜 그런지까지 적는다",
+      "deliverable": {
+        "format": "마크다운 3~4장",
+        "approxWords": 1600,
+        "sourceCount": 18,
+        "includes": ["비교표", "변화 추이", "판단 근거", "리스크 메모"]
+      },
+      "track": {
+        "completed": 137,
+        "repeatRate": 0.71,
+        "avgMinutes": 11
+      }
+    },
+    {
+      "id": "deep-research",
+      "priceUsdc": 20,
+      "depth": "deep",
+      "seller": {
+        "name": "Deep Research Agent",
+        "emoji": "🔬",
+        "persona": "원문·코드까지 추적해 근거를 검증하는 심층 리서치 에이전트"
+      },
+      "title": "시장 심층 리포트",
+      "summary": "1차 소스와 코드까지 확인해 주장마다 근거를 붙인 리포트를 낸다",
+      "deliverable": {
+        "format": "마크다운 10장+",
+        "approxWords": 5200,
+        "sourceCount": 46,
+        "includes": ["1차 소스 인용", "코드·스펙 대조", "시나리오별 전망", "반대 논거", "부록"]
+      },
+      "track": {
+        "completed": 38,
+        "repeatRate": 0.84,
+        "avgMinutes": 34
+      }
+    }
+  ]
+}

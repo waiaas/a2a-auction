@@ -8,7 +8,7 @@
  *  ① 예치 to=auction_pda(vault ATA 아님) → 데몬이 vault ATA 유도
  *  ② commit_bid도 WHITELIST 평가 → C는 [programId]만, A·B는 [programId, auction_pda]
  *  ③ deposit TOKEN_TRANSFER에 token.assetId(CAIP-19) 필수
- *  ④ A는 tier NOTIFY(자동 실행) → UI는 ALLOW
+ *  ④ 화면 판정은 데몬이 내린 티어 이름(INSTANT·NOTIFY·DELAY·APPROVAL)을 그대로 쓴다
  *  ⑤ B owner는 Ed25519 verify로 LOCKED → APPROVAL 유지(시드가 보장)
  */
 import fs from 'node:fs';
@@ -20,7 +20,6 @@ import {
   PATHS,
   TOKEN_LIMITS,
   X402_UNLOCK,
-  SELLER_PUBLIC_URL,
 } from './config.js';
 import {
   connection,
@@ -43,6 +42,13 @@ import {
 import { getQuoteAndRationale, getResult } from './lib/gemini.js';
 import { loadConfig, saveConfig, loadStateByRole, loadEnv, masterPasswordFor } from './lib/state.js';
 import { daemonClient } from './lib/daemon.js';
+import {
+  pickFreeAuctionId,
+  waitForAuctionAccount,
+  waitForTokenBalance,
+  waitForVaultDeposit,
+} from './lib/onchain-wait.js';
+import { unlockViaX402 } from './lib/x402-unlock.js';
 
 const BUYERS = ['buyer-a', 'buyer-b', 'buyer-c'];
 const TX_OK = ['CONFIRMED', 'SUBMITTED'];
@@ -86,17 +92,6 @@ function pushLog(state, msg) {
   console.log(`  [flow] ${msg}`);
 }
 
-/** 온체인에서 비어 있는 auction_id 슬롯을 앞으로 스캔(스파이크·이전 라운드와 충돌 방지). */
-async function pickFreeAuctionId(conn, marketplace, start) {
-  let id = start;
-  // 안전 상한: 무한 루프 방지
-  for (let i = 0; i < 10000; i++) {
-    const pda = deriveAuctionPda(marketplace, id);
-    if (!(await fetchAuction(conn, pda))) return id;
-    id++;
-  }
-  throw new Error('빈 auction_id 슬롯을 찾지 못함');
-}
 
 /**
  * 경매 개설까지만 실행한다 (판매자 콘솔의 "경매 오픈"). 입찰·정산은 runBidding이 이어받는다.
@@ -195,7 +190,7 @@ export async function runBidding(state, deps, ctx) {
       quoteSource: source,
       commit: null,
       deposit: null,
-      ui: null, // ALLOW | APPROVAL_REQUIRED | DENY
+      ui: null, // INSTANT | NOTIFY | DELAY | APPROVAL | DENY | TIMEOUT
     };
   }
 
@@ -246,7 +241,7 @@ export async function runBidding(state, deps, ctx) {
       decision,
       error: fin.error || fin.errorMessage || null,
     };
-    state.buyers[role].ui = decision; // ALLOW(A) / APPROVAL_REQUIRED(B) / DENY(C)
+    state.buyers[role].ui = decision; // 데몬 티어 그대로 (또는 DENY·TIMEOUT)
     pushLog(state, `${role} deposit ${fin.status} tier=${fin.tier || '-'} → ${decision}`);
   }
   // B가 승인 대기 큐에 실제로 있는지 확인. 조회 실패는 "큐에 없음(false)"과 다른 사건이라
@@ -266,7 +261,7 @@ export async function runBidding(state, deps, ctx) {
   // 데몬은 tx를 제출하면 SUBMITTED를 반환하는데, reveal_bid는 vault 잔고가 reveal 금액
   // 이상일 것을 요구한다(DepositNotFound). 이 간극을 흡수하지 않으면 라운드 전체가 죽는다.
   const depA = state.buyers['buyer-a'].deposit;
-  if (depA.decision === 'ALLOW' || depA.decision === 'TIMEOUT') {
+  if (isExecutedDecision(depA.decision) || depA.decision === 'TIMEOUT') {
     const wait = await waitForVaultDeposit(conn, vault, depA.txHash, state.buyers['buyer-a'].bidUsdc);
     depA.onchainConfirmed = wait.confirmed;
     state.vaultAfterDeposit = wait.balance;
@@ -344,7 +339,7 @@ export async function runBidding(state, deps, ctx) {
   // ---- x402 결과물 unlock (X402_UNLOCK) ----
   // phase='settled' 이전에 끝내야 UI가 Receipt를 열 때 seller의 결제 마커가 준비돼 있다.
   if (X402_UNLOCK) {
-    state.x402 = await unlockViaX402(clients['buyer-a'], auctionId, state);
+    state.x402 = await unlockViaX402(clients['buyer-a'], auctionId, (msg) => pushLog(state, msg));
     pushLog(state, `x402 unlock: ${state.x402.amountUsdc} USDC sig=${state.x402.onchainSignature}`);
   }
 
@@ -368,100 +363,29 @@ export async function runAuction(state, deps) {
   return runBidding(state, deps, ctx);
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * A의 데몬으로 seller 결과물을 x402 결제해 unlock한다.
+ * 예치 결과를 화면 판정으로 매핑. **데몬이 내린 티어를 그대로 쓴다** —
+ * 자체 용어(ALLOW 등)로 접으면 화면 라벨과 정책 엔진의 실제 판정이 어긋난다(콘티 v3 컷 4).
  *
- * 데몬 응답의 `payment` 존재가 "402를 거쳐 실제로 결제했다"는 증거다 — 무료로 열렸다면
- * passthrough 200이라 payment가 없다. 실패 시 무료 unlock으로 조용히 넘어가지 않는다
- * (그러면 "x402 실사용" 주장이 거짓이 된다). 재시도 1회 후 라운드를 error로 표면화한다.
- */
-async function unlockViaX402(clientA, auctionId, state) {
-  if (!SELLER_PUBLIC_URL) {
-    throw new Error('X402_UNLOCK=1인데 SELLER_PUBLIC_URL이 없다 (cloudflared 터널 URL 필요)');
-  }
-  const url = `${SELLER_PUBLIC_URL}/slot/${auctionId}/result`;
-  let lastError;
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const r = await clientA.x402Fetch(url);
-      if (!r.payment) throw new Error('데몬 응답에 payment 없음 — 402를 거치지 않았다');
-      const body = JSON.parse(r.body);
-      if (body.locked !== false) throw new Error(`결제 후에도 잠김: ${JSON.stringify(body)}`);
-      return {
-        amountBase: r.payment.amount,
-        amountUsdc: Number(r.payment.amount) / 1e6,
-        daemonTxId: r.payment.txId,
-        payTo: r.payment.payTo,
-        // 온체인 signature는 제출자(seller의 facilitator)만 안다. 데몬 txHash는 빈 값이다.
-        onchainSignature: body.payment?.signature ?? null,
-        resultHash: body.result?.hash ?? null,
-        attempts: attempt,
-      };
-    } catch (e) {
-      lastError = e;
-      pushLog(state, `x402 unlock 시도 ${attempt} 실패: ${e.message}`);
-    }
-  }
-  throw new Error(`x402 unlock 실패(2회): ${lastError.message}`);
-}
-
-/** create 직후 auction 계정이 조회될 때까지 짧게 재시도한다(위 주석 참조). */
-async function waitForAuctionAccount(conn, auctionPda, intervalMs = 500, tries = 10) {
-  for (let i = 0; i < tries; i++) {
-    if (await fetchAuction(conn, auctionPda)) return { found: true, waitedMs: i * intervalMs };
-    await sleep(intervalMs);
-  }
-  return { found: false, waitedMs: tries * intervalMs };
-}
-
-/**
- * A의 예치가 온체인에 반영될 때까지 짧게 재시도한다.
- * reveal_bid의 온체인 요구사항(vault 잔고 >= reveal 금액)을 그대로 게이트로 쓴다.
- *
- * 확정되지 않아도 throw하지 않는다 — 조회가 늦었을 뿐 실제로는 반영됐을 수 있고,
- * 여기서 라운드를 죽이면 기존 동작보다 더 나빠진다. 판단은 reveal의 온체인 검증에 맡긴다.
- */
-/**
- * 토큰 계정 잔고가 목표치 이상이 될 때까지 짧게 재시도한다(정산 반영 대기).
- * minUiAmount가 null이면 즉시 1회 조회로 끝낸다. 도달하지 못해도 마지막에 읽은 값을
- * 그대로 돌려준다 — 판정은 온체인 Auction 계정(Settled·winner)이 이미 담당한다.
- */
-async function waitForTokenBalance(conn, account, minUiAmount, intervalMs = 500, tries = 10) {
-  let balance = await tokenUiBalance(conn, account);
-  if (minUiAmount == null) return balance;
-  for (let i = 0; i < tries && !(balance != null && balance >= minUiAmount); i++) {
-    await sleep(intervalMs);
-    balance = await tokenUiBalance(conn, account);
-  }
-  return balance;
-}
-
-async function waitForVaultDeposit(conn, vault, txHash, minUiAmount, intervalMs = 500, tries = 10) {
-  let status = 'unknown';
-  let balance = null;
-  for (let i = 0; i < tries; i++) {
-    status = await confirmSig(conn, txHash);
-    balance = await tokenUiBalance(conn, vault);
-    const sigOk = status === 'confirmed' || status === 'finalized';
-    if (sigOk && balance != null && balance >= minUiAmount) {
-      return { confirmed: true, status, balance, waitedMs: i * intervalMs };
-    }
-    await sleep(intervalMs);
-  }
-  return { confirmed: false, status, balance, waitedMs: tries * intervalMs };
-}
-
-/**
- * 예치 결과를 데모 판정(UI)으로 매핑. A=NOTIFY지만 실행됨 → ALLOW.
- * 타임아웃은 DENY로 접지 않는다 — 정책이 거부한 것(C)과 관측하지 못한 것은 다른 사건이다.
+ * 티어보다 먼저 걸러야 하는 것이 둘 있다. 관측 실패(timedOut)는 정책이 거부한 것과 다른
+ * 사건이라 DENY로 접지 않고, 정책 거부는 애초에 티어가 매겨지지 않는다.
  */
 function classifyDeposit(fin) {
-  if (TX_OK.includes(fin.status)) return 'ALLOW'; // A: NOTIFY 자동 실행
-  if (fin.status === 'QUEUED' || fin.status === 'DELAYED' || fin.tier === 'APPROVAL') return 'APPROVAL_REQUIRED'; // B
-  if (fin.timedOut) return 'TIMEOUT'; // 정지 상태에 도달하지 못함 = 정책 거부가 아니라 관측 실패
-  return 'DENY'; // C: CANCELLED/POLICY_DENIED
+  if (fin.timedOut) return 'TIMEOUT'; // 정지 상태 미도달 = 정책 거부가 아니라 관측 실패
+  if (fin.status === 'POLICY_DENIED') return 'DENY';
+  if (fin.tier) return fin.tier; // INSTANT | NOTIFY | DELAY | APPROVAL
+  if (TX_OK.includes(fin.status)) return 'INSTANT';
+  return 'DENY'; // 티어 없이 끝난 건(CANCELLED 등)
+}
+
+/**
+ * 파이프라인을 통과해 실제로 실행된 판정인지. INSTANT와 NOTIFY만 통과하고
+ * DELAY·APPROVAL은 대기 큐로 간다(`stage4-wait.ts:19`). **NOTIFY가 "알림은 가되 실행은
+ * 통과"라는 점**이 이 데모에서 가장 미묘한 지점이라 판정 이름 나열 대신 함수로 고정한다.
+ */
+export function isExecutedDecision(decision) {
+  return decision === 'INSTANT' || decision === 'NOTIFY' || decision === 'ALLOW';
 }
 
 /** receipt 조립(스펙 4 SettlementReceipt). state가 settled일 때만 유효. */

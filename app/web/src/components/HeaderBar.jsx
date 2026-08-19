@@ -11,12 +11,10 @@ const NOTES = {
   search: '검색은 준비 중입니다. 이 데모는 라이브 경매 1건과 카탈로그 소품으로 구성돼 있습니다.',
   bell:
     '알림 센터는 준비 중입니다. 위임 한도를 넘은 지출의 승인 대기는 Owner 콘솔의 "승인 대기 큐"에서 확인합니다.',
-  connect:
-    '에이전트 연결(세션 발급)은 각 에이전트의 WAIaaS 데몬 콘솔에서 수행합니다. 이 데모의 에이전트 5개는 이미 연결되어 있습니다.',
 };
 
-/** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · Connect Agent. */
-export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner }) {
+/** 경매하우스 상단 바(hero 카드 내부): 로고 · 내비 · 검색/알림 · Connect Wallet. */
+export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner, onOpenPurchase, onOpenService }) {
   const [note, setNote] = useState(null);
   const toggle = (key) => setNote((v) => (v === key ? null : key));
 
@@ -44,6 +42,12 @@ export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner }) 
       {btn(scrollTop, 'logo logobtn', <>A2A<b>House</b></>)}
       <div className="nav">
         {btn(scrollTop, 'on navbtn', 'Live Auctions')}
+        {/* My Agent는 접속자 본인의 지갑으로 도는 실제 서비스, Purchase Round는 발표용 고정
+            라운드다. 해시 URL만으로는 링크를 받은 사람만 들어오므로 둘 다 내비에 둔다.
+            이름은 영문으로 통일한다 — 나머지가 영문이라 둘만 한국어면 눈에 띄는 게 아니라
+            섞여 보인다. 진입점 강조는 언어가 아니라 우측 Connect Wallet 버튼이 맡는다. */}
+        {btn(onOpenService, 'navbtn', 'My Agent')}
+        {btn(onOpenPurchase, 'navbtn', 'Purchase Round')}
         {btn(() => toggle('agents'), 'navbtn', 'Agents')}
         {btn(scrollToCatalogue, 'navbtn', 'Catalogue')}
         {btn(onOpenSeller, 'navbtn', 'Seller')}
@@ -53,7 +57,7 @@ export default function HeaderBar({ onOpenReceipt, onOpenSeller, onOpenOwner }) 
       <div className="sp" />
       {btn(() => toggle('search'), 'icirc ib', <Icon name="search" size={16} />)}
       {btn(() => toggle('bell'), 'icirc ib', <Icon name="bell" size={16} />)}
-      <button className="connect" onClick={() => toggle('connect')}>Connect Agent</button>
+      <button className="connect" onClick={() => onOpenService?.()}>Connect Wallet</button>
       {note && (
         <div className={`bar-note ${note === 'agents' ? 'left' : 'right'}`}>{NOTES[note]}</div>
       )}

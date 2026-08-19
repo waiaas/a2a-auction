@@ -16,8 +16,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS, NETWORK_LABEL } from './config.js';
+import { ORCHESTRATOR_PORT, SELLER_PORT, PATHS, USDC_DECIMALS, NETWORK_LABEL, MAIN_BUYER } from './config.js';
 import { initState, buildDeps, openAuction, runBidding, runAuction, assembleReceipt } from './auction-flow.js';
+import {
+  initPurchaseState,
+  runPurchaseRound,
+  refreshPurchases,
+  settlePurchases,
+  approvePurchase,
+  assemblePurchaseReceipt,
+  purchaseOne,
+} from './purchase-flow.js';
+import { loadListings } from './lib/decision.js';
+import { registerListing } from './lib/listings-store.js';
+import { createUserApi } from './user-api.js';
 
 const actors = JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, 'actors.json'), 'utf8'));
 
@@ -108,11 +120,159 @@ app.post('/api/auction/reset', (req, res) => {
   res.json({ reset: true, scenario });
 });
 
+// ---- 구매 라운드 (콘티 v3) ----
+// 기존 경매 라우트는 그대로 둔다 — 새 흐름이 완성될 때까지 폴백이 필요하다.
+//
+//   GET  /api/purchase/catalog            카탈로그 리스팅 3종 (컷 1)
+//   POST /api/purchase/start              요청 3건 → 선택 → 구매 → 실행된 건 정산 (컷 3·4·6)
+//   GET  /api/purchase/state              현재 상태. 대기 건이 있으면 데몬에서 갱신해 준다
+//   POST /api/purchase/approve/:requestId 승인 대기 건 승인 (컷 5)
+//   POST /api/purchase/settle             유예·승인이 풀린 건 정산
+//   POST /api/purchase/reset              상태 초기화
+
+let purchaseState = initPurchaseState();
+let purchaseRunning = false;
+
+function runPurchaseInBackground(promise, label) {
+  purchaseRunning = true;
+  promise
+    .catch((e) => {
+      purchaseState.phase = 'error';
+      purchaseState.error = e.message;
+      console.error(`[orchestrator] ${label} 실패:`, e.message);
+    })
+    .finally(() => {
+      purchaseRunning = false;
+    });
+}
+
+// ---- 사용자 API (`/api/u/*`) ----
+//
+// 지갑을 연결한 사람이 **자기 에이전트 지갑으로** 사는 경로다. 아래 `/api/purchase/*`는 공용
+// 데모 지갑으로 도는 고정 라운드라 신원 모델이 다르다 — 섞으면 어느 지갑이 도는지 화면에서
+// 구분할 수 없어진다(직전 세션에서 오너 콘솔이 남의 지갑 큐를 보던 사고와 같은 종류).
+//
+// 이전의 `/api/users/connect`는 주소만 받고 서명을 검증하지 않아 사칭이 가능했다. 그 자리를
+// nonce 챌린지 + Ed25519 검증을 거치는 `/api/u/connect`가 대체한다.
+app.use('/api/u', createUserApi());
+
+app.get('/api/purchase/catalog', (_req, res) => res.json({ listings: loadListings() }));
+
+// 컷 0: 셀러가 능력을 등록한다. MCP `register_skill`이 이 라우트를 감싼다.
+// 등록분은 카탈로그에 즉시 반영되어 컷 1 화면과 컷 3 후보에 함께 들어간다.
+app.post('/api/purchase/listings', (req, res) => {
+  try {
+    const { listing, replaced } = registerListing(req.body ?? {});
+    res.status(replaced ? 200 : 201).json({ listing, replaced });
+  } catch (e) {
+    // 입력 검증 실패는 호출자 잘못이라 4xx로 돌려준다 — 도구가 무엇이 틀렸는지 알아야 고친다.
+    res.status(400).json({ error: 'invalid_listing', message: e.message });
+  }
+});
+
+// 컷 2: 도구 호출자가 고른 리스팅 하나를 산다. 정책 판정이 응답으로 그대로 돌아간다.
+app.post('/api/purchase/buy', (req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  const { listingId, title, need } = req.body ?? {};
+  if (!listingId) return res.status(400).json({ error: 'listingId_required' });
+
+  purchaseRunning = true;
+  purchaseOne(purchaseState, d, { listingId, title, need })
+    .then((p) => {
+      res.json({
+        requestId: p.requestId,
+        listingId: p.listing.id,
+        amountUsdc: p.amountUsdc,
+        tier: p.tier,
+        verdict: p.ui,
+        auctionId: p.auctionId,
+        depositStatus: p.steps.deposit?.status ?? null,
+        txId: p.txId,
+      });
+    })
+    .catch((e) => {
+      console.error('[orchestrator] purchaseOne 실패:', e.message);
+      res.status(502).json({ error: 'purchase_failed', message: e.message });
+    })
+    .finally(() => {
+      purchaseRunning = false;
+    });
+});
+
+app.post('/api/purchase/start', (_req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  purchaseState = initPurchaseState();
+  // 구매 직후 실행된 건(NOTIFY)은 바로 정산한다. 유예·승인 건은 대기로 남아 컷 5로 이어진다.
+  runPurchaseInBackground(
+    runPurchaseRound(purchaseState, d).then(() => settlePurchases(purchaseState, d)),
+    'runPurchaseRound',
+  );
+  return res.status(202).json({ started: true });
+});
+
+app.get('/api/purchase/state', async (_req, res) => {
+  // 유예는 시간이 지나면 스스로 풀린다. 폴링 때마다 대기 건만 확인해 화면이 그 변화를 잡게 한다.
+  if (!purchaseRunning && purchaseState.purchases.length) {
+    try {
+      const d = buildDeps();
+      await refreshPurchases(purchaseState, d);
+    } catch (e) {
+      console.error('[orchestrator] purchase 상태 갱신 실패:', e.message);
+    }
+  }
+  res.json({ ...purchaseState, network: NETWORK_LABEL, running: purchaseRunning });
+});
+
+app.post('/api/purchase/settle', (_req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  runPurchaseInBackground(settlePurchases(purchaseState, d), 'settlePurchases');
+  return res.status(202).json({ settling: true });
+});
+
+/**
+ * 승인 relay. **데몬에 승인 라우트가 없으면 502로 떨어진다** — 현재 이미지가 그 상태다
+ * (`transactions.ts`의 등록 조건 중 ownerLifecycle이 주입되지 않아 라우트 자체가 미등록).
+ * 우리 쪽 배선은 끝나 있으므로 데몬이 고쳐지면 그대로 동작한다.
+ */
+app.post('/api/purchase/approve/:requestId', ownerGuard, async (req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'already_running', phase: purchaseState.phase });
+  const d = depsOrError(res);
+  if (!d) return;
+  try {
+    const purchase = await approvePurchase(purchaseState, d, req.params.requestId);
+    res.json({ requestId: purchase.requestId, ui: purchase.ui, status: purchase.steps.deposit?.status });
+  } catch (e) {
+    console.error('[orchestrator] purchase 승인 실패:', e.message);
+    res.status(502).json({ error: 'approve_failed', message: e.message });
+  }
+});
+
+// 컷 8. 정산 전에도 그 시점까지의 기록을 낸다 — 발표 중 아무 때나 열 수 있어야 한다.
+app.get('/api/purchase/receipt', (_req, res) => {
+  const receipt = assemblePurchaseReceipt(purchaseState);
+  if (!receipt) return res.status(404).json({ error: 'no_round', phase: purchaseState.phase });
+  res.json({ ...receipt, network: NETWORK_LABEL });
+});
+
+app.post('/api/purchase/reset', (_req, res) => {
+  if (purchaseRunning) return res.status(409).json({ error: 'running', phase: purchaseState.phase });
+  purchaseState = initPurchaseState();
+  res.json({ reset: true });
+});
+
 // ---- Owner 콘솔 relay (B = Growth Agent의 owner 시점) ----
 // 데몬의 승인 큐·거부는 원래 어드민 UI(:3101/admin)의 기능이다. 영상에서 오리진을 오가며
 // 재로그인하는 문제를 없애려고 같은 SPA에서 쓸 수 있게 relay한다. 마스터 패스워드는
 // 오케스트레이터가 이미 보유한 것(정책 갱신에 사용)을 그대로 쓴다 — 새 권한이 아니다.
-const OWNER_ROLE = 'buyer-b';
+// 주인공 바이어를 그대로 따라간다. 여기에 'buyer-b'를 박아 두면 새 시나리오의 승인 대기 건이
+// Owner 콘솔에 **하나도 뜨지 않고**(다른 지갑의 큐를 보므로) 위임 한도도 남의 값을 표시한다.
+const OWNER_ROLE = MAIN_BUYER;
 
 /**
  * 바인딩 주소. 루프백이 아니면 owner relay가 인터넷에 열린다는 뜻이다.

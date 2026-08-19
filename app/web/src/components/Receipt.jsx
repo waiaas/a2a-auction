@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { fetchReceipt, fetchResult } from '../api.js';
 import Icon from './Icon.jsx';
 import { orderedBuyers, truncTx, fmtUsdc, verdictShort, friendlyDenyReason } from '../lib/derive.js';
+import TxLink from './TxLink.jsx';
+import { ClusterContext } from '../lib/explorer.js';
 
 /** commit·deposit 행에 쓰는 짧은 라벨(receipt는 role만 담고 표시명은 안 담음). */
 const SHORT = { 'buyer-a': 'A', 'buyer-b': 'B', 'buyer-c': 'C' };
@@ -12,7 +14,16 @@ const short = (role) => (SHORT[role] ? <><Icon name={role} size={13} />{SHORT[ro
  * 온체인 정산이 확인된 뒤에만 열리는 결과물을 seller(:4100)에서 받아 노출한다.
  * receipt는 오케스트레이터가 계산한 값을 그대로 쓰고, mandate 요약만 폴링 state에서 가져온다.
  */
-export default function Receipt({ state, onBack }) {
+/** cluster를 증거 체인 전체에 공급한다 — 서명 칩이 여러 하위 컴포넌트에 흩어져 있다. */
+export default function Receipt(props) {
+  return (
+    <ClusterContext.Provider value={props.state?.network || 'devnet'}>
+      <ReceiptInner {...props} />
+    </ClusterContext.Provider>
+  );
+}
+
+function ReceiptInner({ state, onBack }) {
   const settled = state.phase === 'settled';
   const [receipt, setReceipt] = useState(null);
   const [result, setResult] = useState(null);
@@ -192,14 +203,9 @@ function Step({ n, title, children }) {
   );
 }
 
-/** 서명 칩(클릭 시 클립보드 복사). 값 없으면 dim 대시. */
+/** 서명 칩. 표시·링크 규칙은 TxLink 하나로 모은다(사용자 영수증과 같은 것을 쓴다). */
 function Tx({ sig, label }) {
-  if (!sig) return <span className="tx dim">—</span>;
-  return (
-    <span className="tx tap" title={sig} onClick={() => copy(sig)}>
-      {label ? `${label} ` : ''}{truncTx(sig)}
-    </span>
-  );
+  return <TxLink sig={sig} label={label} />;
 }
 
 function copy(text) {
