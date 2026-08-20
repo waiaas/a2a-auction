@@ -36,7 +36,13 @@ export default function WalletGate({ onConnect, busy, error, reconnect = false }
           </button>
         ))}
         {canLocal && (
-          <button className="cta ghost" disabled={busy} onClick={() => onConnect({ type: 'local' })}>
+          /* 설치된 지갑이 없으면 이 버튼이 **유일한 진입 경로**다. 그때까지 보조(ghost)
+             스타일이면 회색 알약이 하나 놓인 화면이 되어 비활성처럼 읽힌다. */
+          <button
+            className={`cta ${wallets.length ? 'ghost' : ''}`}
+            disabled={busy}
+            onClick={() => onConnect({ type: 'local' })}
+          >
             {reconnect ? '임시 체험 지갑 다시 연결' : '임시 체험 지갑으로 시작'}
           </button>
         )}

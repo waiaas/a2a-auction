@@ -15,7 +15,7 @@ const EXAMPLES = [
   '경쟁사 동향을 한 장으로 정리한 주간 브리핑',
 ];
 
-export default function RequestBox({ onSubmit, busy, catalog }) {
+export default function RequestBox({ onSubmit, busy, catalog, inHero = false }) {
   const [text, setText] = useState('');
 
   const send = () => {
@@ -25,10 +25,11 @@ export default function RequestBox({ onSubmit, busy, catalog }) {
     setText('');
   };
 
+  // 히어로 안에서는 카드 껍데기를 벗는다 — 다크 카드 위에 또 카드를 얹으면 층이 겹쳐 보인다.
   return (
-    <section className="svc-card svc-request">
+    <section className={inHero ? 'svc-request svc-request-hero' : 'svc-card svc-request'}>
       <header>
-        <span className="svc-role">여기서도 시켜볼 수 있습니다</span>
+        <span className="svc-role">{inHero ? '무엇을 맡길까요' : '여기서도 시켜볼 수 있습니다'}</span>
         {catalog?.length > 0 && (
           <span className="svc-sub">
             카탈로그 {catalog.length}건 · {Math.min(...catalog.map((l) => l.priceUsdc))}~

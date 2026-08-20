@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WalletGate from './WalletGate.jsx';
+import Icon from './Icon.jsx';
+import { fmtUsdc } from '../lib/derive.js';
 import WalletCards from './WalletCards.jsx';
 import PolicyCard from './PolicyCard.jsx';
 import McpCard from './McpCard.jsx';
@@ -33,6 +35,8 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   const wallet = useRef(null);
   const [connected, setConnected] = useState(() => Boolean(api.savedToken()));
   const [me, setMe] = useState(null);
+  // MCP 설정은 한 번 붙이면 끝나는 일이라 기본은 접어 둔다(상단바 버튼으로 편다).
+  const [mcpOpen, setMcpOpen] = useState(false);
   const [round, setRound] = useState({ purchases: [], phase: 'idle', running: false });
   const [catalog, setCatalog] = useState([]);
   const [criteria, setCriteria] = useState([]);
@@ -203,11 +207,49 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   if (!connected) {
     return (
       <div className="stage">
-        <div className="sec-h">
-          <h2>A2AHouse</h2>
-          {onBack && <button className="cta ghost" onClick={onBack}>← 돌아가기</button>}
+        {/* 연결 전에도 같은 히어로 셸을 쓴다. 첫 화면과 연결 후 화면이 다른 제품처럼 보이면
+            "연결했더니 다른 데로 왔나" 싶어진다. */}
+        <div className="hero glass svc-shell svc-shell-gate">
+          <div className="bar">
+            <span className="logo">A2A<b>House</b></span>
+            <nav className="nav"><span className="on">에이전트 마켓</span></nav>
+            <span className="sp" />
+            {onBack && <button className="connect" onClick={onBack}>← 돌아가기</button>}
+          </div>
+          <div className="svc-htop">
+            <div>
+              <div className="status">
+                <span className="pill ok"><span className="d" />체험판</span>
+                <span className="meta">powered by WAIaaS</span>
+              </div>
+              <h1 className="title">내 에이전트에게<br />일을 맡겨 보세요</h1>
+            </div>
+            <div className="desc">
+              지갑을 연결하면 <b>나만의 에이전트 지갑</b>이 만들어집니다. 내가 맡긴 금액 안에서만
+              에이전트가 스스로 능력을 사고, 한도를 넘는 지출은 <span className="more">내 서명을
+              받아야</span> 진행됩니다.
+            </div>
+          </div>
+          <WalletGate onConnect={connect} busy={busy} error={error} />
         </div>
-        <WalletGate onConnect={connect} busy={busy} error={error} />
+
+        {/* **연결 전 화면의 아래 70%가 비어 있었다.** 심사위원이 주소만 치고 들어오는 화면이라
+            첫인상이 "미완성"이면 그 뒤를 안 본다. `/catalog`는 무인증이라 연결 없이도 무엇을
+            파는 곳인지 보여줄 수 있다 — 마켓플레이스임이 첫 화면에서 읽혀야 한다. */}
+        {candidates.length > 0 && (
+          <section className="svc-catalog svc-preview">
+            <header className="svc-catalog-h">
+              <span className="svc-role">등록된 에이전트</span>
+              <span className="svc-sub">{candidates.length}건 · 지갑을 연결하면 바로 맡길 수 있습니다</span>
+            </header>
+            <div className="cand-grid">
+              {candidates.map((l) => (
+                <AgentCard key={l.id} listing={l} onOpenSample={setSampleOf} busy={busy} />
+              ))}
+            </div>
+          </section>
+        )}
+        {sampleOf && <SampleModal listing={sampleOf} onClose={() => setSampleOf(null)} />}
       </div>
     );
   }
@@ -231,18 +273,60 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
   return (
     <ClusterContext.Provider value={round.network || 'devnet'}>
     <div className="stage">
-      <div className="sec-h">
-        <h2>내 에이전트</h2>
-        <div className="svc-top-actions">
-          {round.purchases.length > 0 && (
-            <button className="cta ghost" onClick={onOpenReceipt}>영수증</button>
-          )}
-          <button className="cta ghost" onClick={disconnect}>연결 해제</button>
-          {onBack && <button className="cta ghost" onClick={onBack}>← 돌아가기</button>}
+      {/* **8/3 제출본의 히어로 셸을 그대로 쓴다.** 카드만 쌓으면 제품이 아니라 콘솔로 읽힌다 —
+          네비바·대형 타이틀·스펙 타일이 "서비스"의 뼈대였고, 그 CSS가 레포에 그대로 있다
+          (결정 ㉑로 구 화면을 지우지 않은 덕이다). */}
+      <div className="hero glass svc-shell">
+        <div className="bar">
+          <span className="logo">A2A<b>House</b></span>
+          <nav className="nav">
+            <span className="on">내 에이전트</span>
+            <span className="navbtn" role="button" tabIndex={0}
+              onClick={() => setMcpOpen((v) => !v)}
+              onKeyDown={(e) => e.key === 'Enter' && setMcpOpen((v) => !v)}>MCP 연결</span>
+            {round.purchases.length > 0 && (
+              <span className="navbtn" role="button" tabIndex={0}
+                onClick={onOpenReceipt}
+                onKeyDown={(e) => e.key === 'Enter' && onOpenReceipt?.()}>영수증</span>
+            )}
+          </nav>
+          <span className="sp" />
+          <button className="connect" onClick={disconnect}>연결 해제</button>
+        </div>
+
+        <div className="svc-htop">
+          <div>
+            <div className="status">
+              <span className="pill ok"><span className="d" />체험판</span>
+              <span className="meta">powered by WAIaaS · {round.network || 'devnet'}</span>
+            </div>
+            <h1 className="title">에이전트에게<br />일을 맡기세요</h1>
+            <p className="subid">내가 정한 한도 안에서만 씁니다</p>
+          </div>
+          <div className="desc">
+            지갑을 연결하면 나만의 에이전트 지갑이 생깁니다. 맡긴 금액 안에서만 스스로 결제하고,
+            한도를 넘으면 나를 다시 찾아옵니다. 결과물은 <span className="more">온체인 정산이
+            확인된 뒤에만</span> 열립니다.
+          </div>
+        </div>
+
+        {/* **요청 입력창을 히어로 안에 둔다.** 마켓플레이스의 검색창과 같은 자리다. 본문 첫
+            카드로 두면 "무엇을 하는 곳인가"를 알려면 한 번 스크롤해야 하고, 카드가 하나 더
+            늘어 화면이 그만큼 복잡해진다. */}
+        <RequestBox onSubmit={openCandidates} busy={running} catalog={candidates} inHero />
+
+        <Stepper current={step} />
+
+        {/* 지갑·한도를 한눈에. 입력 폼은 레일 카드가 맡고 여기는 현재 값만 읽는다. */}
+        <div className="specs svc-specs">
+          <Spec ic="coins" l="내 지갑" v={`${fmtUsdc(me?.owner?.usdc ?? 0)} USDC`} />
+          <Spec ic="bank" l="에이전트 지갑" v={`${fmtUsdc(me?.agent?.usdc ?? 0)} USDC`} acc />
+          <Spec ic="trend" l="알림만" v={`${me?.policy?.notifyMaxUsdc ?? 0} USDC`} />
+          <Spec ic="trophy" l="유예" v={`${me?.policy?.delayMaxUsdc ?? 0} USDC`} />
+          <Spec ic="seller" l="그 이상" v="내 지갑 서명" />
+          <Spec ic="globe" l="네트워크" v={round.network || 'devnet'} />
         </div>
       </div>
-
-      <Stepper current={step} />
 
       {needsWallet && (
         <div className="svc-reattach">
@@ -268,47 +352,60 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
         />
       ) : (
         <>
-          <WalletCards me={me} onFaucet={faucet} onDeposit={deposit} busy={running} />
-          <PolicyCard policy={me?.policy} agentUsdc={me?.agent?.usdc} onSave={savePolicy} busy={running} />
+          {/* **와이어프레임 01의 부제가 "카탈로그와 요청 입력을 한 화면에"다.** 무엇을 시킬지가
+              맨 위에 오고, 지갑·한도·MCP 설정은 그 뒤다. 설정 UI를 앞에 두면 제품보다 콘솔이
+              먼저 보인다 — 실제로 그렇게 만들었다가 되돌린 자리다. */}
+          {/* **8/3의 2단 그리드(`.lower`)를 그대로 쓴다.** 왼쪽은 제품(무엇을 시키고 무엇을
+              맡겼나), 오른쪽 레일은 내 설정(지갑·한도)이다. 한 단으로 흘리면 설정 카드가
+              맡긴 일 사이에 끼어 어디까지가 "일"인지 흐려진다. */}
+          <div className="lower svc-lower">
+            <div className="svc-main">
+              {/* 무엇을 살 수 있는지 보여야 무엇을 시킬지 정할 수 있다. 셀러 등록 화면은
+                  두지 않는다(8/19 퀵싱크) — 이미 등록된 것만 놓는다. */}
+              {candidates.length > 0 && (
+                <section className="svc-catalog">
+                  <header className="svc-catalog-h">
+                    <span className="svc-role">등록된 에이전트</span>
+                    <span className="svc-sub">{candidates.length}건 · 평점과 샘플을 보고 고릅니다</span>
+                  </header>
+                  <div className="cand-grid">
+                    {candidates.map((l) => (
+                      <AgentCard key={l.id} listing={l} onOpenSample={setSampleOf} busy={running} />
+                    ))}
+                  </div>
+                </section>
+              )}
 
-          {/* 결정 ⑲. 주소만 치고 들어온 사람은 TRY-IT.md를 보지 않는다. 밝히지 않으면
-              "self-hosted라며 왜 서버가 키를 갖고 있냐"를 상대가 먼저 발견하게 된다. */}
-          <p className="svc-trial">
-            이 체험판은 저희가 데몬을 대신 띄운 것입니다. 실제 제품(WAIaaS)은 자기 기계에 데몬을
-            띄우고 키가 그 기계를 떠나지 않습니다.
-          </p>
-          {/* 정식 경로(MCP)를 보조 입력창보다 먼저 놓는다. 순서가 곧 어느 쪽이 주인지를 말한다. */}
-          <McpCard agentAddress={me?.agentAddress} />
+              {/* 정식 경로가 MCP라는 것은 상단 네비와 이 카드의 문구가 말한다. 접어 두는 것은
+                  중요도를 낮추는 게 아니라, 설정이 제품 앞을 막지 않게 하는 것이다. */}
+              {mcpOpen && <McpCard agentAddress={me?.agentAddress} />}
 
-          {/* 무엇을 살 수 있는지 먼저 보여야 무엇을 시킬지 정할 수 있다. 셀러 등록 화면은
-              두지 않는다(8/19 퀵싱크) — 이미 등록된 것만 놓는다. */}
-          {candidates.length > 0 && (
-            <section className="svc-catalog">
-              <header className="svc-catalog-h">
-                <span className="svc-role">등록된 에이전트</span>
-                <span className="svc-sub">{candidates.length}건 · 평점과 샘플을 보고 고릅니다</span>
-              </header>
-              <div className="cand-grid">
-                {candidates.map((l) => (
-                  <AgentCard key={l.id} listing={l} onOpenSample={setSampleOf} busy={running} />
-                ))}
-              </div>
-            </section>
-          )}
+              {/* 맡긴 일은 본문에 남긴다. 승인 버튼과 결과물 열람이 여기 있어서, 320px 레일로
+                  보내면 데모의 핵심 조작이 좁은 칸에 갇힌다. */}
+              <PurchaseList
+                purchases={round.purchases}
+                busy={running}
+                running={running}
+                onApprove={(p) => ownerAction(p, 'approve')}
+                onCancel={(p) => ownerAction(p, 'reject')}
+                onSettle={settle}
+                onOpenResult={openResult}
+                x402Enabled={round.x402Enabled}
+              />
+            </div>
 
-          {/* 건수·가격대는 실제로 고를 수 있는 후보 기준이어야 한다. 샘플이 없어 후보에서
-              빠지는 리스팅까지 세면 화면이 아래 카드 수와 다른 숫자를 말한다. */}
-          <RequestBox onSubmit={openCandidates} busy={running} catalog={candidates} />
-          <PurchaseList
-            purchases={round.purchases}
-            busy={running}
-            running={running}
-            onApprove={(p) => ownerAction(p, 'approve')}
-            onCancel={(p) => ownerAction(p, 'reject')}
-            onSettle={settle}
-            onOpenResult={openResult}
-            x402Enabled={round.x402Enabled}
-          />
+            <aside className="rail svc-rail">
+              <WalletCards me={me} onFaucet={faucet} onDeposit={deposit} busy={running} />
+              <PolicyCard policy={me?.policy} agentUsdc={me?.agent?.usdc} onSave={savePolicy} busy={running} />
+
+              {/* 결정 ⑲. 주소만 치고 들어온 사람은 TRY-IT.md를 보지 않는다. 밝히지 않으면
+                  "self-hosted라며 왜 서버가 키를 갖고 있냐"를 상대가 먼저 발견하게 된다. */}
+              <p className="svc-trial">
+                이 체험판은 저희가 데몬을 대신 띄운 것입니다. 실제 제품(WAIaaS)은 자기 기계에
+                데몬을 띄우고 키가 그 기계를 떠나지 않습니다.
+              </p>
+            </aside>
+          </div>
         </>
       )}
 
@@ -343,4 +440,15 @@ function currentStep({ draft, purchases, result }) {
   }
   if (!last.steps?.settle) return 'settle';
   return 'result';
+}
+
+/** 스펙 타일 한 칸. `SpecTiles`와 같은 마크업이라 `.spec` CSS를 그대로 쓴다. */
+function Spec({ ic, l, v, acc }) {
+  return (
+    <div className="spec">
+      <div className="ic"><Icon name={ic} size={18} /></div>
+      <div className="sl">{l}</div>
+      <div className={`sv${acc ? ' acc' : ''}`}>{v}</div>
+    </div>
+  );
 }

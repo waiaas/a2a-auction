@@ -1,5 +1,17 @@
+import { useState } from 'react';
 import { verdictInfo, fmtUsdc } from '../lib/derive.js';
 import OnchainSteps from './OnchainSteps.jsx';
+
+/**
+ * 이 건이 아직 사람의 손을 기다리는가.
+ *
+ * **결정 ⑯의 "현재 단계만 펼치고 지난 단계는 한 줄로 접는다"가 여기서 성립한다.** 끝난 일도
+ * 전부 펼쳐 두면 온체인 5단계와 판정 근거가 건마다 쌓여, 정작 지금 승인해야 할 건이 그 사이에
+ * 묻힌다. 데모에서 발표자가 스크롤로 찾아야 하는 상태가 된다.
+ */
+function isOpenByDefault(p) {
+  return p.ui === 'APPROVAL' || p.ui === 'DELAY' || !p.steps?.settle;
+}
 
 /**
  * 내 구매 목록.
@@ -34,18 +46,60 @@ export default function PurchaseList({ purchases, busy, running, onApprove, onCa
         )}
       </div>
 
-      {purchases.map((p) => {
-        const v = verdictInfo(p.ui);
-        const failure = failureNote(p);
-        return (
-          <article className={`buy ${p.ui === 'APPROVAL' ? 'hl' : ''}`} key={p.requestId}>
-            <div className="buy-h">
+      {purchases.map((p) => (
+        <PurchaseCard
+          key={p.requestId}
+          p={p}
+          busy={busy}
+          running={running}
+          onApprove={onApprove}
+          onCancel={onCancel}
+          onOpenResult={onOpenResult}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PurchaseCard({ p, busy, running, onApprove, onCancel, onOpenResult }) {
+  // **파생 상태를 `useState` 초기값으로 굳히면 안 된다.** 초기값은 마운트 때 한 번만
+  // 계산되므로, APPROVAL로 생긴 카드가 정산이 끝나도 열린 채 남는다(실측으로 잡았다).
+  // 사용자가 직접 접거나 편 적이 있으면 그 뜻을 존중하고, 아니면 진행 상태를 따라간다.
+  const [manual, setManual] = useState(null);
+  const open = manual ?? isOpenByDefault(p);
+  const setOpen = (fn) => setManual(typeof fn === 'function' ? fn(open) : fn);
+  const v = verdictInfo(p.ui);
+  const failure = failureNote(p);
+  const done = !open;
+
+  return (
+          <article className={`buy ${p.ui === 'APPROVAL' ? 'hl' : ''} ${done ? 'buy-fold' : ''}`}>
+            <div
+              className="buy-h"
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpen((o) => !o)}
+              onKeyDown={(e) => e.key === 'Enter' && setOpen((o) => !o)}
+            >
               <div>
                 <div className="t">{p.title}</div>
-                <div className="s">{p.need}</div>
+                {!done && <div className="s">{p.need}</div>}
               </div>
+              {done && p.grade && <span className="buy-mini">채점 {p.grade.score}점</span>}
+              {done && <span className="buy-mini tnum">{fmtUsdc(p.amountUsdc)} USDC</span>}
               <span className={`pill ${v.cls}`}><span className="d" />{v.label}</span>
+              <span className="buy-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
             </div>
+            {done && (
+              <div className="buy-foldf">
+                {p.steps?.settle && onOpenResult && (
+                  <button className="cta svc-approve" disabled={busy} onClick={() => onOpenResult(p)}>
+                    결과물 보기
+                  </button>
+                )}
+              </div>
+            )}
+            {open && (<>
 
             <div className="buy-pick">
               <span className="e">{p.listing.sellerEmoji}</span>
@@ -95,10 +149,8 @@ export default function PurchaseList({ purchases, busy, running, onApprove, onCa
                 </button>
               )}
             </div>
+            </>)}
           </article>
-        );
-      })}
-    </div>
   );
 }
 
