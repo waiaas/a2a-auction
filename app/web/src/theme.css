@@ -588,7 +588,10 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 /* ---- 카탈로그 / 후보 공통 ---- */
 .svc-catalog { margin-bottom: 14px; }
 .svc-catalog-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0 4px 10px; }
-.svc-catalog-h .svc-role { color: var(--stage-acc); }
+/* 8/3 제출본의 섹션 제목(`.sec-h h2`, 22px)과 같은 크기를 쓴다. `.svc-role`의 기본
+   13.5px는 카드 안 라벨용이라, 화면을 가르는 구획 제목으로 쓰기엔 너무 작았다.
+   uppercase도 푼다 — 한글에는 효과가 없으면서 자간만 벌린다(8/21 리허설). */
+.svc-catalog-h .svc-role { color: var(--stage-acc); font-size: 22px; letter-spacing: -0.5px; text-transform: none; }
 /* 카탈로그 건수는 실질 정보라 비활성 요소로 면제받지 못한다. 0.6은 3.75:1이었다. */
 .svc-catalog-h .svc-sub { color: rgba(22, 23, 27, 0.7); }
 
