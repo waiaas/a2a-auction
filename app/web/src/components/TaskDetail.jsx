@@ -44,10 +44,10 @@ export default function TaskDetail({ p, busy, running, onApprove, onCancel, onSe
 
       <article className={`buy ${p.ui === 'APPROVAL' ? 'hl' : ''}`}>
         <div className="buy-h">
-          <div>
-            <div className="t">{p.title}</div>
-            <div className="s">{p.need}</div>
-          </div>
+          {/* `need`는 화면에서 뺐다 — 위 PurchaseList의 주석과 같은 이유다. MCP 경로로
+              들어온 건은 아래 선택 근거가 "MCP 도구 호출자가 직접 지정한 리스팅"이라고
+              말하므로 출처가 사라지지 않는다. 데이터(영수증 필드)는 그대로 둔다. */}
+          <div className="t">{p.title}</div>
           <span className={`pill ${v.cls}`}><span className="d" />{v.label}</span>
         </div>
 
