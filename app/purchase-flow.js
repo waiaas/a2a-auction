@@ -43,7 +43,7 @@ import {
 } from './lib/onchain-wait.js';
 import { getResult, readResultCache } from './lib/gemini.js';
 import { gradeResult } from './lib/grading.js';
-import { notifyApprovalNeeded, notifyDelayed, notifyResolved, isTelegramEnabled } from './lib/telegram.js';
+import { notifyApprovalNeeded, notifyDelayed, notifyExecuted, notifyResolved, isTelegramEnabled } from './lib/telegram.js';
 import { readPolicyLimits } from './lib/user-context.js';
 import { unlockViaX402 } from './lib/x402-unlock.js';
 import { loadListings, loadRequests, chooseListing, explainPick } from './lib/decision.js';
@@ -109,6 +109,12 @@ function classifyDeposit(fin) {
   if (TX_OK.includes(fin.status)) return 'INSTANT';
   return 'DENY';
 }
+
+/**
+ * 폰으로 알릴 판정. 거부·타임아웃은 뺀다 — 돈이 나가지 않았고, 실패를 폰으로 통보하면
+ * 데모 중 오해를 부른다(화면에는 그대로 남는다).
+ */
+const TELEGRAM_DECISIONS = new Set(['APPROVAL', 'DELAY', 'NOTIFY', 'INSTANT']);
 
 /** 대기 큐에 걸린 판정인지(= 사람 또는 시간이 개입해야 진행된다). */
 export function isQueuedDecision(decision) {
@@ -316,17 +322,18 @@ async function executePurchase(state, deps, purchase, ctx) {
     };
     pushLog(state, `구매 ${purchase.listing.id} ${purchase.amountUsdc} USDC → ${decision} (${fin.status})`);
 
-    // 사람이 개입할 수 있는 판정은 폰으로 알린다. APPROVAL은 서명을 기다리고, DELAY는
-    // 유예 동안 취소할 기회가 있다 — 그 기회를 화면 앞에 앉아 있는 사람만 쓸 수 있으면
-    // "필요할 때만 나를 찾아온다"가 성립하지 않는다.
+    // 판정마다 폰으로 알린다. APPROVAL은 서명을 기다리고, DELAY는 유예 동안 취소할 기회가
+    // 있다 — 그 기회를 화면 앞에 앉아 있는 사람만 쓸 수 있으면 "필요할 때만 나를 찾아온다"가
+    // 성립하지 않는다. **NOTIFY도 보낸다**: 개입할 것이 없다고 알릴 것도 없는 건 아니고,
+    // 무엇보다 화면 네 곳이 "알림만 가고 진행됩니다"라고 약속하고 있다(8/21 리허설).
     // 알림은 부가 채널이라 await 하지 않고, 실패해도 구매를 막지 않는다.
-    if (isQueuedDecision(decision) && isTelegramEnabled) {
+    if (isTelegramEnabled && TELEGRAM_DECISIONS.has(decision)) {
       readPolicyLimits(deps)
-        .then((limits) =>
-          decision === 'APPROVAL'
-            ? notifyApprovalNeeded(purchase, limits)
-            : notifyDelayed(purchase, limits),
-        )
+        .then((limits) => {
+          if (decision === 'APPROVAL') return notifyApprovalNeeded(purchase, limits);
+          if (decision === 'DELAY') return notifyDelayed(purchase, limits);
+          return notifyExecuted(purchase, limits);
+        })
         .catch((e) => pushLog(state, `텔레그램 알림 실패: ${e.message}`));
     }
   }

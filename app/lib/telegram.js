@@ -97,6 +97,33 @@ export async function notifyDelayed(purchase, limits = {}) {
   return true;
 }
 
+/**
+ * 한도 안이라 그대로 진행된 건(NOTIFY·INSTANT).
+ *
+ * **이 알림이 없으면 화면이 거짓말을 한다.** 티어 이름이 NOTIFY이고, 스펙 타일도 정책
+ * 카드도 "알림만 가고 그대로 진행됩니다"라고 적는데 정작 폰은 조용했다(8/21 리허설에서
+ * 발견). 개입할 것이 없다고 알릴 것도 없는 건 아니다 — 맡긴 사람이 알아야 할 지출이다.
+ *
+ * 버튼은 붙이지 않는다. 이미 끝난 일이라 눌러서 할 것이 없다.
+ */
+export async function notifyExecuted(purchase, limits = {}) {
+  if (!isTelegramEnabled) return false;
+
+  const cap = limits.notifyMaxUsdc;
+  const lines = [
+    '🤖 *에이전트가 스스로 샀습니다*',
+    '',
+    `${escapeMd(purchase.listing.sellerEmoji ?? '')} ${escapeMd(purchase.listing.sellerName)}`,
+    `*${escapeMd(String(purchase.amountUsdc))} USDC*`,
+    '',
+    escapeMd(cap != null ? `${cap} USDC까지는 알림만 가고 그대로 진행됩니다.` : '한도 안이라 그대로 진행했습니다.'),
+    escapeMd(`의뢰: ${purchase.title}`),
+  ];
+
+  await send(lines.join('\n'));
+  return true;
+}
+
 /** 승인·거부의 결말. 알림만 오고 결과를 모르면 사람이 웹을 계속 들여다봐야 한다. */
 export async function notifyResolved(purchase, action) {
   if (!isTelegramEnabled) return false;
