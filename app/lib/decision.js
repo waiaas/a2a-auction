@@ -13,6 +13,7 @@ import path from 'node:path';
 import { PATHS } from '../config.js';
 import { generateFunctionCall } from './gemini.js';
 import { loadCatalog } from './listings-store.js';
+import { loadCriteria } from './scoring.js';
 
 function loadFixture(name) {
   return JSON.parse(fs.readFileSync(path.join(PATHS.fixtures, name), 'utf8'));
@@ -124,6 +125,108 @@ export async function chooseListing(request, listings) {
     listing: fallback,
     reason: fallbackReason(request, fallback),
     rejected: null,
+    source: 'fallback',
+  };
+}
+
+/** 이미 정해진 선택의 근거를 받는 함수 정의. 고르는 것이 아니라 쓰는 것이다. */
+const EXPLAIN_PICK_FN = {
+  name: 'explain_pick',
+  description:
+    '사용자가 정한 가중치로 이미 1위가 정해졌다. 그 선택이 왜 이 요청에 맞는지 근거를 쓴다. ' +
+    '다른 리스팅을 고르라는 것이 아니다.',
+  parameters: {
+    type: 'object',
+    properties: {
+      reason: {
+        type: 'string',
+        description:
+          '이 리스팅이 요청에 맞는 이유를 한국어 한두 문장으로. 요청의 성격과 샘플 채점 항목을 ' +
+          '근거로 들 것. 가격만 이유로 들지 말 것.',
+      },
+      rejected: {
+        type: 'string',
+        description: '2위를 고르지 않은 이유를 한국어 한 문장으로. 무엇이 부족했는지 항목으로 말할 것.',
+      },
+    },
+    required: ['reason'],
+  },
+};
+
+/** 라이브가 못 돌 때 쓰는 근거. 점수를 그대로 읽어 준다 — 실제로 그렇게 골랐기 때문이다. */
+function fallbackPickReason(picked, priceWeight) {
+  const w = Math.round(priceWeight * 100);
+  const best = [...(picked.sample?.breakdown ?? [])].sort((a, b) => b.score - a.score)[0];
+  // 항목 id를 그대로 쓰면 화면에 `scenario`가 뜬다. 사람이 읽는 자리라 라벨로 바꾼다.
+  const item = best ? loadCriteria().items.find((c) => c.id === best.id) : null;
+  const label = item?.label ?? best?.id ?? null;
+  // **최고점이 곧 만점은 아니다.** 17점을 "만점"이라 쓰면 바로 옆 채점표의 `17 / 20`과
+  // 화면 안에서 모순이 생긴다. 만점일 때만 만점이라 부른다.
+  const detail = best
+    ? item && best.score === item.max
+      ? `, 특히 ${label} 항목이 만점이었다`
+      : `, ${label} 항목이 ${best.score}/${item?.max ?? '?'}로 가장 높았다`
+    : '';
+  return (
+    `가격 ${w}% · 품질 ${100 - w}% 기준으로 종합 ${picked.scores.total}점을 받아 1위다. ` +
+    `샘플 채점 ${picked.sample?.score}점${detail}.`
+  );
+}
+
+function fallbackRejected(runnerUp) {
+  if (!runnerUp) return null;
+  return (
+    `${runnerUp.title}(${runnerUp.priceUsdc} USDC)은 종합 ${runnerUp.scores.total}점으로 ` +
+    `샘플 채점이 ${runnerUp.sample?.score}점에 그쳤다.`
+  );
+}
+
+/**
+ * 가중치로 정해진 1위의 근거를 쓴다.
+ *
+ * **모델에게 고르게 하지 않는다.** 화면이 이미 순위를 보여준 뒤라 모델이 다른 것을 고르면
+ * 1위와 실제 구매가 어긋난다. 선택은 사용자가 정한 가중치가 하고, 모델은 그 선택이 이
+ * 요청에 왜 맞는지를 쓴다 — 자율성은 "무엇을 샀는가"가 아니라 "왜 그것이 맞는가"에 있다.
+ *
+ * @param {object} request - 사용자 요청
+ * @param {object[]} ranked - `rankCandidates` 결과 (rank·scores 포함)
+ * @param {number} priceWeight - 사용자가 정한 가격 비중 0~1
+ */
+export async function explainPick(request, ranked, priceWeight) {
+  const picked = ranked[0];
+  const runnerUp = ranked[1] ?? null;
+
+  const table = ranked
+    .map(
+      (l) =>
+        `- ${l.rank}위 ${l.title}(${l.priceUsdc} USDC) | 종합 ${l.scores.total} | ` +
+        `샘플 채점 ${l.sample?.score} | 평점 ${l.rating} | ` +
+        `산출물 ${l.deliverable.format}, 출처 ${l.deliverable.sourceCount}건 | ` +
+        `채점 상세 ${(l.sample?.breakdown ?? []).map((b) => `${b.id} ${b.score}`).join(', ')}`,
+    )
+    .join('\n');
+
+  const prompt =
+    '너는 사용자를 대신해 리서치를 구매하는 에이전트다. 사용자가 정한 가중치로 순위가 이미 정해졌다.\n\n' +
+    `[요청]\n${request.prompt}\n\n` +
+    `[사용자가 정한 가중치]\n가격 ${Math.round(priceWeight * 100)}% · 품질 ${Math.round((1 - priceWeight) * 100)}%\n\n` +
+    `[후보와 점수]\n${table}\n\n` +
+    `1위인 "${picked.title}"을 산다. 이 선택이 요청에 맞는 근거와, 2위를 고르지 않은 이유를 써라.`;
+
+  const args = await generateFunctionCall(prompt, EXPLAIN_PICK_FN, { timeoutMs: 20000 });
+
+  if (args?.reason) {
+    return {
+      listing: picked,
+      reason: args.reason,
+      rejected: args.rejected || fallbackRejected(runnerUp),
+      source: 'live',
+    };
+  }
+  return {
+    listing: picked,
+    reason: fallbackPickReason(picked, priceWeight),
+    rejected: fallbackRejected(runnerUp),
     source: 'fallback',
   };
 }

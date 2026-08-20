@@ -288,3 +288,22 @@ export async function getResult(item, auctionId = null) {
   }
   return { contentMarkdown, hash: sha256Hex(contentMarkdown), source, item };
 }
+
+/**
+ * 확정된 결과물 본문을 캐시에서 읽는다.
+ *
+ * 결과물은 정산 시점에 만들어져 `result-cache/`에 확정되고, 구매 상태에는 hash만 남는다.
+ * 화면이 결과물을 보여주려면 본문이 필요하므로 여기서 다시 읽는다 — 상태에 본문을 실으면
+ * 폴링 응답이 매초 수 KB씩 커진다.
+ *
+ * @returns {string|null} 본문. 캐시가 없거나 깨졌으면 null.
+ */
+export function readResultCache(auctionId) {
+  if (auctionId == null) return null;
+  try {
+    const cached = JSON.parse(fs.readFileSync(resultCachePath(auctionId), 'utf8'));
+    return typeof cached.contentMarkdown === 'string' ? cached.contentMarkdown : null;
+  } catch {
+    return null;
+  }
+}

@@ -10,7 +10,7 @@
  * 조작할 수 있었다.
  */
 import express from 'express';
-import { MAIN_BUYER, NETWORK_LABEL } from './config.js';
+import { MAIN_BUYER, NETWORK_LABEL, X402_UNLOCK } from './config.js';
 import { buildDeps } from './auction-flow.js';
 import {
   purchaseFromRequest,
@@ -22,6 +22,9 @@ import {
   assemblePurchaseReceipt,
 } from './purchase-flow.js';
 import { loadListings } from './lib/decision.js';
+import { readResultCache } from './lib/gemini.js';
+import { loadCriteria, clearScores } from './lib/scoring.js';
+import { readSampleMarkdown } from './lib/listings-store.js';
 import { ensureUser } from './lib/onboarding.js';
 import { grantToOwner, checkBudget, PUBLIC_FAUCET_URL } from './lib/faucet.js';
 import { buildDepositTx, submitSignedTx } from './lib/deposit.js';
@@ -249,7 +252,19 @@ export function createUserApi() {
 
   // ---- 구매 ----
 
-  router.get('/catalog', (_req, res) => res.json({ listings: loadListings() }));
+  /**
+   * 카탈로그. 샘플 본문과 채점 기준을 함께 싣는다.
+   *
+   * 샘플은 결제 게이트가 없는 공개 포트폴리오이고, 세 건을 합쳐도 몇 KB라 나눠 부를 이유가
+   * 없다. 이 응답 하나로 후보 화면의 순위 계산과 미리보기가 모두 가능해진다.
+   */
+  router.get('/catalog', (_req, res) => {
+    const listings = loadListings().map((l) => ({
+      ...l,
+      sample: l.sample ? { ...l.sample, markdown: readSampleMarkdown(l.sample.file) } : null,
+    }));
+    res.json({ listings, criteria: loadCriteria().items });
+  });
 
   /**
    * 자유 요청 구매. 사용자가 필요한 것을 쓰면 에이전트가 카탈로그에서 고르고 산다.
@@ -311,6 +326,9 @@ export function createUserApi() {
           prompt,
           title: req.body?.title,
           need: req.body?.need,
+          // 후보 화면에서 사용자가 정한 가격 비중. 없으면 모델이 직접 고르는 기존 경로로 간다
+          // (MCP는 후보 화면을 거치지 않으므로 이 값을 보내지 않는다).
+          priceWeight: req.body?.priceWeight,
           requestId,
         });
     run
@@ -338,7 +356,9 @@ export function createUserApi() {
         console.error('[user-api] 상태 갱신 실패:', e.message);
       }
     }
-    res.json({ ...round.state, running: round.running, network: NETWORK_LABEL });
+    // 열람 결제가 켜져 있는지 화면이 알아야 한다. 결제가 실패한 건에 재시도 버튼을 띄울지
+    // 판단하는 값이고, 이게 없으면 402를 받은 사용자가 빠져나올 길이 없다.
+    res.json({ ...round.state, running: round.running, network: NETWORK_LABEL, x402Enabled: X402_UNLOCK });
   });
 
   router.post('/purchase/settle', auth, (req, res) => {
@@ -447,11 +467,77 @@ export function createUserApi() {
     const action = req.query.action === 'reject' ? 'reject' : 'approve';
     res.json({
       action,
+      // **`approve:<txId>` 토큰이 문구 안에 있어야 한다.** 데몬이 이 토큰으로 서명을 건에
+      // 묶는다(WAIaaS #416, `owner-auth.ts`의 `boundToken`). 없으면 INVALID_SIGNATURE다.
+      // 없던 시절에는 승인 서명 하나를 같은 지갑의 다른 건이나 거부 경로에 돌려쓸 수 있었다 —
+      // A2AHouse를 만들다 발견해 데몬에 올린 수정이라, 여기가 안 따르면 앞뒤가 맞지 않는다.
+      // 토큰은 `tx: `를 대체할 뿐이라 사람이 지갑 팝업에서 대조할 내용은 그대로다.
       message:
-        `${ACTION_HEADING[action]} | amount: ${purchase.amountUsdc} USDC` +
-        ` | tx: ${purchase.txId} | time: ${new Date().toISOString()}`,
+        `${ACTION_HEADING[action]} | ${action}:${purchase.txId}` +
+        ` | amount: ${purchase.amountUsdc} USDC | time: ${new Date().toISOString()}`,
       // 화면이 사람에게 보여줄 설명. 서명 원문과 다른 층이다.
       summary: `${purchase.listing.title} · ${purchase.amountUsdc} USDC`,
+    });
+  });
+
+  /**
+   * 결과물 열람. 정산이 끝나야 열린다 — 이 게이트가 이 서비스의 거래 구조 그 자체다.
+   *
+   * 본문은 상태가 아니라 캐시에서 읽는다. 폴링 응답(`/purchase/state`)에 본문을 실으면
+   * 매초 수 KB가 오간다.
+   */
+  router.get('/purchase/result/:requestId', auth, (req, res) => {
+    const round = getRound(req.user.owner_address);
+    const purchase = round.state.purchases.find((p) => p.requestId === req.params.requestId);
+    if (!purchase) {
+      return res.status(404).json({ error: 'not_found', message: '그런 구매 건이 없습니다.' });
+    }
+    // 거부·정책거부로 끝난 건은 영원히 정산되지 않는다. "정산을 마치면"이라고 안내하면
+    // 사용자가 오지 않을 상태를 기다리게 된다.
+    if (purchase.ui === 'REJECTED' || purchase.ui === 'DENY') {
+      return res.status(409).json({
+        error: 'not_purchased',
+        message:
+          purchase.ui === 'REJECTED'
+            ? '거부하신 건이라 결제가 일어나지 않았고 결과물도 없습니다.'
+            : '정책이 막아 결제되지 않았습니다. 한도를 조정한 뒤 다시 맡겨 주세요.',
+      });
+    }
+    if (!purchase.steps?.settle) {
+      return res.status(409).json({
+        error: 'not_settled',
+        message: '아직 정산되지 않았습니다. 정산을 마치면 결과물을 볼 수 있습니다.',
+      });
+    }
+    // x402를 켠 환경에서는 **열람 결제가 확인돼야** 본문을 준다. 정산 여부만 보면 unlock이
+    // 실패한 건(터널 끊김·402 실패)도 본문이 나가, "결제해야 열람한다"가 문구로만 남는다.
+    // 킬 스위치가 꺼진 로컬에서는 이 조건 자체가 없으므로 무료 열람 경로는 그대로다.
+    if (X402_UNLOCK && !purchase.x402) {
+      return res.status(402).json({
+        error: 'payment_required',
+        message: '결과물 열람 결제가 아직 확인되지 않았습니다. 잠시 후 다시 시도해 주세요.',
+        detail: purchase.unlockError ?? null,
+      });
+    }
+
+    const markdown = readResultCache(purchase.auctionId);
+    if (!markdown) {
+      return res.status(404).json({
+        error: 'result_missing',
+        message: '결과물을 찾지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      });
+    }
+
+    res.json({
+      requestId: purchase.requestId,
+      title: purchase.title,
+      task: purchase.task,
+      listing: purchase.listing,
+      markdown,
+      grade: purchase.grade ?? null,
+      gradeError: purchase.gradeError ?? null,
+      criteria: loadCriteria().items,
+      x402: purchase.x402 ?? null,
     });
   });
 
@@ -466,9 +552,14 @@ export function createUserApi() {
     const owner = req.user.owner_address;
     const round = getRound(owner);
     if (round.running) return res.status(409).json({ error: 'busy', message: '진행 중입니다.' });
+    // 채점 이력은 리스팅 전역이라 사용자별 초기화와 층이 다르다. 그래서 명시적으로 요청할
+    // 때만 지운다. 이 경로가 없으면 리허설을 돌릴수록 평점이 한쪽으로만 내려가고, 발표 당일
+    // 카탈로그가 계획한 숫자와 달라진다(결과물 채점이 씨앗값보다 낮게 나오기 때문).
+    let clearedScores = 0;
     if (req.body?.purgeHistory) clearPurchases(owner);
+    if (req.body?.purgeScores) clearedScores = clearScores();
     dropRound(owner);
-    res.json({ reset: true });
+    res.json({ reset: true, clearedScores });
   });
 
   /** 라운드 상태에 실을 사용자 정보(표시용 + 실제 정책값). */

@@ -140,7 +140,9 @@ async function ensureOwnerVerified(client) {
 
   await client.registerOwner(ownerAddr);
   // verify 메시지는 재현 불필요(즉시 소비). Date.now로 유일성만 확보.
-  const msg = `verify-owner:${client.walletId}:${Date.now()}`;
+  // 앞의 `verify:<walletId>`는 승인·거부와 같은 바인딩 토큰이다(WAIaaS #416). 이 라우트도
+  // 같은 ownerAuth를 타므로 `verify-owner:`로는 토큰이 성립하지 않는다.
+  const msg = `verify:${client.walletId}:${Date.now()}`;
   const sigB64 = signEd25519(ownerKp.secretKey, msg).toString('base64');
   const res = await client.verifyOwner(ownerAddr, msg, sigB64);
   return { ownerAddress: ownerAddr, ownerState: res.ownerState, ownerVerified: res.ownerVerified };

@@ -69,7 +69,17 @@ export const savePolicy = (notifyMaxUsdc, delayMaxUsdc) => call('PUT', '/policy'
 
 // ---- 구매 ----
 export const fetchCatalog = () => call('GET', '/catalog');
-export const submitRequest = (prompt) => call('POST', '/purchase', { prompt });
+
+/**
+ * 요청을 맡긴다. `priceWeight`는 후보 화면에서 사용자가 정한 가격 비중(0~1)이고,
+ * 서버는 그 가중치로 매긴 1위를 그대로 산다 — 화면이 보여준 1위와 실제 구매가 어긋나면
+ * 이 데모에서 가장 중요한 장면이 무너진다.
+ */
+export const submitRequest = (prompt, priceWeight) =>
+  call('POST', '/purchase', { prompt, ...(priceWeight != null ? { priceWeight } : {}) });
+
+/** 결과물 본문과 채점. 정산 전에는 409가 온다(x402 열람 게이트). */
+export const fetchResult = (requestId) => call('GET', `/purchase/result/${requestId}`);
 export const fetchRoundState = () => call('GET', '/purchase/state');
 export const settleRound = () => call('POST', '/purchase/settle');
 export const fetchReceipt = () => call('GET', '/purchase/receipt');

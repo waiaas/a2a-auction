@@ -22,13 +22,60 @@
         "format": "마크다운 1장",
         "approxWords": 400,
         "sourceCount": 5,
-        "includes": ["핵심 지표 표", "한 줄 해석"]
+        "includes": [
+          "핵심 지표 표",
+          "한 줄 해석"
+        ]
       },
       "track": {
         "completed": 412,
         "repeatRate": 0.62,
         "avgMinutes": 3
-      }
+      },
+      "sample": {
+        "file": "sample-quick-scan.md",
+        "title": "스테이블코인 결제 시장 스냅샷",
+        "score": 27,
+        "breakdown": [
+          {
+            "id": "evidence",
+            "score": 6,
+            "note": "수치 표현 8개, 표 6행을 셌다. 실질 분량이 짧아 6점이 상한이다."
+          },
+          {
+            "id": "scenario",
+            "score": 4,
+            "note": "결론 하나만 제시하고 경로를 나누지 않았다."
+          },
+          {
+            "id": "risk",
+            "score": 5,
+            "note": "틀릴 조건이나 위험을 밝힌 표현이 없다."
+          },
+          {
+            "id": "source",
+            "score": 6,
+            "note": "출처를 언급했으나 개별 항목까지는 밝히지 않았다. 실질 분량이 짧아 6점이 상한이다."
+          },
+          {
+            "id": "actionable",
+            "score": 6,
+            "note": "제목 4개, 반복을 걷어낸 실질 분량 284자로 구조와 깊이를 봤다. 실질 분량이 짧아 6점이 상한이다."
+          }
+        ],
+        "scoredAt": "2026-08-20T00:49:45.623Z",
+        "source": "signals"
+      },
+      "recentScores": [
+        72,
+        68,
+        74,
+        66,
+        71,
+        69,
+        73,
+        67
+      ]
     },
     {
       "id": "market-brief",
@@ -45,13 +92,62 @@
         "format": "마크다운 3~4장",
         "approxWords": 1600,
         "sourceCount": 18,
-        "includes": ["비교표", "변화 추이", "판단 근거", "리스크 메모"]
+        "includes": [
+          "비교표",
+          "변화 추이",
+          "판단 근거",
+          "리스크 메모"
+        ]
       },
       "track": {
         "completed": 137,
         "repeatRate": 0.71,
         "avgMinutes": 11
-      }
+      },
+      "sample": {
+        "file": "sample-market-brief.md",
+        "title": "L2 경쟁 구도 브리핑",
+        "score": 52,
+        "breakdown": [
+          {
+            "id": "evidence",
+            "score": 15,
+            "note": "수치 표현 18개, 표 5행을 셌다. 실질 분량이 짧아 15점이 상한이다."
+          },
+          {
+            "id": "scenario",
+            "score": 4,
+            "note": "결론 하나만 제시하고 경로를 나누지 않았다."
+          },
+          {
+            "id": "risk",
+            "score": 14,
+            "note": "위험은 언급했으나 틀릴 조건까지는 밝히지 않았다."
+          },
+          {
+            "id": "source",
+            "score": 6,
+            "note": "출처를 밝힌 표현이 없다."
+          },
+          {
+            "id": "actionable",
+            "score": 13,
+            "note": "제목 6개, 반복을 걷어낸 실질 분량 661자로 구조와 깊이를 봤다."
+          }
+        ],
+        "scoredAt": "2026-08-20T00:49:45.623Z",
+        "source": "signals"
+      },
+      "recentScores": [
+        86,
+        82,
+        85,
+        83,
+        87,
+        81,
+        84,
+        84
+      ]
     },
     {
       "id": "deep-research",
@@ -68,13 +164,63 @@
         "format": "마크다운 10장+",
         "approxWords": 5200,
         "sourceCount": 46,
-        "includes": ["1차 소스 인용", "코드·스펙 대조", "시나리오별 전망", "반대 논거", "부록"]
+        "includes": [
+          "1차 소스 인용",
+          "코드·스펙 대조",
+          "시나리오별 전망",
+          "반대 논거",
+          "부록"
+        ]
       },
       "track": {
         "completed": 38,
         "repeatRate": 0.84,
         "avgMinutes": 34
-      }
+      },
+      "sample": {
+        "file": "sample-deep-research.md",
+        "title": "리스테이킹 시장 심층 리포트",
+        "score": 93,
+        "breakdown": [
+          {
+            "id": "evidence",
+            "score": 14,
+            "note": "수치 표현 8개, 표 0행을 셌다."
+          },
+          {
+            "id": "scenario",
+            "score": 20,
+            "note": "갈리는 경로를 나눈 표현이 있다."
+          },
+          {
+            "id": "risk",
+            "score": 20,
+            "note": "이 판단이 틀릴 조건을 밝혔다."
+          },
+          {
+            "id": "source",
+            "score": 20,
+            "note": "따라갈 수 있는 출처(부록·1차 소스)를 남겼다."
+          },
+          {
+            "id": "actionable",
+            "score": 19,
+            "note": "제목 8개, 반복을 걷어낸 실질 분량 1305자로 구조와 깊이를 봤다."
+          }
+        ],
+        "scoredAt": "2026-08-20T00:49:45.623Z",
+        "source": "signals"
+      },
+      "recentScores": [
+        96,
+        95,
+        98,
+        94,
+        97,
+        96,
+        95,
+        97
+      ]
     }
   ]
 }
