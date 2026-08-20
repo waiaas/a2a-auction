@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { discoverWallets, supportsLocalWallet } from '../lib/wallet.js';
+import { subscribeWallets, supportsLocalWallet } from '../lib/wallet.js';
 
 /**
  * 연결 화면.
@@ -12,12 +12,10 @@ export default function WalletGate({ onConnect, busy, error, reconnect = false }
   const [canLocal, setCanLocal] = useState(false);
 
   useEffect(() => {
-    // 익스텐션이 늦게 주입되는 경우가 있어 잠시 뒤 한 번 더 훑는다.
-    const scan = () => setWallets(discoverWallets());
-    scan();
-    const t = setTimeout(scan, 600);
+    // 익스텐션이 아무리 늦게 주입돼도 register-wallet 이벤트로 잡힌다(구독 유지).
+    const unsubscribe = subscribeWallets(setWallets);
     supportsLocalWallet().then(setCanLocal);
-    return () => clearTimeout(t);
+    return unsubscribe;
   }, []);
 
   return (
