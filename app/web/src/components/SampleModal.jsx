@@ -50,14 +50,18 @@ export default function SampleModal({ listing, criteria, onClose }) {
 
         {sample?.score != null && (
           <section className="modal-score">
+            {/* 채점기 뱃지는 제목 옆에 붙인다. 아래 줄에 홀로 두면 무엇에 붙는 꼬리표인지
+                모호하고, 배경이 있어 제목보다 무거워 보여 위계가 뒤집힌다(8/21 리허설).
+                이건 점수의 성격을 규정하는 말이므로 제목·점수와 한 줄에 있어야 한다. */}
             <header>
-              <span className="svc-role">샘플 채점</span>
+              <span className="modal-score-t">
+                <span className="svc-role">샘플 채점</span>
+                <span className={`tag ${sample.source === 'live' ? 'ok' : 'warn'}`}>
+                  {sample.source === 'live' ? 'AI 채점' : '규칙으로 채점'}
+                </span>
+              </span>
               <span className="svc-sub">{sample.score} / 100</span>
             </header>
-            {/* 어떤 채점기가 매겼는지 밝힌다. 결과물 채점 화면과 같은 표시 규칙을 쓴다. */}
-            <span className={`tag ${sample.source === 'live' ? 'ok' : 'warn'}`}>
-              {sample.source === 'live' ? 'AI 채점' : '규칙으로 채점'}
-            </span>
             <ScoreTable breakdown={sample.breakdown} criteria={criteria} />
             <p className="svc-note">
               후보 전체를 같은 기준·같은 채점기로 한 번 채점해 둔 결과입니다. 샘플과 기준이

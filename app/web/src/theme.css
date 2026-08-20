@@ -661,6 +661,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .modal-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: linear-gradient(to bottom, rgba(18, 19, 22, 0), rgba(18, 19, 22, 0.92)); pointer-events: none; }
 .modal-score { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--edge-soft); }
 .modal-score header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+/* 제목과 채점기 뱃지를 한 덩어리로 묶어 왼쪽에, 점수는 오른쪽 끝에 남긴다. */
+.modal-score-t { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* ---- 결과물 ---- */
 .rv-meta header, .rv-grade header { align-items: baseline; }
