@@ -33,12 +33,21 @@ const CHAIN = 'solana:devnet';
  * @returns {() => void} 구독 해제 함수
  */
 export function subscribeWallets(onChange) {
-  const found = new Map();
-  const emit = () =>
-    onChange([...found.values()].filter((w) => w.features?.['solana:signMessage'] && w.features?.['standard:connect']));
+  // 객체 단위로 모은다 — 이름 키 Map은 안 된다. Phantom은 Solana용·Sui용 지갑 **두 개를
+  // 같은 이름("Phantom")으로** 등록해서, 이름 키면 나중에 온 Sui용이 Solana용을 덮어쓰고
+  // Sui용은 아래 필터에서 떨어져 버튼이 통째로 사라진다(사용자 브라우저 실측. MetaMask도
+  // Bitcoin용이 Solana용을 덮는 같은 충돌이 있었다). 그래서 **필터를 먼저 통과시킨 뒤**
+  // 이름 중복을 정리한다.
+  const found = new Set();
+  const emit = () => {
+    const eligible = [...found].filter((w) => w.features?.['solana:signMessage'] && w.features?.['standard:connect']);
+    const byName = new Map();
+    for (const w of eligible) if (!byName.has(w.name)) byName.set(w.name, w);
+    onChange([...byName.values()]);
+  };
   const api = {
     register(...wallets) {
-      for (const w of wallets) found.set(w.name, w);
+      for (const w of wallets) found.add(w);
       emit();
       return () => {};
     },
