@@ -109,6 +109,12 @@ body::before {
 .cta:hover { filter: brightness(1.06); }
 .cta:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 .cta:focus-visible, .connect:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+/* 입력 요소도 버튼과 같은 초점 표시를 쓴다. 규칙이 없으면 브라우저 기본 파란 링이 나와
+   화면 어디에도 없는 색이 하나 끼어든다(8/21 리허설). */
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+/* 다만 밝은 무대 위 입력(맡길 금액)은 노랑이 흰 바탕에 묻힌다 — 실측 1.1:1로 초점이
+   어디 있는지 안 보인다. 밝은 면 전용 강조색을 쓴다. */
+.svc-deposit input:focus-visible { outline-color: var(--stage-acc); }
 .note { margin-top: 14px; font-size: 14px; color: var(--warn); font-weight: 600; min-height: 16px; }
 
 .bids { display: flex; flex-direction: column; gap: 10px; }
