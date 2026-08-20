@@ -396,6 +396,10 @@ body::before {
 .buy-f .ok { color: var(--ok); font-weight: 700; }
 .buy-f .bad { color: var(--bad); font-weight: 700; }
 .buy-f .cta { margin-left: auto; font-size: 14px; padding: 8px 16px; }
+/* 버튼이 둘 이상이면 두 번째부터는 auto를 푼다. flex에서 auto 마진이 여럿이면 남는 공간을
+   **나눠 갖기 때문에** 승인과 거부가 화면 절반만큼 떨어져 있었다(8/20 리허설). 첫 버튼만
+   auto를 쥐게 하면 버튼 묶음이 통째로 오른쪽에 붙고 사이는 gap 12px만 남는다. */
+.buy-f .cta ~ .cta { margin-left: 0; }
 
 /* ── 구매 영수증 (컷 8) ─────────────────────────────────────────────── */
 /* 판정과 결말을 나란히 놓는다. 하나만 보이면 "왜 갈렸나"나 "그래서 어떻게 됐나" 중
@@ -535,9 +539,18 @@ body::before {
 .svc-mcp code { font-family: var(--mono); font-size: 12.5px; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,0.07); }
 .svc-request .svc-note { margin-top: 0; margin-bottom: 10px; }
 
-/* 승인 버튼. `.cta.bad`를 쓰면 `.buy-f .bad`(실패 문구 색)에 덮여 글자가 배경색과 같아진다. */
-.cta.svc-approve { color: #fff; background: var(--bad); box-shadow: 0 8px 26px rgba(244, 63, 94, 0.24); }
+/* 승인·거부는 신호등을 따른다 — 승인 버튼이 빨간색이면 누르기 직전에 손이 멈춘다(8/20
+   리허설 지적). `.cta.bad`/`.cta.ok`를 클래스로 쓰지 않는 이유는 `.buy-f .bad`·`.buy-f .ok`
+   (실패·성공 **문구** 색)가 버튼 글자색을 덮어써서다. 그래서 전용 이름을 둔다.
+   승인은 정산·결과물 보기와도 같은 클래스를 쓴다 — 셋 다 앞으로 나아가는 행동이다. */
+.cta.svc-approve { color: var(--acc-ink); background: var(--ok); box-shadow: 0 8px 26px rgba(74, 212, 140, 0.26); }
 .cta.svc-approve:hover { filter: brightness(1.06); }
+/* 거부는 채우지 않는다 — 승인과 둘 다 채우면 시선이 갈라져 어느 쪽이 기본 행동인지
+   읽히지 않는다. 색은 `--bad`(#f2685c)를 **그대로 쓰지 못한다**: 어두운 카드 위에서
+   2.59:1까지 떨어진다(실측). 밝은 톤 #ffb4ab로 올려 5.21:1을 확보했다. 옅은 배경 채움을
+   뺀 것도 대비 때문이다 — 채우면 바탕이 밝아져 오히려 글자 대비가 깎인다(4.06:1). */
+.cta.svc-reject { color: #ffb4ab; background: transparent; border: 1px solid rgba(255, 180, 171, 0.75); box-shadow: none; }
+.cta.svc-reject:hover { background: rgba(255, 180, 171, 0.14); }
 /* MCP 카드 버튼은 나란히 둔다 — 카드 기본 규칙(전체 폭)이 적용되면 세로로 쌓인다. */
 .svc-mcp-actions .cta.ghost { width: auto; margin-top: 0; }
 
