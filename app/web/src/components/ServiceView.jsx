@@ -290,169 +290,176 @@ export default function ServiceView({ onBack }) {
   }
 
   const running = busy || round.running;
-  const step = currentStep({ draft, purchases: round.purchases, result });
+  const step = currentStep({ draft, purchases: round.purchases, result, page: route.page });
   const taskCount = round.purchases.length;
-
-  // 영수증은 자기 셸(.stage)과 헤더·스테퍼를 이미 갖춘 완성 페이지다 — 그대로 쓴다.
-  if (route.page === 'receipt') {
-    return <PurchaseReceipt onBack={() => navigate('#/tasks')} fetcher={api.fetchReceipt} />;
-  }
 
   const isHome = route.page === 'home';
 
   return (
     <ClusterContext.Provider value={round.network || 'devnet'}>
     <div className="stage">
-      {/* **8/3 제출본의 히어로 셸을 그대로 쓴다.** 카드만 쌓으면 제품이 아니라 콘솔로 읽힌다 —
-          네비바·대형 타이틀·스펙 타일이 "서비스"의 뼈대였고, 그 CSS가 레포에 그대로 있다
-          (결정 ㉑로 구 화면을 지우지 않은 덕이다). */}
-      {isHome ? (
-      <div className="hero glass svc-shell">
-        <ServiceNav page="home" taskCount={taskCount} onDisconnect={disconnect} />
+      {/* **홈은 2단이다 — 왼쪽이 제품, 오른쪽이 내 지갑·한도.**
+          8/20 리허설 지적: 지갑·한도가 카탈로그 **아래**에 있어 "내가 얼마를 맡겼는가"를
+          보려면 스크롤해야 했다. 위임이 이 서비스의 주제인데 위임의 상태가 첫 화면 밖에
+          있었던 셈이다. 레일을 히어로 옆까지 끌어올린다.
 
-        <div className="svc-htop">
-          <div>
-            <div className="status">
-              <span className="pill ok"><span className="d" />체험판</span>
-              <span className="meta">powered by WAIaaS · {round.network || 'devnet'}</span>
+          히어로를 왼쪽 컬럼 **안**에 넣는 방식을 택했다. 레일이 히어로보다 길어도 왼쪽
+          컬럼이 카탈로그로 계속 흐르므로 두 단의 높이를 맞출 필요가 없다. 히어로 내부
+          (요청창·스펙 타일)는 손대지 않는다 — 폭만 좁아진다. */}
+      <div className={isHome ? 'svc-page' : undefined}>
+        <div className="svc-main">
+        {/* **8/3 제출본의 히어로 셸을 그대로 쓴다.** 카드만 쌓으면 제품이 아니라 콘솔로 읽힌다 —
+            네비바·대형 타이틀·스펙 타일이 "서비스"의 뼈대였고, 그 CSS가 레포에 그대로 있다
+            (결정 ㉑로 구 화면을 지우지 않은 덕이다). */}
+        {isHome ? (
+        <div className="hero glass svc-shell">
+          <ServiceNav page="home" taskCount={taskCount} onDisconnect={disconnect} />
+
+          <div className="svc-htop">
+            <div>
+              <div className="status">
+                <span className="pill ok"><span className="d" />체험판</span>
+                <span className="meta">powered by WAIaaS · {round.network || 'devnet'}</span>
+              </div>
+              <h1 className="title">에이전트에게<br />일을 맡기세요</h1>
+              <p className="subid">내가 정한 한도 안에서만 씁니다</p>
             </div>
-            <h1 className="title">에이전트에게<br />일을 맡기세요</h1>
-            <p className="subid">내가 정한 한도 안에서만 씁니다</p>
+            <div className="desc">
+              지갑을 연결하면 나만의 에이전트 지갑이 생깁니다. 맡긴 금액 안에서만 스스로 결제하고,
+              한도를 넘으면 나를 다시 찾아옵니다. 결과물은 <span className="more">온체인 정산이
+              확인된 뒤에만</span> 열립니다.
+            </div>
           </div>
-          <div className="desc">
-            지갑을 연결하면 나만의 에이전트 지갑이 생깁니다. 맡긴 금액 안에서만 스스로 결제하고,
-            한도를 넘으면 나를 다시 찾아옵니다. 결과물은 <span className="more">온체인 정산이
-            확인된 뒤에만</span> 열립니다.
+
+          {/* **요청 입력창을 히어로 안에 둔다.** 마켓플레이스의 검색창과 같은 자리다. 본문 첫
+              카드로 두면 "무엇을 하는 곳인가"를 알려면 한 번 스크롤해야 하고, 카드가 하나 더
+              늘어 화면이 그만큼 복잡해진다. */}
+          <RequestBox onSubmit={openCandidates} busy={running} catalog={candidates} inHero />
+
+          <Stepper current={step} />
+
+          {/* 지갑·한도를 한눈에. 입력 폼은 레일 카드가 맡고 여기는 현재 값만 읽는다. */}
+          <div className="specs svc-specs">
+            <Spec ic="coins" l="내 지갑" v={`${fmtUsdc(me?.owner?.usdc ?? 0)} USDC`} />
+            <Spec ic="bank" l="에이전트 지갑" v={`${fmtUsdc(me?.agent?.usdc ?? 0)} USDC`} acc />
+            <Spec ic="trend" l="알림만" v={`${me?.policy?.notifyMaxUsdc ?? 0} USDC`} />
+            <Spec ic="trophy" l="유예" v={`${me?.policy?.delayMaxUsdc ?? 0} USDC`} />
+            <Spec ic="seller" l="그 이상" v="내 지갑 서명" />
+            <Spec ic="globe" l="네트워크" v={round.network || 'devnet'} />
           </div>
         </div>
-
-        {/* **요청 입력창을 히어로 안에 둔다.** 마켓플레이스의 검색창과 같은 자리다. 본문 첫
-            카드로 두면 "무엇을 하는 곳인가"를 알려면 한 번 스크롤해야 하고, 카드가 하나 더
-            늘어 화면이 그만큼 복잡해진다. */}
-        <RequestBox onSubmit={openCandidates} busy={running} catalog={candidates} inHero />
-
-        <Stepper current={step} />
-
-        {/* 지갑·한도를 한눈에. 입력 폼은 레일 카드가 맡고 여기는 현재 값만 읽는다. */}
-        <div className="specs svc-specs">
-          <Spec ic="coins" l="내 지갑" v={`${fmtUsdc(me?.owner?.usdc ?? 0)} USDC`} />
-          <Spec ic="bank" l="에이전트 지갑" v={`${fmtUsdc(me?.agent?.usdc ?? 0)} USDC`} acc />
-          <Spec ic="trend" l="알림만" v={`${me?.policy?.notifyMaxUsdc ?? 0} USDC`} />
-          <Spec ic="trophy" l="유예" v={`${me?.policy?.delayMaxUsdc ?? 0} USDC`} />
-          <Spec ic="seller" l="그 이상" v="내 지갑 서명" />
-          <Spec ic="globe" l="네트워크" v={round.network || 'devnet'} />
-        </div>
-      </div>
-      ) : (
-      /* 서브페이지 헤더: 같은 셸을 얇게 쓴다 — 페이지가 바뀌어도 같은 제품으로 보여야 한다. */
-      <div className="hero glass svc-shell svc-shell-slim">
-        <ServiceNav page={route.page} taskCount={taskCount} onDisconnect={disconnect} />
-        <Stepper current={step} />
-      </div>
-      )}
-
-      {needsWallet && (
-        <div className="svc-reattach">
-          새로고침으로 지갑 연결이 끊겼습니다. 승인·입금에는 서명이 필요합니다.
-          <WalletGate onConnect={(c) => run(() => reattach(c), '지갑을 다시 연결했습니다.')} busy={busy} error={null} reconnect />
-        </div>
-      )}
-
-      {notice && <div className="svc-notice">{notice}</div>}
-      {error && <div className="errbar">{error}</div>}
-      {round.error && <div className="errbar">{round.error}</div>}
-
-      {route.page === 'request' && draft && (
-        <CandidateList
-          prompt={draft}
-          candidates={candidates}
-          prefs={prefs}
-          onPrefs={setPrefs}
-          priceWeight={priceWeight}
-          onSubmit={submitDraft}
-          onOpenSample={setSampleOf}
-          onCancel={() => { setDraft(null); navigate('#/'); }}
-          busy={running}
-        />
-      )}
-
-      {route.page === 'tasks' && (
-        <PurchaseList
-          purchases={round.purchases}
-          busy={running}
-          onSettle={settle}
-          x402Enabled={round.x402Enabled}
-        />
-      )}
-
-      {route.page === 'task' && (
-        <TaskDetail
-          p={round.purchases.find((x) => x.requestId === route.param)}
-          busy={running}
-          running={running}
-          onApprove={(p) => ownerAction(p, 'approve')}
-          onCancel={(p) => ownerAction(p, 'reject')}
-          onSettle={settle}
-          onOpenResult={openResult}
-          x402Enabled={round.x402Enabled}
-        />
-      )}
-
-      {route.page === 'result' && (
-        result && result.requestId === route.param ? (
-          <ResultView
-            result={result}
-            onBack={() => navigate(`#/tasks/${route.param}`)}
-            onOpenReceipt={() => navigate('#/receipt')}
-          />
         ) : (
-          <p className="svc-empty">결과물을 불러오는 중입니다…</p>
-        )
-      )}
+        /* 서브페이지 헤더: 같은 셸을 얇게 쓴다 — 페이지가 바뀌어도 같은 제품으로 보여야 한다. */
+        <div className="hero glass svc-shell svc-shell-slim">
+          <ServiceNav page={route.page} taskCount={taskCount} onDisconnect={disconnect} />
+          <Stepper current={step} />
+        </div>
+        )}
 
-      {route.page === 'mcp' && <McpCard agentAddress={me?.agentAddress} />}
-
-      {isHome && (
-        <>
-          {/* **와이어프레임 01의 부제가 "카탈로그와 요청 입력을 한 화면에"다.** 무엇을 시킬지가
-              맨 위에 오고, 지갑·한도 설정은 그 뒤다. 설정 UI를 앞에 두면 제품보다 콘솔이
-              먼저 보인다 — 실제로 그렇게 만들었다가 되돌린 자리다. */}
-          {/* **8/3의 2단 그리드(`.lower`)를 그대로 쓴다.** 왼쪽은 제품(무엇을 살 수 있나),
-              오른쪽 레일은 내 설정(지갑·한도)이다. 맡긴 일과 MCP는 각자 페이지(`#/tasks`,
-              `#/mcp`)로 나갔다 — 홈 한 화면에 전부 쌓는 것이 콘솔 인상의 원인이었다(8/20). */}
-          <div className="lower svc-lower">
-            <div className="svc-main">
-              {/* 무엇을 살 수 있는지 보여야 무엇을 시킬지 정할 수 있다. 셀러 등록 화면은
-                  두지 않는다(8/19 퀵싱크) — 이미 등록된 것만 놓는다. */}
-              {candidates.length > 0 && (
-                <section className="svc-catalog">
-                  <header className="svc-catalog-h">
-                    <span className="svc-role">등록된 에이전트</span>
-                    <span className="svc-sub">{candidates.length}건 · 평점과 샘플을 보고 고릅니다</span>
-                  </header>
-                  <div className="cand-grid">
-                    {candidates.map((l) => (
-                      <AgentCard key={l.id} listing={l} onOpenSample={setSampleOf} busy={running} />
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
-
-            <aside className="rail svc-rail">
-              <WalletCards me={me} onFaucet={faucet} onDeposit={deposit} busy={running} />
-              <PolicyCard policy={me?.policy} agentUsdc={me?.agent?.usdc} onSave={savePolicy} busy={running} />
-
-              {/* 결정 ⑲. 주소만 치고 들어온 사람은 TRY-IT.md를 보지 않는다. 밝히지 않으면
-                  "self-hosted라며 왜 서버가 키를 갖고 있냐"를 상대가 먼저 발견하게 된다. */}
-              <p className="svc-trial">
-                이 체험판은 저희가 데몬을 대신 띄운 것입니다. 실제 제품(WAIaaS)은 자기 기계에
-                데몬을 띄우고 키가 그 기계를 떠나지 않습니다.
-              </p>
-            </aside>
+        {needsWallet && (
+          <div className="svc-reattach">
+            새로고침으로 지갑 연결이 끊겼습니다. 승인·입금에는 서명이 필요합니다.
+            <WalletGate onConnect={(c) => run(() => reattach(c), '지갑을 다시 연결했습니다.')} busy={busy} error={null} reconnect />
           </div>
-        </>
-      )}
+        )}
+
+        {notice && <div className="svc-notice">{notice}</div>}
+        {error && <div className="errbar">{error}</div>}
+        {round.error && <div className="errbar">{round.error}</div>}
+
+        {route.page === 'request' && draft && (
+          <CandidateList
+            prompt={draft}
+            candidates={candidates}
+            prefs={prefs}
+            onPrefs={setPrefs}
+            priceWeight={priceWeight}
+            onSubmit={submitDraft}
+            onOpenSample={setSampleOf}
+            onCancel={() => { setDraft(null); navigate('#/'); }}
+            busy={running}
+          />
+        )}
+
+        {route.page === 'tasks' && (
+          <PurchaseList
+            purchases={round.purchases}
+            busy={running}
+            onSettle={settle}
+            x402Enabled={round.x402Enabled}
+          />
+        )}
+
+        {route.page === 'task' && (
+          <TaskDetail
+            p={round.purchases.find((x) => x.requestId === route.param)}
+            busy={running}
+            running={running}
+            onApprove={(p) => ownerAction(p, 'approve')}
+            onCancel={(p) => ownerAction(p, 'reject')}
+            onSettle={settle}
+            onOpenResult={openResult}
+            x402Enabled={round.x402Enabled}
+          />
+        )}
+
+        {route.page === 'result' && (
+          result && result.requestId === route.param ? (
+            <ResultView
+              result={result}
+              onBack={() => navigate(`#/tasks/${route.param}`)}
+              onOpenReceipt={() => navigate('#/receipt')}
+            />
+          ) : (
+            <p className="svc-empty">결과물을 불러오는 중입니다…</p>
+          )
+        )}
+
+        {route.page === 'mcp' && <McpCard agentAddress={me?.agentAddress} />}
+
+        {/* 영수증도 다른 서브페이지와 같은 셸(위 네비 + 스테퍼)을 탄다. 전에는 조기 반환으로
+            자기 화면을 통째로 그려, 다른 페이지에는 다 있는 상단 검은 박스가 여기만
+            없었다 — 같은 제품을 도는 느낌이 이 한 화면에서 끊겼다(8/21 리허설).
+            상세(`#/receipt/:id`)도 같은 컴포넌트가 맡는다. */}
+        {(route.page === 'receipt' || route.page === 'receiptItem') && (
+          <PurchaseReceipt
+            onBack={() => navigate(route.page === 'receiptItem' ? '#/receipt' : '#/tasks')}
+            fetcher={api.fetchReceipt}
+            requestId={route.page === 'receiptItem' ? route.param : null}
+          />
+        )}
+
+          {/* 무엇을 살 수 있는지 보여야 무엇을 시킬지 정할 수 있다. 셀러 등록 화면은
+              두지 않는다(8/19 퀵싱크) — 이미 등록된 것만 놓는다. */}
+          {isHome && candidates.length > 0 && (
+            <section className="svc-catalog">
+              <header className="svc-catalog-h">
+                <span className="svc-role">등록된 에이전트</span>
+                <span className="svc-sub">{candidates.length}건 · 평점과 샘플을 보고 고릅니다</span>
+              </header>
+              <div className="cand-grid">
+                {candidates.map((l) => (
+                  <AgentCard key={l.id} listing={l} onOpenSample={setSampleOf} busy={running} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {isHome && (
+        <aside className="rail svc-rail">
+          <WalletCards me={me} onFaucet={faucet} onDeposit={deposit} busy={running} />
+          <PolicyCard policy={me?.policy} agentUsdc={me?.agent?.usdc} onSave={savePolicy} busy={running} />
+
+          {/* 결정 ⑲. 주소만 치고 들어온 사람은 TRY-IT.md를 보지 않는다. 밝히지 않으면
+              "self-hosted라며 왜 서버가 키를 갖고 있냐"를 상대가 먼저 발견하게 된다. */}
+          <p className="svc-trial">
+            이 체험판은 저희가 데몬을 대신 띄운 것입니다. 실제 제품(WAIaaS)은 자기 기계에
+            데몬을 띄우고 키가 그 기계를 떠나지 않습니다.
+          </p>
+        </aside>
+        )}
+      </div>
 
       {sampleOf && (
         <SampleModal listing={sampleOf} criteria={criteria} onClose={() => setSampleOf(null)} />
@@ -466,7 +473,14 @@ export default function ServiceView({ onBack }) {
  * 지금 어느 단계인가. 스테퍼는 진행 상태를 읽어 표시할 뿐이므로 별도 상태를 두지 않는다 —
  * 화면 상태와 실제 진행이 어긋나면 스테퍼가 거짓말을 하게 된다.
  */
-function currentStep({ draft, purchases, result }) {
+function currentStep({ draft, purchases, result, page }) {
+  // **보고 있는 페이지가 곧 단계다.** 진행 상태만으로 계산하면, 결과물을 열어 둔 채로도
+  // draft가 남아 있어 "공급자 선택"이 켜진다 — 화면이 자기 위치를 잘못 말한다(8/21 리허설).
+  // 그래서 그 페이지에 있다는 사실이 가장 확실한 신호일 때는 그것을 먼저 쓴다.
+  if (page === 'result') return 'result';
+  if (page === 'receipt' || page === 'receiptItem') return 'receipt';
+  if (page === 'request') return 'choose';
+
   if (draft) return 'choose';
   if (!purchases.length) return 'request';
 

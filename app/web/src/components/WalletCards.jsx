@@ -15,7 +15,8 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
   const owner = me.owner ?? {};
   const agent = me.agent ?? {};
   // 체험용 SOL이 소진되면 접속자가 직접 받아와야 한다. 잔고가 0인 채로 버튼만 눌리게 두면
-  // 사용자는 어디서 막혔는지 모른 채 같은 버튼을 반복한다.
+  // 사용자는 어디서 막혔는지 모른 채 같은 버튼을 반복한다. 이 플래그가 오너 SOL 표시의
+  // 스위치도 겸한다 — 보여줘야 할 유일한 순간이 곧 "모자랄 때"다.
   const needsOwnSol = me.faucet?.ok === false && !(owner.sol > 0);
 
   return (
@@ -27,7 +28,10 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
         </header>
         <div className="svc-bal">
           <b className="tnum">{fmt(owner.usdc)}</b> USDC
-          <span className="svc-sub tnum">{fmt(owner.sol, 3)} SOL</span>
+          {/* 오너 SOL은 **부족할 때만** 보여준다. faucet이 연결 시점에 채워 주고(`faucet.js`)
+              쓰는 곳도 입금 한 번뿐이라, 평소에는 답이 정해진 숫자가 결제 통화 옆에서
+              시선만 가져간다. 모자랄 때는 아래 안내와 함께 실제 잔고를 드러낸다. */}
+          {needsOwnSol && <span className="svc-sub tnum">수수료 {fmt(owner.sol, 3)} SOL</span>}
         </div>
         <p className="svc-note">여기 있는 돈은 에이전트가 손대지 못합니다.</p>
         <button className="cta ghost" disabled={busy} onClick={onFaucet}>
@@ -59,7 +63,7 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
           </button>
         </div>
         <p className="svc-hint">
-          내 서명으로 보냅니다. 보낸 만큼이 위임 한도의 상한이 되고, 에이전트가 쓸 가스도 함께 실립니다.
+          내 서명으로 보냅니다. 보낸 만큼이 위임 한도의 상한이 되고, 에이전트가 낼 수수료도 함께 실립니다.
         </p>
       </section>
 
@@ -72,7 +76,7 @@ export default function WalletCards({ me, onFaucet, onDeposit, busy }) {
         </header>
         <div className="svc-bal">
           <b className="tnum">{fmt(agent.usdc)}</b> USDC
-          <span className="svc-sub tnum">가스 {fmt(agent.sol, 3)} SOL</span>
+          <span className="svc-sub tnum">수수료 {fmt(agent.sol, 3)} SOL</span>
         </div>
         <p className="svc-note">에이전트가 쓸 수 있는 돈입니다. 정책이 이 안에서 다시 한 번 가릅니다.</p>
       </section>

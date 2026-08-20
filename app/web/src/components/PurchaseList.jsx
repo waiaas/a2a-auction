@@ -56,10 +56,10 @@ function TaskRow({ p }) {
       onKeyDown={(e) => e.key === 'Enter' && open()}
     >
       <div className="buy-h">
-        <div>
-          <div className="t">{p.title}</div>
-          <div className="s">{p.need}</div>
-        </div>
+        {/* `need`(용도)는 싣지 않는다. 웹으로 들어온 요청은 예외 없이 "사용자가 직접 입력한
+            요청"이라 목록에서는 같은 문구가 건수만큼 반복돼 제목을 훑는 것을 방해한다.
+            경로 구분이 필요하면 상세의 선택 근거가 말한다(8/20 리허설). */}
+        <div className="t">{p.title}</div>
         {p.grade && <span className="buy-mini">채점 {p.grade.score}점</span>}
         <span className="buy-mini tnum">{fmtUsdc(p.amountUsdc)} USDC</span>
         <span className={`pill ${v.cls}`}><span className="d" />{v.label}</span>

@@ -66,10 +66,13 @@ body::before {
 .mono { font-family: var(--mono); }
 .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
 .pill .d { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.pill.ok { color: var(--ok); background: var(--ok-bg); }
+/* 뱃지 배경은 토큰(--ok-bg 등, 알파 0.15)을 쓰지 않는다. 유리 카드 위에서 밝은 무대가
+   비쳐 배경이 들뜨고, 같은 계열 글자와 대비가 3.4~4.0:1까지 떨어졌다(8/21 실측).
+   빔 프로젝터에서는 여기서 1.5:1 더 깎인다. 어두운 같은 계열을 깔아 글자를 띄운다. */
+.pill.ok { color: var(--ok); background: rgba(6, 28, 18, 0.72); }
 .pill.warn { color: var(--warn); background: var(--warn-bg); }
 .pill.bad { color: var(--bad); background: var(--bad-bg); }
-.pill.gold { color: var(--gold); background: var(--gold-bg); }
+.pill.gold { color: var(--gold); background: rgba(32, 26, 4, 0.72); }
 .pill.pending { color: var(--faint); background: rgba(255,255,255,0.05); }
 .pill.live { color: #fff; background: rgba(242, 104, 92, 0.9); }
 .pill.live .d { animation: blink 1.1s ease-in-out infinite; }
@@ -109,6 +112,12 @@ body::before {
 .cta:hover { filter: brightness(1.06); }
 .cta:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 .cta:focus-visible, .connect:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+/* 입력 요소도 버튼과 같은 초점 표시를 쓴다. 규칙이 없으면 브라우저 기본 파란 링이 나와
+   화면 어디에도 없는 색이 하나 끼어든다(8/21 리허설). */
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+/* 다만 밝은 무대 위 입력(맡길 금액)은 노랑이 흰 바탕에 묻힌다 — 실측 1.1:1로 초점이
+   어디 있는지 안 보인다. 밝은 면 전용 강조색을 쓴다. */
+.svc-deposit input:focus-visible { outline-color: var(--stage-acc); }
 .note { margin-top: 14px; font-size: 14px; color: var(--warn); font-weight: 600; min-height: 16px; }
 
 .bids { display: flex; flex-direction: column; gap: 10px; }
@@ -362,8 +371,11 @@ body::before {
   color: var(--ink); background: rgba(255, 255, 255, 0.06); border-color: var(--edge);
 }
 
+/* 배경은 `--tile`(알파 0.62)을 쓰지 않는다 — 밝은 무대 위에서 #6b6c70까지 들뜬다. 글자도
+   `--dim`(알파 0.82)이라 실효 3.64:1이었다. 배경을 내리고 알파를 걷어 9.4:1로 올린다.
+   같은 배경 위 노랑 강조(`b`)도 3.94 → 8.15:1이 된다(8/21 실측). */
 .pol { margin: 0 0 20px; padding: 14px 18px; border: 1px solid var(--edge); border-radius: 14px;
-  background: var(--tile); color: var(--dim); font-size: 15px; line-height: 1.6; }
+  background: rgba(24, 25, 30, 0.82); color: var(--ink); font-size: 15px; line-height: 1.6; }
 .pol b { color: var(--acc); font-weight: 800; }
 
 .lst { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -396,6 +408,10 @@ body::before {
 .buy-f .ok { color: var(--ok); font-weight: 700; }
 .buy-f .bad { color: var(--bad); font-weight: 700; }
 .buy-f .cta { margin-left: auto; font-size: 14px; padding: 8px 16px; }
+/* 버튼이 둘 이상이면 두 번째부터는 auto를 푼다. flex에서 auto 마진이 여럿이면 남는 공간을
+   **나눠 갖기 때문에** 승인과 거부가 화면 절반만큼 떨어져 있었다(8/20 리허설). 첫 버튼만
+   auto를 쥐게 하면 버튼 묶음이 통째로 오른쪽에 붙고 사이는 gap 12px만 남는다. */
+.buy-f .cta ~ .cta { margin-left: 0; }
 
 /* ── 구매 영수증 (컷 8) ─────────────────────────────────────────────── */
 /* 판정과 결말을 나란히 놓는다. 하나만 보이면 "왜 갈렸나"나 "그래서 어떻게 됐나" 중
@@ -454,13 +470,16 @@ body::before {
 .mv-v .tnum { font-size: 17px; font-weight: 800; color: var(--ink); }
 .mv-ar { font-size: 14.5px; color: var(--faint); }
 .mv-u { font-size: 12.5px; color: var(--faint); }
-.mv-d { font-size: 13.5px; font-weight: 800; color: var(--ok); background: var(--ok-bg);
+.mv-d { font-size: 13.5px; font-weight: 800; color: var(--ok); background: rgba(6, 28, 18, 0.92);
   border-radius: 999px; padding: 2px 8px; margin-left: 2px; }
 
 .rc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 14px; margin-top: 12px;
   padding-top: 10px; border-top: 1px dashed var(--edge-soft); }
-.rc-grid > div { display: flex; align-items: center; gap: 8px; }
-.rc-grid .k { font-size: 12px; color: var(--faint); min-width: 74px; }
+/* 셀 안에서 값이 넘치지 않게 가둔다. `.tx`가 nowrap이라 긴 값(결과물 hash)이 옆 칸
+   라벨 위로 넘어가 글자가 겹쳤다(8/20 리허설). 라벨은 줄지 않고 값만 줄어들게 한다. */
+.rc-grid > div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rc-grid .k { font-size: 12px; color: var(--faint); min-width: 74px; flex: none; }
+.rc-grid .tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- 서비스 화면 (#me) — 내 지갑 · 내 에이전트 ----
    무대(밝은 배경) 위에 다크 글래스 카드를 얹는 기존 규칙을 그대로 따른다. */
@@ -535,9 +554,18 @@ body::before {
 .svc-mcp code { font-family: var(--mono); font-size: 12.5px; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,0.07); }
 .svc-request .svc-note { margin-top: 0; margin-bottom: 10px; }
 
-/* 승인 버튼. `.cta.bad`를 쓰면 `.buy-f .bad`(실패 문구 색)에 덮여 글자가 배경색과 같아진다. */
-.cta.svc-approve { color: #fff; background: var(--bad); box-shadow: 0 8px 26px rgba(244, 63, 94, 0.24); }
+/* 승인·거부는 신호등을 따른다 — 승인 버튼이 빨간색이면 누르기 직전에 손이 멈춘다(8/20
+   리허설 지적). `.cta.bad`/`.cta.ok`를 클래스로 쓰지 않는 이유는 `.buy-f .bad`·`.buy-f .ok`
+   (실패·성공 **문구** 색)가 버튼 글자색을 덮어써서다. 그래서 전용 이름을 둔다.
+   승인은 정산·결과물 보기와도 같은 클래스를 쓴다 — 셋 다 앞으로 나아가는 행동이다. */
+.cta.svc-approve { color: var(--acc-ink); background: var(--ok); box-shadow: 0 8px 26px rgba(74, 212, 140, 0.26); }
 .cta.svc-approve:hover { filter: brightness(1.06); }
+/* 거부는 채우지 않는다 — 승인과 둘 다 채우면 시선이 갈라져 어느 쪽이 기본 행동인지
+   읽히지 않는다. 색은 `--bad`(#f2685c)를 **그대로 쓰지 못한다**: 어두운 카드 위에서
+   2.59:1까지 떨어진다(실측). 밝은 톤 #ffb4ab로 올려 5.21:1을 확보했다. 옅은 배경 채움을
+   뺀 것도 대비 때문이다 — 채우면 바탕이 밝아져 오히려 글자 대비가 깎인다(4.06:1). */
+.cta.svc-reject { color: #ffb4ab; background: transparent; border: 1px solid rgba(255, 180, 171, 0.75); box-shadow: none; }
+.cta.svc-reject:hover { background: rgba(255, 180, 171, 0.14); }
 /* MCP 카드 버튼은 나란히 둔다 — 카드 기본 규칙(전체 폭)이 적용되면 세로로 쌓인다. */
 .svc-mcp-actions .cta.ghost { width: auto; margin-top: 0; }
 
@@ -560,7 +588,10 @@ body::before {
 /* ---- 카탈로그 / 후보 공통 ---- */
 .svc-catalog { margin-bottom: 14px; }
 .svc-catalog-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin: 0 4px 10px; }
-.svc-catalog-h .svc-role { color: var(--stage-acc); }
+/* 8/3 제출본의 섹션 제목(`.sec-h h2`, 22px)과 같은 크기를 쓴다. `.svc-role`의 기본
+   13.5px는 카드 안 라벨용이라, 화면을 가르는 구획 제목으로 쓰기엔 너무 작았다.
+   uppercase도 푼다 — 한글에는 효과가 없으면서 자간만 벌린다(8/21 리허설). */
+.svc-catalog-h .svc-role { color: var(--stage-acc); font-size: 22px; letter-spacing: -0.5px; text-transform: none; }
 /* 카탈로그 건수는 실질 정보라 비활성 요소로 면제받지 못한다. 0.6은 3.75:1이었다. */
 .svc-catalog-h .svc-sub { color: rgba(22, 23, 27, 0.7); }
 
@@ -630,6 +661,8 @@ body::before {
 .modal-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: linear-gradient(to bottom, rgba(18, 19, 22, 0), rgba(18, 19, 22, 0.92)); pointer-events: none; }
 .modal-score { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--edge-soft); }
 .modal-score header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+/* 제목과 채점기 뱃지를 한 덩어리로 묶어 왼쪽에, 점수는 오른쪽 끝에 남긴다. */
+.modal-score-t { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* ---- 결과물 ---- */
 .rv-meta header, .rv-grade header { align-items: baseline; }
@@ -710,13 +743,18 @@ body::before {
 .svc-shell .cta.ghost { color: var(--ink); background: rgba(255, 255, 255, 0.08); border-color: var(--edge); }
 .svc-shell .cta.ghost:hover { background: rgba(255, 255, 255, 0.14); }
 
-/* 2단 그리드 — 왼쪽 제품, 오른쪽 내 설정. 레일 폭이 좁으므로 지갑 3칸은 세로로 쌓는다. */
-.svc-lower { align-items: start; }
+/* 2단 그리드 — 왼쪽 제품(히어로 + 카탈로그), 오른쪽 내 설정. 레일 폭이 좁으므로 지갑 3칸은
+   세로로 쌓는다. 공용 `.lower`를 쓰지 않고 따로 두는 이유는 이 그리드가 **히어로까지**
+   감싸기 때문이다 — 지갑·한도를 스크롤 없이 보이게 하려면 히어로가 컬럼 안으로 들어와야
+   한다(8/20 리허설). `align-items: start`라 레일은 히어로와 같은 높이에서 시작하고, 레일이
+   더 길어도 왼쪽은 카탈로그로 계속 흐른다. */
+.svc-page { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
 .svc-main { min-width: 0; }
 .svc-rail .svc-wallets-grid { grid-template-columns: 1fr; margin-bottom: 0; }
 .svc-rail .svc-card { margin-bottom: 14px; }
 .svc-rail .svc-trial { margin: 4px 2px 0; font-size: 13px; }
 @media (max-width: 980px) {
+  .svc-page { grid-template-columns: 1fr; }
   .svc-rail .svc-wallets-grid { grid-template-columns: minmax(0, 1fr) minmax(180px, 220px) minmax(0, 1fr); }
 }
 
@@ -725,7 +763,9 @@ body::before {
    스텝퍼가 무대 위에만 있어 드러나지 않던 규칙이다. */
 .svc-shell .step { color: var(--faint); }
 .svc-shell .step.todo .step-dot { background: rgba(255, 255, 255, 0.35); }
-.svc-shell .step.done { color: var(--ok); }
+/* 배경이 카드라 배경을 못 내린다 — 글자를 밝은 민트로 올려 4.62 → 7.45:1. 발표 내내
+   떠 있는 진행 표시라 프로젝터에서 사라지면 손해가 크다. */
+.svc-shell .step.done { color: #c6f8de; }
 .svc-shell .step.cur { color: var(--ink); }
 .svc-shell .step.cur .step-dot { background: var(--acc); box-shadow: 0 0 0 4px rgba(233, 230, 15, 0.28); }
 
