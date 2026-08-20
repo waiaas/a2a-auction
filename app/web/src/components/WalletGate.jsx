@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { discoverWallets, supportsLocalWallet } from '../lib/wallet.js';
+import { subscribeWallets, supportsLocalWallet } from '../lib/wallet.js';
 
 /**
  * 연결 화면.
@@ -12,12 +12,10 @@ export default function WalletGate({ onConnect, busy, error, reconnect = false }
   const [canLocal, setCanLocal] = useState(false);
 
   useEffect(() => {
-    // 익스텐션이 늦게 주입되는 경우가 있어 잠시 뒤 한 번 더 훑는다.
-    const scan = () => setWallets(discoverWallets());
-    scan();
-    const t = setTimeout(scan, 600);
+    // 익스텐션이 아무리 늦게 주입돼도 register-wallet 이벤트로 잡힌다(구독 유지).
+    const unsubscribe = subscribeWallets(setWallets);
     supportsLocalWallet().then(setCanLocal);
-    return () => clearTimeout(t);
+    return unsubscribe;
   }, []);
 
   return (
@@ -47,6 +45,14 @@ export default function WalletGate({ onConnect, busy, error, reconnect = false }
           </button>
         )}
       </div>
+
+      {canLocal && (
+        /* "Live Demo(실제 온체인)" 원칙과 어긋나 보인다는 오해를 차단한다. 임시 지갑도
+           브라우저가 만든 실제 키페어이고 이후 모든 동작이 온체인이다. */
+        <p className="svc-hint">
+          임시 지갑도 <b>실제 온체인 지갑</b>입니다. 키는 이 브라우저에만 저장됩니다.
+        </p>
+      )}
 
       {!wallets.length && !reconnect && (
         <p className="svc-hint">

@@ -21,26 +21,41 @@ const CHAIN = 'solana:devnet';
 // ---- Wallet Standard 발견 ----
 
 /**
- * 등록된 지갑을 모은다.
+ * 등록된 지갑을 구독한다.
  *
  * 프로토콜이 양방향이라 둘 다 필요하다. 이미 로드된 지갑은 우리가 보내는 `app-ready`를 듣고,
- * 나중에 로드되는 지갑은 자기가 `register-wallet`을 보낸다. 한쪽만 처리하면 지갑이 먼저
- * 뜨느냐 페이지가 먼저 뜨느냐에 따라 연결이 되기도 하고 안 되기도 한다.
+ * 나중에 로드되는 지갑은 자기가 `register-wallet`을 보낸다. 이전에는 `register-wallet`
+ * 리스너를 dispatch 직후 바로 떼어 **동기로 응답하는 지갑만** 잡혔다 — 주입이 늦는
+ * 익스텐션(Phantom 실측)이 재스캔으로도 영영 안 잡히던 원인. 리스너를 화면이 떠 있는
+ * 동안 유지하고, 등록이 들어올 때마다 목록을 다시 알린다.
+ *
+ * @param {(wallets: object[]) => void} onChange 지갑 목록이 바뀔 때마다 호출
+ * @returns {() => void} 구독 해제 함수
  */
-export function discoverWallets() {
-  const found = new Map();
+export function subscribeWallets(onChange) {
+  // 객체 단위로 모은다 — 이름 키 Map은 안 된다. Phantom은 Solana용·Sui용 지갑 **두 개를
+  // 같은 이름("Phantom")으로** 등록해서, 이름 키면 나중에 온 Sui용이 Solana용을 덮어쓰고
+  // Sui용은 아래 필터에서 떨어져 버튼이 통째로 사라진다(사용자 브라우저 실측. MetaMask도
+  // Bitcoin용이 Solana용을 덮는 같은 충돌이 있었다). 그래서 **필터를 먼저 통과시킨 뒤**
+  // 이름 중복을 정리한다.
+  const found = new Set();
+  const emit = () => {
+    const eligible = [...found].filter((w) => w.features?.['solana:signMessage'] && w.features?.['standard:connect']);
+    const byName = new Map();
+    for (const w of eligible) if (!byName.has(w.name)) byName.set(w.name, w);
+    onChange([...byName.values()]);
+  };
   const api = {
     register(...wallets) {
-      for (const w of wallets) found.set(w.name, w);
+      for (const w of wallets) found.add(w);
+      emit();
       return () => {};
     },
   };
   const onRegister = (e) => e.detail(api);
   window.addEventListener('wallet-standard:register-wallet', onRegister);
   window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: api }));
-  window.removeEventListener('wallet-standard:register-wallet', onRegister);
-
-  return [...found.values()].filter((w) => w.features?.['solana:signMessage'] && w.features?.['standard:connect']);
+  return () => window.removeEventListener('wallet-standard:register-wallet', onRegister);
 }
 
 /** Wallet Standard 지갑 하나를 연결해 통일 인터페이스로 감싼다. */
