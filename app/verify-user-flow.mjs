@@ -198,6 +198,17 @@ if (second?.ui === 'APPROVAL') {
       rejMsg.message.toLowerCase().includes(`reject:${second.txId}`.toLowerCase()),
       rejMsg.message,
     );
+    // **HTTP로 타지 않는 두 자리는 소스를 읽어 템플릿을 대조한다.** 서버 승인
+    // (purchase-flow.js)과 owner verify(seed.js)는 이 회귀의 요청 경로에 없어서, 문구가
+    // 옛 형식으로 되돌아가도 위 단언만으로는 실패 0건으로 통과한다(8차 감사 ④). 데몬을
+    // dev(#416)로 올리는 날 seed가 시드 시점에 죽는데 그때까지 아무 신호가 없다.
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const flowSrc = fs.readFileSync(path.join(here, 'purchase-flow.js'), 'utf8');
+    const seedSrc = fs.readFileSync(path.join(here, 'seed.js'), 'utf8');
+    expect('서버 승인 문구가 approve:<txId> 템플릿이다 (소스 대조)',
+      flowSrc.includes('`approve:${purchase.txId}:${Date.now()}`'), 'purchase-flow.js');
+    expect('seed verify 문구가 verify:<walletId> 템플릿이다 (소스 대조)',
+      seedSrc.includes('`verify:${client.walletId}:${Date.now()}`'), 'seed.js');
   }
   {
     const other = Keypair.generate();

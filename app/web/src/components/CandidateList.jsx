@@ -30,8 +30,12 @@ export default function CandidateList({ prompt, candidates, priceWeight, onWeigh
           <span className="svc-role">무엇을 중요하게 볼까요</span>
           <span className="svc-sub">가격 {pricePct}% · 품질 {100 - pricePct}%</span>
         </header>
+        {/* range의 value가 가격 비중이라 오른쪽 끝이 가격 100%다. 캡션도 그 방향을 따라야
+            한다 — 좌우를 반대로 달면 "가격 중시" 쪽으로 밀수록 가격 비중이 내려가는 화면이
+            된다(8차 감사가 실측으로 잡았다). 축을 뒤집는 것(100-value)은 "오른쪽 = 증가"라는
+            슬라이더 통념까지 거슬러서 택하지 않았다. */}
         <div className="weight-row">
-          <span className="weight-cap">가격 중시</span>
+          <span className="weight-cap">품질 중시</span>
           <input
             type="range"
             min="0"
@@ -42,7 +46,7 @@ export default function CandidateList({ prompt, candidates, priceWeight, onWeigh
             disabled={busy}
             aria-label="가격과 품질의 가중치"
           />
-          <span className="weight-cap">품질 중시</span>
+          <span className="weight-cap">가격 중시</span>
         </div>
         <p className="svc-note">
           품질에는 <b>샘플 채점</b>과 <b>평점</b>이 함께 들어갑니다. 평점은 지금까지 받은 결과물을
