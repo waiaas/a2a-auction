@@ -16,7 +16,7 @@ export function parseRoute(hash) {
     case 'request': return { page: 'request', param: null };
     case 'tasks': return param ? { page: 'task', param } : { page: 'tasks', param: null };
     case 'result': return param ? { page: 'result', param } : { page: 'home', param: null };
-    case 'receipt': return { page: 'receipt', param: null };
+    case 'receipt': return param ? { page: 'receiptItem', param } : { page: 'receipt', param: null };
     case 'mcp': return { page: 'mcp', param: null };
     default: return { page: 'home', param: null };
   }

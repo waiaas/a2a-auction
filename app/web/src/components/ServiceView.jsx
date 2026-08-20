@@ -294,8 +294,17 @@ export default function ServiceView({ onBack }) {
   const taskCount = round.purchases.length;
 
   // 영수증은 자기 셸(.stage)과 헤더·스테퍼를 이미 갖춘 완성 페이지다 — 그대로 쓴다.
-  if (route.page === 'receipt') {
-    return <PurchaseReceipt onBack={() => navigate('#/tasks')} fetcher={api.fetchReceipt} />;
+  // 상세(`#/receipt/:id`)도 같은 컴포넌트가 맡는다 — 데이터 소스가 하나라 목록에서 이미
+  // 받아 둔 응답을 그대로 쓰고, 돌아가기만 목록으로 향한다.
+  if (route.page === 'receipt' || route.page === 'receiptItem') {
+    const isItem = route.page === 'receiptItem';
+    return (
+      <PurchaseReceipt
+        onBack={() => navigate(isItem ? '#/receipt' : '#/tasks')}
+        fetcher={api.fetchReceipt}
+        requestId={isItem ? route.param : null}
+      />
+    );
   }
 
   const isHome = route.page === 'home';

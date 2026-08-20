@@ -463,8 +463,11 @@ body::before {
 
 .rc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 14px; margin-top: 12px;
   padding-top: 10px; border-top: 1px dashed var(--edge-soft); }
-.rc-grid > div { display: flex; align-items: center; gap: 8px; }
-.rc-grid .k { font-size: 12px; color: var(--faint); min-width: 74px; }
+/* 셀 안에서 값이 넘치지 않게 가둔다. `.tx`가 nowrap이라 긴 값(결과물 hash)이 옆 칸
+   라벨 위로 넘어가 글자가 겹쳤다(8/20 리허설). 라벨은 줄지 않고 값만 줄어들게 한다. */
+.rc-grid > div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rc-grid .k { font-size: 12px; color: var(--faint); min-width: 74px; flex: none; }
+.rc-grid .tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- 서비스 화면 (#me) — 내 지갑 · 내 에이전트 ----
    무대(밝은 배경) 위에 다크 글래스 카드를 얹는 기존 규칙을 그대로 따른다. */
