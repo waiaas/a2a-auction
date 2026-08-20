@@ -11,9 +11,10 @@ import { fmtUsdc } from '../lib/derive.js';
  * 고르는 것은 여전히 에이전트다. 사람이 정하는 것은 기준이고, 그 기준으로 1위가 된 것을
  * 에이전트가 사고 결제까지 진행한다 — 사람이 후보를 클릭해 고르면 자율성 장면이 사라진다.
  */
-export default function CandidateList({ prompt, candidates, priceWeight, onWeight, onSubmit, onOpenSample, onCancel, busy }) {
+export default function CandidateList({ prompt, candidates, prefs, onPrefs, priceWeight, onSubmit, onOpenSample, onCancel, busy }) {
   const pricePct = Math.round(priceWeight * 100);
   const picked = candidates[0];
+  const setPref = (key) => (e) => onPrefs({ ...prefs, [key]: Number(e.target.value) });
 
   return (
     <div className="cand">
@@ -28,25 +29,39 @@ export default function CandidateList({ prompt, candidates, priceWeight, onWeigh
       <section className="svc-card cand-weight">
         <header>
           <span className="svc-role">무엇을 중요하게 볼까요</span>
-          <span className="svc-sub">가격 {pricePct}% · 품질 {100 - pricePct}%</span>
+          <span className="svc-sub">적용 비중: 가격 {pricePct}% · 품질 {100 - pricePct}%</span>
         </header>
-        {/* range의 value가 가격 비중이라 오른쪽 끝이 가격 100%다. 캡션도 그 방향을 따라야
-            한다 — 좌우를 반대로 달면 "가격 중시" 쪽으로 밀수록 가격 비중이 내려가는 화면이
-            된다(8차 감사가 실측으로 잡았다). 축을 뒤집는 것(100-value)은 "오른쪽 = 증가"라는
-            슬라이더 통념까지 거슬러서 택하지 않았다. */}
+        {/* 슬라이더 하나로 가격↔품질을 zero-sum으로 강제하면 "둘 다 중요"를 말할 자리가
+            없다(8/20 피드백). 중요도를 각각 받고 비중은 둘의 비율로 정규화한다 — 채점식
+            (ranking.js)은 상대 비중 w 하나를 쓰므로 서버 계약은 그대로다. 축이 슬라이더마다
+            "중요도 0→100" 하나뿐이라 8차 감사가 잡았던 좌우 캡션 역전이 생길 자리도 없다. */}
         <div className="weight-row">
-          <span className="weight-cap">품질 중시</span>
+          <span className="weight-cap">가격 중요도</span>
           <input
             type="range"
             min="0"
             max="100"
             step="5"
-            value={pricePct}
-            onChange={(e) => onWeight(Number(e.target.value) / 100)}
+            value={prefs.price}
+            onChange={setPref('price')}
             disabled={busy}
-            aria-label="가격과 품질의 가중치"
+            aria-label="가격 중요도"
           />
-          <span className="weight-cap">가격 중시</span>
+          <span className="weight-val tnum">{prefs.price}</span>
+        </div>
+        <div className="weight-row">
+          <span className="weight-cap">품질 중요도</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={prefs.quality}
+            onChange={setPref('quality')}
+            disabled={busy}
+            aria-label="품질 중요도"
+          />
+          <span className="weight-val tnum">{prefs.quality}</span>
         </div>
         <p className="svc-note">
           품질에는 <b>샘플 채점</b>과 <b>평점</b>이 함께 들어갑니다. 평점은 지금까지 받은 결과물을

@@ -46,7 +46,14 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
 
   // 요청을 넣으면 바로 사지 않고 후보를 먼저 보여준다. 그 사이 상태가 여기 머문다.
   const [draft, setDraft] = useState(null);
-  const [priceWeight, setPriceWeight] = useState(DEFAULT_PRICE_WEIGHT);
+  // 가격·품질 중요도 슬라이더 2개. 채점식이 쓰는 가격 비중 w는 둘의 비율로 **여기서 한 번만**
+  // 파생한다 — 화면 랭킹과 전송이 다른 w를 쓰면 "화면 1위 ≠ 실제 구매"가 되고, 회귀는
+  // API만 봐서 그 어긋남을 못 잡는다. 양쪽 0이면 0/0=NaN이라 반반으로 간주한다.
+  const [prefs, setPrefs] = useState({
+    price: Math.round(DEFAULT_PRICE_WEIGHT * 100),
+    quality: Math.round((1 - DEFAULT_PRICE_WEIGHT) * 100),
+  });
+  const priceWeight = prefs.price + prefs.quality === 0 ? 0.5 : prefs.price / (prefs.price + prefs.quality);
   const [sampleOf, setSampleOf] = useState(null);
   const [result, setResult] = useState(null);
 
@@ -343,8 +350,9 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
         <CandidateList
           prompt={draft}
           candidates={candidates}
+          prefs={prefs}
+          onPrefs={setPrefs}
           priceWeight={priceWeight}
-          onWeight={setPriceWeight}
           onSubmit={submitDraft}
           onOpenSample={setSampleOf}
           onCancel={() => setDraft(null)}

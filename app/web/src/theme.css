@@ -594,7 +594,11 @@ body::before {
 .cand-prompt { margin: 4px 0 0; font-size: 17px; font-weight: 800; letter-spacing: -0.01em; color: var(--stage-ink); }
 
 .cand-weight .weight-row { display: flex; align-items: center; gap: 12px; }
+.cand-weight .weight-row + .weight-row { margin-top: 10px; }
+/* 캡션 폭을 고정해 두 슬라이더의 트랙 시작점을 맞춘다. */
+.cand-weight .weight-cap { min-width: 84px; }
 .weight-cap { font-size: 12px; font-weight: 700; color: var(--faint); white-space: nowrap; }
+.weight-val { min-width: 30px; text-align: right; font-size: 13px; font-weight: 800; }
 .weight-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--acc); height: 4px; cursor: pointer; }
 .weight-row input[type="range"]:disabled { cursor: not-allowed; opacity: 0.5; }
 
