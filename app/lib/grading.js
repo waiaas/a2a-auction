@@ -45,19 +45,30 @@ function gradeFn(criteria) {
   };
 }
 
+/** 실질 분량을 재는 조각 크기. 한국어에서 5글자면 "하는 것이다" 정도의 덩어리다. */
+const SHINGLE = 5;
+
 /**
- * 반복과 공백을 걷어낸 실질 분량.
+ * 반복을 걷어낸 실질 분량 — 본문에 등장하는 **서로 다른 5글자 조각의 수**.
  *
  * **글자 수는 시도만으로 부풀릴 수 있다.** 같은 문장을 스무 번 붙이거나 공백을 채우면 분량은
  * 늘지만 다뤄낸 것은 하나도 늘지 않는다(실측: 신호어만 박은 106자를 공백으로 500자까지 늘리자
- * 42점이 80점이 됐다). 그래서 문장 단위로 잘라 중복을 지운 뒤 센다.
+ * 42점이 80점이 됐다).
+ *
+ * 문장 단위로 중복을 지우는 방식을 먼저 썼다가 버렸다. **마침표와 줄바꿈이 없으면 아무리 길어도
+ * "서로 다른 문장 하나"라서** `'가'.repeat(900)` 한 줄이 993자로 세어졌다(82점, 심층 리포트보다
+ * 높다). 문장 안 반복을 정규식으로 누르는 보완책도 반복 주기에 상한이 생겨, 14자 주기로 자모를
+ * 늘어놓으면 1101자가 그대로 통과한다.
+ *
+ * 조각을 세면 주기에 상한이 없다. 주기 p로 반복되는 글은 길이와 무관하게 조각이 약 p개뿐이고,
+ * 실제 글은 조각이 거의 다 달라 글자 수에 가깝게 남는다(실측: deep 샘플 1324 → 1305).
  */
 function substanceOf(text) {
-  const sentences = text
-    .split(/[.!?\n]/)
-    .map((s) => s.replace(/\s+/g, ' ').trim())
-    .filter((s) => s.length > 1);
-  return [...new Set(sentences)].join('').length;
+  const packed = text.replace(/\s+/g, ' ').trim();
+  if (packed.length < SHINGLE) return packed.length;
+  const shingles = new Set();
+  for (let i = 0; i + SHINGLE <= packed.length; i++) shingles.add(packed.slice(i, i + SHINGLE));
+  return shingles.size;
 }
 
 /**
@@ -108,7 +119,7 @@ function gradeBySignals(markdown, criteria) {
       : has(/출처|참고|링크/)
         ? '출처를 언급했으나 개별 항목까지는 밝히지 않았다.'
         : '출처를 밝힌 표현이 없다.',
-    actionable: `제목 ${headings}개, 반복을 뺀 실질 분량 ${substance}자로 구조와 깊이를 봤다.`,
+    actionable: `제목 ${headings}개, 반복을 걷어낸 실질 분량 ${substance}자로 구조와 깊이를 봤다.`,
   };
 
   // **얕은 글은 항목마다 천장을 낮춘다.** 이 채점기의 진짜 구멍은 분량이 아니라 신호어였다 —
