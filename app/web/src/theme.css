@@ -710,13 +710,18 @@ body::before {
 .svc-shell .cta.ghost { color: var(--ink); background: rgba(255, 255, 255, 0.08); border-color: var(--edge); }
 .svc-shell .cta.ghost:hover { background: rgba(255, 255, 255, 0.14); }
 
-/* 2단 그리드 — 왼쪽 제품, 오른쪽 내 설정. 레일 폭이 좁으므로 지갑 3칸은 세로로 쌓는다. */
-.svc-lower { align-items: start; }
+/* 2단 그리드 — 왼쪽 제품(히어로 + 카탈로그), 오른쪽 내 설정. 레일 폭이 좁으므로 지갑 3칸은
+   세로로 쌓는다. 공용 `.lower`를 쓰지 않고 따로 두는 이유는 이 그리드가 **히어로까지**
+   감싸기 때문이다 — 지갑·한도를 스크롤 없이 보이게 하려면 히어로가 컬럼 안으로 들어와야
+   한다(8/20 리허설). `align-items: start`라 레일은 히어로와 같은 높이에서 시작하고, 레일이
+   더 길어도 왼쪽은 카탈로그로 계속 흐른다. */
+.svc-page { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
 .svc-main { min-width: 0; }
 .svc-rail .svc-wallets-grid { grid-template-columns: 1fr; margin-bottom: 0; }
 .svc-rail .svc-card { margin-bottom: 14px; }
 .svc-rail .svc-trial { margin: 4px 2px 0; font-size: 13px; }
 @media (max-width: 980px) {
+  .svc-page { grid-template-columns: 1fr; }
   .svc-rail .svc-wallets-grid { grid-template-columns: minmax(0, 1fr) minmax(180px, 220px) minmax(0, 1fr); }
 }
 
