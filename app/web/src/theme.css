@@ -731,6 +731,9 @@ body::before {
 
 /* 여백 — 8/3 히어로는 요소 사이가 넉넉했다. 상태·제목·부제가 붙어 있으면 정보가 뭉쳐 보인다. */
 .svc-shell { padding: clamp(26px, 2vw, 44px) clamp(26px, 2.2vw, 52px) clamp(28px, 2.1vw, 48px); }
+/* 서브페이지 슬림 헤더 — 같은 셸을 얇게. 네비와 스테퍼만 남아 본문이 주인공이 된다. */
+.svc-shell-slim { padding: 16px clamp(26px, 2.2vw, 52px) 18px; }
+.svc-shell-slim .stepper { margin: 18px 0 0; }
 .svc-shell .status { margin-bottom: 18px; }
 .svc-shell .title { line-height: 1.14; }
 .svc-shell .subid { margin-top: 18px; }
@@ -747,8 +750,13 @@ body::before {
 .svc-request-hero textarea::placeholder { color: var(--faint); }
 
 /* 끝난 일은 한 줄로 접는다(결정 ⑯). 헤더가 토글이라 커서와 hover를 준다. */
-.buy-h { cursor: pointer; }
-.buy-h:hover .buy-caret { color: var(--ink); }
+/* 요약 행(목록 페이지) — 행 전체가 상세(`#/tasks/:id`)로 가는 링크다. */
+.buy-row { cursor: pointer; }
+.buy-row:hover { border-color: var(--edge); background: rgba(34, 35, 41, 0.8); }
+.buy-row:hover .buy-caret { color: var(--ink); }
+.buy-row:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.buy-row .buy-h { align-items: center; }
+.buy-row .buy-caret { font-size: 17px; }
 .buy-caret { color: var(--faint); font-size: 13.5px; margin-left: 4px; flex: none; }
 .buy-mini { font-size: 13.5px; font-weight: 700; color: var(--dim); white-space: nowrap; }
 .buy-fold { padding-bottom: 12px; }

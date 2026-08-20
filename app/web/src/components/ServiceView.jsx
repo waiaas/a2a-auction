@@ -7,12 +7,16 @@ import PolicyCard from './PolicyCard.jsx';
 import McpCard from './McpCard.jsx';
 import RequestBox from './RequestBox.jsx';
 import PurchaseList from './PurchaseList.jsx';
+import TaskDetail from './TaskDetail.jsx';
+import PurchaseReceipt from './PurchaseReceipt.jsx';
+import ServiceNav from './ServiceNav.jsx';
 import CandidateList from './CandidateList.jsx';
 import AgentCard from './AgentCard.jsx';
 import SampleModal from './SampleModal.jsx';
 import ResultView from './ResultView.jsx';
 import Stepper from './Stepper.jsx';
 import { connectStandard, connectLocal } from '../lib/wallet.js';
+import { useHashRoute, navigate, parseRoute } from '../lib/router.js';
 import * as api from '../lib/user-api.js';
 import { ClusterContext } from '../lib/explorer.js';
 import { rankCandidates, DEFAULT_PRICE_WEIGHT } from '../../../lib/ranking.js';
@@ -24,19 +28,19 @@ import { rankCandidates, DEFAULT_PRICE_WEIGHT } from '../../../lib/ranking.js';
  * 건너뛰면 뒤가 왜 그렇게 되는지 알 수 없으므로, 각 카드가 다음에 무엇을 해야 하는지
  * 스스로 말하게 했다.
  *
- * 요청 이후는 한 화면에 쌓지 않고 단계로 나눈다(8/19 퀵싱크). 전 과정을 한 페이지에 늘어
- * 놓으면 지금 무엇이 일어나는지 설명할 수 없다는 지적을 받았고, 라우팅 대신 단계 표시로
- * 같은 효과를 낸다 — 새로고침이나 뒤로가기로 진행 중인 구매가 끊기지 않는다.
+ * 요청 이후는 해시 페이지(`#/request`·`#/tasks`·`#/result`…)로 나눈다(8/20 피드백 —
+ * "한 화면 갈아끼우기는 서비스 같지 않다"). 라우터 없이 이 컴포넌트가 마운트된 채 본문만
+ * 바꾸므로 지갑 ref·폴링·draft가 페이지 전환에서 살아남는다 — 라우팅을 피했던 이유
+ * (새로고침·뒤로가기로 진행 중 구매가 끊기는 위험)를 지키면서 URL 이동을 얻는다.
  *
  * 지갑 객체는 상태가 아니라 ref에 둔다. 서명 함수는 렌더와 무관하고, 상태로 두면 서명 도중
  * 리렌더가 일어날 때 오래된 지갑 참조를 잡을 수 있다.
  */
-export default function ServiceView({ onBack, onOpenReceipt }) {
+export default function ServiceView({ onBack }) {
   const wallet = useRef(null);
+  const route = useHashRoute();
   const [connected, setConnected] = useState(() => Boolean(api.savedToken()));
   const [me, setMe] = useState(null);
-  // MCP 설정은 한 번 붙이면 끝나는 일이라 기본은 접어 둔다(상단바 버튼으로 편다).
-  const [mcpOpen, setMcpOpen] = useState(false);
   const [round, setRound] = useState({ purchases: [], phase: 'idle', running: false });
   const [catalog, setCatalog] = useState([]);
   const [criteria, setCriteria] = useState([]);
@@ -98,6 +102,28 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
     const id = setInterval(tick, 1500);
     return () => { alive = false; clearInterval(id); };
   }, [connected, refreshMe]);
+
+  // ---- 라우트 가드 ----
+  // 후보 페이지는 draft가 있어야 성립한다(새로고침이면 날아간다). route state는 hashchange를
+  // 기다려 한 박자 늦으므로, 맡기기 직후처럼 해시가 이미 다른 곳을 가리키는 순간에
+  // 끼어들지 않게 실제 해시를 다시 확인한다.
+  useEffect(() => {
+    if (connected && route.page === 'request' && !draft && parseRoute(window.location.hash).page === 'request') {
+      navigate('#/');
+    }
+  }, [connected, route.page, draft]);
+
+  // 결과물 페이지는 URL의 id가 진실이다 — 새로고침해도 여기서 다시 불러온다.
+  useEffect(() => {
+    if (!connected || route.page !== 'result' || !route.param) return;
+    if (result?.requestId === route.param) return;
+    run(() => api.fetchResult(route.param).then((out) => { setResult(out); return out; }));
+  }, [connected, route.page, route.param, result, run]);
+
+  // 결과물 화면을 떠나면 비운다. 남겨 두면 스테퍼가 "결과물" 단계를 계속 가리킨다.
+  useEffect(() => {
+    if (route.page !== 'result' && result) setResult(null);
+  }, [route.page, result]);
 
   /** 공통 실행 래퍼. 오류를 화면 한 곳에 모은다 — 실패가 조용히 사라지면 사용자가 멈춘다. */
   const run = useCallback(async (fn, successNote) => {
@@ -172,21 +198,23 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
     setError(null);
     setNotice(null);
     setDraft(prompt);
+    navigate('#/request');
   }, []);
 
   const submitDraft = useCallback((weight) => run(async () => {
     const out = await api.submitRequest(draft, weight);
     setDraft(null);
+    // 맡긴 건의 상세로 바로 이동한다 — 목록에서 찾는 클릭 하나를 없앤다.
+    if (out?.requestId) navigate(`#/tasks/${out.requestId}`);
     return out;
   }, '에이전트가 진행합니다. 한도를 넘으면 승인을 요청합니다.'), [run, draft]);
 
   const settle = useCallback(() => run(() => api.settleRound()), [run]);
 
-  const openResult = useCallback((purchase) => run(async () => {
-    const out = await api.fetchResult(purchase.requestId);
-    setResult(out);
-    return out;
-  }), [run]);
+  // 실제 fetch는 라우트 가드 effect가 URL을 보고 한다 — 새로고침과 직접 진입이 같은 경로를 탄다.
+  const openResult = useCallback((purchase) => {
+    navigate(`#/result/${purchase.requestId}`);
+  }, []);
 
   /** 승인·거부 모두 지갑 서명이 필요하다. 서버는 서명을 중계만 한다. */
   const ownerAction = useCallback((purchase, action) => run(async () => {
@@ -263,19 +291,14 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
 
   const running = busy || round.running;
   const step = currentStep({ draft, purchases: round.purchases, result });
+  const taskCount = round.purchases.length;
 
-  if (result) {
-    return (
-      <ClusterContext.Provider value={round.network || 'devnet'}>
-        <div className="stage">
-          {/* `currentStep`이 준 값을 쓴다. 'result'로 고정하면 결과물을 보는 동안 다른 건의
-              승인 대기가 가려지고, 그 판단을 하라고 만든 `currentStep`의 분기도 죽는다. */}
-          <Stepper current={step} />
-          <ResultView result={result} onBack={() => setResult(null)} onOpenReceipt={onOpenReceipt} />
-        </div>
-      </ClusterContext.Provider>
-    );
+  // 영수증은 자기 셸(.stage)과 헤더·스테퍼를 이미 갖춘 완성 페이지다 — 그대로 쓴다.
+  if (route.page === 'receipt') {
+    return <PurchaseReceipt onBack={() => navigate('#/tasks')} fetcher={api.fetchReceipt} />;
   }
+
+  const isHome = route.page === 'home';
 
   return (
     <ClusterContext.Provider value={round.network || 'devnet'}>
@@ -283,23 +306,9 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
       {/* **8/3 제출본의 히어로 셸을 그대로 쓴다.** 카드만 쌓으면 제품이 아니라 콘솔로 읽힌다 —
           네비바·대형 타이틀·스펙 타일이 "서비스"의 뼈대였고, 그 CSS가 레포에 그대로 있다
           (결정 ㉑로 구 화면을 지우지 않은 덕이다). */}
+      {isHome ? (
       <div className="hero glass svc-shell">
-        <div className="bar">
-          <span className="logo">A2A<b>House</b></span>
-          <nav className="nav">
-            <span className="on">내 에이전트</span>
-            <span className="navbtn" role="button" tabIndex={0}
-              onClick={() => setMcpOpen((v) => !v)}
-              onKeyDown={(e) => e.key === 'Enter' && setMcpOpen((v) => !v)}>MCP 연결</span>
-            {round.purchases.length > 0 && (
-              <span className="navbtn" role="button" tabIndex={0}
-                onClick={onOpenReceipt}
-                onKeyDown={(e) => e.key === 'Enter' && onOpenReceipt?.()}>영수증</span>
-            )}
-          </nav>
-          <span className="sp" />
-          <button className="connect" onClick={disconnect}>연결 해제</button>
-        </div>
+        <ServiceNav page="home" taskCount={taskCount} onDisconnect={disconnect} />
 
         <div className="svc-htop">
           <div>
@@ -334,6 +343,13 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
           <Spec ic="globe" l="네트워크" v={round.network || 'devnet'} />
         </div>
       </div>
+      ) : (
+      /* 서브페이지 헤더: 같은 셸을 얇게 쓴다 — 페이지가 바뀌어도 같은 제품으로 보여야 한다. */
+      <div className="hero glass svc-shell svc-shell-slim">
+        <ServiceNav page={route.page} taskCount={taskCount} onDisconnect={disconnect} />
+        <Stepper current={step} />
+      </div>
+      )}
 
       {needsWallet && (
         <div className="svc-reattach">
@@ -346,7 +362,7 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
       {error && <div className="errbar">{error}</div>}
       {round.error && <div className="errbar">{round.error}</div>}
 
-      {draft ? (
+      {route.page === 'request' && draft && (
         <CandidateList
           prompt={draft}
           candidates={candidates}
@@ -355,17 +371,55 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
           priceWeight={priceWeight}
           onSubmit={submitDraft}
           onOpenSample={setSampleOf}
-          onCancel={() => setDraft(null)}
+          onCancel={() => { setDraft(null); navigate('#/'); }}
           busy={running}
         />
-      ) : (
+      )}
+
+      {route.page === 'tasks' && (
+        <PurchaseList
+          purchases={round.purchases}
+          busy={running}
+          onSettle={settle}
+          x402Enabled={round.x402Enabled}
+        />
+      )}
+
+      {route.page === 'task' && (
+        <TaskDetail
+          p={round.purchases.find((x) => x.requestId === route.param)}
+          busy={running}
+          running={running}
+          onApprove={(p) => ownerAction(p, 'approve')}
+          onCancel={(p) => ownerAction(p, 'reject')}
+          onSettle={settle}
+          onOpenResult={openResult}
+          x402Enabled={round.x402Enabled}
+        />
+      )}
+
+      {route.page === 'result' && (
+        result && result.requestId === route.param ? (
+          <ResultView
+            result={result}
+            onBack={() => navigate(`#/tasks/${route.param}`)}
+            onOpenReceipt={() => navigate('#/receipt')}
+          />
+        ) : (
+          <p className="svc-empty">결과물을 불러오는 중입니다…</p>
+        )
+      )}
+
+      {route.page === 'mcp' && <McpCard agentAddress={me?.agentAddress} />}
+
+      {isHome && (
         <>
           {/* **와이어프레임 01의 부제가 "카탈로그와 요청 입력을 한 화면에"다.** 무엇을 시킬지가
-              맨 위에 오고, 지갑·한도·MCP 설정은 그 뒤다. 설정 UI를 앞에 두면 제품보다 콘솔이
+              맨 위에 오고, 지갑·한도 설정은 그 뒤다. 설정 UI를 앞에 두면 제품보다 콘솔이
               먼저 보인다 — 실제로 그렇게 만들었다가 되돌린 자리다. */}
-          {/* **8/3의 2단 그리드(`.lower`)를 그대로 쓴다.** 왼쪽은 제품(무엇을 시키고 무엇을
-              맡겼나), 오른쪽 레일은 내 설정(지갑·한도)이다. 한 단으로 흘리면 설정 카드가
-              맡긴 일 사이에 끼어 어디까지가 "일"인지 흐려진다. */}
+          {/* **8/3의 2단 그리드(`.lower`)를 그대로 쓴다.** 왼쪽은 제품(무엇을 살 수 있나),
+              오른쪽 레일은 내 설정(지갑·한도)이다. 맡긴 일과 MCP는 각자 페이지(`#/tasks`,
+              `#/mcp`)로 나갔다 — 홈 한 화면에 전부 쌓는 것이 콘솔 인상의 원인이었다(8/20). */}
           <div className="lower svc-lower">
             <div className="svc-main">
               {/* 무엇을 살 수 있는지 보여야 무엇을 시킬지 정할 수 있다. 셀러 등록 화면은
@@ -383,23 +437,6 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
                   </div>
                 </section>
               )}
-
-              {/* 정식 경로가 MCP라는 것은 상단 네비와 이 카드의 문구가 말한다. 접어 두는 것은
-                  중요도를 낮추는 게 아니라, 설정이 제품 앞을 막지 않게 하는 것이다. */}
-              {mcpOpen && <McpCard agentAddress={me?.agentAddress} />}
-
-              {/* 맡긴 일은 본문에 남긴다. 승인 버튼과 결과물 열람이 여기 있어서, 320px 레일로
-                  보내면 데모의 핵심 조작이 좁은 칸에 갇힌다. */}
-              <PurchaseList
-                purchases={round.purchases}
-                busy={running}
-                running={running}
-                onApprove={(p) => ownerAction(p, 'approve')}
-                onCancel={(p) => ownerAction(p, 'reject')}
-                onSettle={settle}
-                onOpenResult={openResult}
-                x402Enabled={round.x402Enabled}
-              />
             </div>
 
             <aside className="rail svc-rail">
