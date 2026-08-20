@@ -467,9 +467,14 @@ export function createUserApi() {
     const action = req.query.action === 'reject' ? 'reject' : 'approve';
     res.json({
       action,
+      // **`approve:<txId>` 토큰이 문구 안에 있어야 한다.** 데몬이 이 토큰으로 서명을 건에
+      // 묶는다(WAIaaS #416, `owner-auth.ts`의 `boundToken`). 없으면 INVALID_SIGNATURE다.
+      // 없던 시절에는 승인 서명 하나를 같은 지갑의 다른 건이나 거부 경로에 돌려쓸 수 있었다 —
+      // A2AHouse를 만들다 발견해 데몬에 올린 수정이라, 여기가 안 따르면 앞뒤가 맞지 않는다.
+      // 토큰은 `tx: `를 대체할 뿐이라 사람이 지갑 팝업에서 대조할 내용은 그대로다.
       message:
-        `${ACTION_HEADING[action]} | amount: ${purchase.amountUsdc} USDC` +
-        ` | tx: ${purchase.txId} | time: ${new Date().toISOString()}`,
+        `${ACTION_HEADING[action]} | ${action}:${purchase.txId}` +
+        ` | amount: ${purchase.amountUsdc} USDC | time: ${new Date().toISOString()}`,
       // 화면이 사람에게 보여줄 설명. 서명 원문과 다른 층이다.
       summary: `${purchase.listing.title} · ${purchase.amountUsdc} USDC`,
     });

@@ -500,8 +500,10 @@ export async function approvePurchase(state, deps, requestId, ownerSig = null) {
   } else {
     const kp = loadOwnerKeypair();
     ownerAddress = kp.publicKey.toBase58();
-    // 승인 메시지는 즉시 소비되고 재현이 필요 없다. tx를 특정하고 유일성만 확보한다.
-    message = `approve-tx:${purchase.txId}:${Date.now()}`;
+    // 승인 메시지는 즉시 소비되고 재현이 필요 없다. 유일성은 타임스탬프가 맡고,
+    // 앞의 `approve:<txId>`는 데몬이 서명을 이 건에 묶는 토큰이다(WAIaaS #416).
+    // `approve-tx:`가 아니라 `approve:`여야 한다 — 데몬은 부분 문자열로 찾는다.
+    message = `approve:${purchase.txId}:${Date.now()}`;
     signature = signEd25519(kp.secretKey, message).toString('base64');
   }
 

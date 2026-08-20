@@ -183,6 +183,23 @@ if (second?.ui === 'APPROVAL') {
   log('[8] 지갑 서명 승인·거부');
   const { json: msg } = await call('GET', `/purchase/approve-message/${second.requestId}`);
   {
+    // **데몬이 서명을 이 건에 묶는 토큰이 문구 안에 있는가**(WAIaaS #416의 `boundToken`).
+    // 지금 도는 이미지(ownerfix)는 이 토큰을 검사하지 않아, 문구가 되돌아가도 승인은 그대로
+    // 통과한다. 그러면 데몬을 dev로 올린 날 승인 전체가 INVALID_SIGNATURE로 죽는데 그때까지
+    // 아무 신호도 없다. 데몬이 못 잡는 동안 회귀가 대신 잡는다.
+    const { json: rejMsg } = await call('GET', `/purchase/approve-message/${second.requestId}?action=reject`);
+    expect(
+      '승인 문구에 approve:<txId> 토큰이 있다',
+      msg.message.toLowerCase().includes(`approve:${second.txId}`.toLowerCase()),
+      msg.message,
+    );
+    expect(
+      '거부 문구에 reject:<txId> 토큰이 있다',
+      rejMsg.message.toLowerCase().includes(`reject:${second.txId}`.toLowerCase()),
+      rejMsg.message,
+    );
+  }
+  {
     const other = Keypair.generate();
     const badSig = signEd25519(other.secretKey, msg.message).toString('base64');
     const r = await call('POST', `/purchase/approve/${second.requestId}`, { message: msg.message, signature: badSig }, { allowFail: true });
