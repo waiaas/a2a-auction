@@ -35,12 +35,12 @@
       "sample": {
         "file": "sample-quick-scan.md",
         "title": "스테이블코인 결제 시장 스냅샷",
-        "score": 47,
+        "score": 37,
         "breakdown": [
           {
             "id": "evidence",
-            "score": 17,
-            "note": "수치 표현 8개, 표 6행을 셌다."
+            "score": 10,
+            "note": "수치 표현 8개, 표 6행을 셌다. 분량이 321자뿐이라 상한을 걸었다."
           },
           {
             "id": "scenario",
@@ -54,8 +54,8 @@
           },
           {
             "id": "source",
-            "score": 13,
-            "note": "출처를 언급했으나 개별 항목까지는 밝히지 않았다."
+            "score": 10,
+            "note": "출처를 언급했으나 개별 항목까지는 밝히지 않았다. 분량이 321자뿐이라 상한을 걸었다."
           },
           {
             "id": "actionable",
@@ -63,7 +63,7 @@
             "note": "제목 4개, 분량 321자로 구조와 깊이를 봤다."
           }
         ],
-        "scoredAt": "2026-08-19T23:25:11.486Z",
+        "scoredAt": "2026-08-20T00:10:49.593Z",
         "source": "signals"
       },
       "recentScores": [
@@ -135,7 +135,7 @@
             "note": "제목 6개, 분량 779자로 구조와 깊이를 봤다."
           }
         ],
-        "scoredAt": "2026-08-19T23:25:11.486Z",
+        "scoredAt": "2026-08-20T00:10:49.593Z",
         "source": "signals"
       },
       "recentScores": [
@@ -208,7 +208,7 @@
             "note": "제목 8개, 분량 1429자로 구조와 깊이를 봤다."
           }
         ],
-        "scoredAt": "2026-08-19T23:25:11.486Z",
+        "scoredAt": "2026-08-20T00:10:49.593Z",
         "source": "signals"
       },
       "recentScores": [

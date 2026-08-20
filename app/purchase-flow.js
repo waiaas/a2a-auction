@@ -420,7 +420,9 @@ export async function purchaseFromRequest(state, deps, req) {
     need: request.need,
     task: request.prompt,
     size: listing.depth,
-    decision: { reason, rejected, source, priceWeight: ranked ? weight : null },
+    // 빈 배열은 truthy라 `ranked ?`로 두면 가중치 경로를 타지 않았는데도 값이 기록된다.
+    // 실제로 순위를 매긴 경우만 남긴다 — 위 선택 분기와 같은 조건이어야 한다.
+    decision: { reason, rejected, source, priceWeight: ranked?.length ? weight : null },
   });
   pushLog(state, `선택 ${request.id} → ${listing.id} (${listing.priceUsdc} USDC, ${source})`);
   return runOnePurchase(state, deps, purchase);

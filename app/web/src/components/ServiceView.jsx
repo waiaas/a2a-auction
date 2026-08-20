@@ -219,7 +219,9 @@ export default function ServiceView({ onBack, onOpenReceipt }) {
     return (
       <ClusterContext.Provider value={round.network || 'devnet'}>
         <div className="stage">
-          <Stepper current="result" />
+          {/* `currentStep`이 준 값을 쓴다. 'result'로 고정하면 결과물을 보는 동안 다른 건의
+              승인 대기가 가려지고, 그 판단을 하라고 만든 `currentStep`의 분기도 죽는다. */}
+          <Stepper current={step} />
           <ResultView result={result} onBack={() => setResult(null)} onOpenReceipt={onOpenReceipt} />
         </div>
       </ClusterContext.Provider>

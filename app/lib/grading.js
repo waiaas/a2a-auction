@@ -96,11 +96,19 @@ function gradeBySignals(markdown, criteria) {
     actionable: `제목 ${headings}개, 분량 ${chars}자로 구조와 깊이를 봤다.`,
   };
 
-  return criteria.items.map((c) => ({
-    id: c.id,
-    score: Math.max(1, Math.round((signal[c.id] ?? 0.5) * c.max)),
-    note: note[c.id] ?? null,
-  }));
+  // **분량이 절대적으로 부족하면 개별 신호가 아무리 많아도 상한을 건다.** 이 채점기의 가장
+  // 큰 구멍은 신호어만 박아 넣은 짧은 문서가 심층 리포트와 비슷한 점수를 받는 것이다. 신호는
+  // "그 항목을 다루려는 시도"를 잴 뿐 다뤄냈는지는 재지 못하는데, 분량은 시도만으로는 만들
+  // 수 없다. 그래서 항목별 신호가 아니라 전체에 거는 뚜껑으로 쓴다.
+  const SHORT_DOC_CHARS = 500;
+  const isTooShort = chars < SHORT_DOC_CHARS;
+
+  return criteria.items.map((c) => {
+    const raw = Math.max(1, Math.round((signal[c.id] ?? 0.5) * c.max));
+    const capped = isTooShort ? Math.min(raw, Math.floor(c.max / 2)) : raw;
+    const capNote = isTooShort && capped < raw ? ` 분량이 ${chars}자뿐이라 상한을 걸었다.` : '';
+    return { id: c.id, score: capped, note: (note[c.id] ?? '') + capNote || null };
+  });
 }
 
 /**
