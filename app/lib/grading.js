@@ -46,6 +46,21 @@ function gradeFn(criteria) {
 }
 
 /**
+ * 반복과 공백을 걷어낸 실질 분량.
+ *
+ * **글자 수는 시도만으로 부풀릴 수 있다.** 같은 문장을 스무 번 붙이거나 공백을 채우면 분량은
+ * 늘지만 다뤄낸 것은 하나도 늘지 않는다(실측: 신호어만 박은 106자를 공백으로 500자까지 늘리자
+ * 42점이 80점이 됐다). 그래서 문장 단위로 잘라 중복을 지운 뒤 센다.
+ */
+function substanceOf(text) {
+  const sentences = text
+    .split(/[.!?\n]/)
+    .map((s) => s.replace(/\s+/g, ' ').trim())
+    .filter((s) => s.length > 1);
+  return [...new Set(sentences)].join('').length;
+}
+
+/**
  * 라이브가 못 돌 때의 채점. 본문에서 각 항목의 신호를 세어 매긴다.
  *
  * 신호는 그 항목이 실제로 요구하는 것에 맞춘다 — 예를 들어 '리스크 명시'는 분량이 아니라
@@ -53,7 +68,7 @@ function gradeFn(criteria) {
  */
 function gradeBySignals(markdown, criteria) {
   const text = markdown || '';
-  const chars = text.length;
+  const substance = substanceOf(text);
   const numbers = (text.match(/\d[\d,.]*\s*(%|배|건|억|만|달러|USDC)/g) ?? []).length;
   const tableRows = (text.match(/^\s*\|.*\|\s*$/gm) ?? []).length;
   const headings = (text.match(/^#{1,3}\s/gm) ?? []).length;
@@ -70,7 +85,7 @@ function gradeBySignals(markdown, criteria) {
     // 출처를 따라갈 수 있는가.
     source: has(/출처|참고|부록|링크|1차 소스|블록 범위/) ? (has(/부록|1차 소스|블록 범위/) ? 1 : 0.65) : 0.3,
     // 읽고 나서 무엇을 할지 정할 수 있는가. 구조가 잡혀 있고 분량이 받쳐야 한다.
-    actionable: Math.min(1, (headings / 6) * 0.5 + Math.min(1, chars / 2500) * 0.5),
+    actionable: Math.min(1, (headings / 6) * 0.5 + Math.min(1, substance / 2500) * 0.5),
   };
 
   // **무엇을 보고 이 점수가 됐는지 그대로 적는다.** 근거 없는 점수는 화면에서 "정규식이
@@ -93,20 +108,27 @@ function gradeBySignals(markdown, criteria) {
       : has(/출처|참고|링크/)
         ? '출처를 언급했으나 개별 항목까지는 밝히지 않았다.'
         : '출처를 밝힌 표현이 없다.',
-    actionable: `제목 ${headings}개, 분량 ${chars}자로 구조와 깊이를 봤다.`,
+    actionable: `제목 ${headings}개, 반복을 뺀 실질 분량 ${substance}자로 구조와 깊이를 봤다.`,
   };
 
-  // **분량이 절대적으로 부족하면 개별 신호가 아무리 많아도 상한을 건다.** 이 채점기의 가장
-  // 큰 구멍은 신호어만 박아 넣은 짧은 문서가 심층 리포트와 비슷한 점수를 받는 것이다. 신호는
-  // "그 항목을 다루려는 시도"를 잴 뿐 다뤄냈는지는 재지 못하는데, 분량은 시도만으로는 만들
-  // 수 없다. 그래서 항목별 신호가 아니라 전체에 거는 뚜껑으로 쓴다.
-  const SHORT_DOC_CHARS = 500;
-  const isTooShort = chars < SHORT_DOC_CHARS;
+  // **얕은 글은 항목마다 천장을 낮춘다.** 이 채점기의 진짜 구멍은 분량이 아니라 신호어였다 —
+  // '시나리오·틀릴 조건·부록' 세 단어만 박으면 106자짜리도 세 항목에서 만점을 가져간다(실측
+  // 78점으로, 1839자 심층 리포트의 75점보다 높았다). 신호는 "그 항목을 다루려는 시도"만 잴 뿐
+  // 다뤄냈는지는 재지 못하므로, 실질 분량에 비례하는 천장을 항목마다 씌워 "짧은 글이 다섯
+  // 기준을 모두 충족했다"는 주장을 막는다.
+  //
+  // 곱셈이 아니라 천장인 이유: 분량이 받쳐주는 글은 깎을 이유가 없다. 총점에 계수를 곱하면
+  // 실제 샘플까지 함께 내려가고(실측: brief 57 → 30) 정작 분량만 늘린 글은 안 걸린다.
+  const DEPTH_FULL_CHARS = 900;
+  const depth = Math.min(1, substance / DEPTH_FULL_CHARS);
 
   return criteria.items.map((c) => {
     const raw = Math.max(1, Math.round((signal[c.id] ?? 0.5) * c.max));
-    const capped = isTooShort ? Math.min(raw, Math.floor(c.max / 2)) : raw;
-    const capNote = isTooShort && capped < raw ? ` 분량이 ${chars}자뿐이라 상한을 걸었다.` : '';
+    const ceiling = Math.max(1, Math.round(depth * c.max));
+    const capped = Math.min(raw, ceiling);
+    // 실질 분량 숫자는 actionable 근거가 이미 들고 있다. 다섯 줄이 한 표에 나란히 서므로
+    // 항목마다 같은 숫자를 반복하면 표가 지저분해진다.
+    const capNote = capped < raw ? ` 실질 분량이 짧아 ${ceiling}점이 상한이다.` : '';
     return { id: c.id, score: capped, note: (note[c.id] ?? '') + capNote || null };
   });
 }
