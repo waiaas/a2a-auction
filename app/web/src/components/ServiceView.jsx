@@ -103,7 +103,26 @@ export default function ServiceView({ onBack }) {
     return () => { alive = false; clearInterval(id); };
   }, [connected, refreshMe]);
 
-  // ---- 라우트 가드 ----
+  /** 공통 실행 래퍼. 오류를 화면 한 곳에 모은다 — 실패가 조용히 사라지면 사용자가 멈춘다. */
+  const run = useCallback(async (fn, successNote) => {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const out = await fn();
+      if (successNote) setNotice(typeof successNote === 'function' ? successNote(out) : successNote);
+      return out;
+    } catch (e) {
+      setError(e.message);
+      // 다시 던지지 않는다. 오류는 이미 화면에 실렸고 호출부는 전부 onClick 핸들러라
+      // 받아 주는 곳이 없다 — 던지면 미처리 rejection이 콘솔에 그대로 남는다.
+      return undefined;
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  // ---- 라우트 가드 ---- (`run` 선언 뒤에 있어야 한다 — deps 배열이 TDZ에 걸린다)
   // 후보 페이지는 draft가 있어야 성립한다(새로고침이면 날아간다). route state는 hashchange를
   // 기다려 한 박자 늦으므로, 맡기기 직후처럼 해시가 이미 다른 곳을 가리키는 순간에
   // 끼어들지 않게 실제 해시를 다시 확인한다.
@@ -124,25 +143,6 @@ export default function ServiceView({ onBack }) {
   useEffect(() => {
     if (route.page !== 'result' && result) setResult(null);
   }, [route.page, result]);
-
-  /** 공통 실행 래퍼. 오류를 화면 한 곳에 모은다 — 실패가 조용히 사라지면 사용자가 멈춘다. */
-  const run = useCallback(async (fn, successNote) => {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const out = await fn();
-      if (successNote) setNotice(typeof successNote === 'function' ? successNote(out) : successNote);
-      return out;
-    } catch (e) {
-      setError(e.message);
-      // 다시 던지지 않는다. 오류는 이미 화면에 실렸고 호출부는 전부 onClick 핸들러라
-      // 받아 주는 곳이 없다 — 던지면 미처리 rejection이 콘솔에 그대로 남는다.
-      return undefined;
-    } finally {
-      setBusy(false);
-    }
-  }, []);
 
   // ---- 연결 ----
   const connect = useCallback(async (choice) => {

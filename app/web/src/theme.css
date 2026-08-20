@@ -745,7 +745,8 @@ body::before {
 
 /* 히어로 안의 요청 입력창 — 카드 껍데기 없이 히어로 배경 위에 바로 놓는다. */
 .svc-request-hero { margin: 30px 0 0; padding: 0; border: none; background: none; }
-.svc-request-hero header { margin-bottom: 10px; }
+/* .svc-card를 벗으면서 헤더 flex도 사라져 제목과 부제가 붙어 보였다 — 배치만 복원한다. */
+.svc-request-hero header { margin-bottom: 10px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
 .svc-request-hero textarea { background: rgba(255, 255, 255, 0.06); border-color: var(--edge); color: var(--ink); }
 .svc-request-hero textarea::placeholder { color: var(--faint); }
 
