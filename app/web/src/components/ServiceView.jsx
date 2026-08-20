@@ -290,7 +290,7 @@ export default function ServiceView({ onBack }) {
   }
 
   const running = busy || round.running;
-  const step = currentStep({ draft, purchases: round.purchases, result });
+  const step = currentStep({ draft, purchases: round.purchases, result, page: route.page });
   const taskCount = round.purchases.length;
 
   // 영수증은 자기 셸(.stage)과 헤더·스테퍼를 이미 갖춘 완성 페이지다 — 그대로 쓴다.
@@ -475,7 +475,14 @@ export default function ServiceView({ onBack }) {
  * 지금 어느 단계인가. 스테퍼는 진행 상태를 읽어 표시할 뿐이므로 별도 상태를 두지 않는다 —
  * 화면 상태와 실제 진행이 어긋나면 스테퍼가 거짓말을 하게 된다.
  */
-function currentStep({ draft, purchases, result }) {
+function currentStep({ draft, purchases, result, page }) {
+  // **보고 있는 페이지가 곧 단계다.** 진행 상태만으로 계산하면, 결과물을 열어 둔 채로도
+  // draft가 남아 있어 "공급자 선택"이 켜진다 — 화면이 자기 위치를 잘못 말한다(8/21 리허설).
+  // 그래서 그 페이지에 있다는 사실이 가장 확실한 신호일 때는 그것을 먼저 쓴다.
+  if (page === 'result') return 'result';
+  if (page === 'receipt' || page === 'receiptItem') return 'receipt';
+  if (page === 'request') return 'choose';
+
   if (draft) return 'choose';
   if (!purchases.length) return 'request';
 
