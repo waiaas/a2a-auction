@@ -356,6 +356,11 @@ body::before {
 .stage { margin: 0 auto; padding: 4px 0 60px; }
 .stage .cta.ghost { color: var(--stage-ink); background: rgba(22, 23, 27, 0.08); border-color: var(--stage-edge); }
 .stage .cta.ghost:disabled { opacity: 0.4; }
+/* 위 규칙은 밝은 무대(카드 밖) 전용인데 어두운 유리 카드 안까지 내려와 글자가 배경에
+   묻힌다(샘플 보기·거부 등 7곳 실측 1.02:1). 어두운 표면 스코프에서는 기본 잉크로 복원. */
+.stage .svc-card .cta.ghost, .stage .buy .cta.ghost, .stage .modal .cta.ghost {
+  color: var(--ink); background: rgba(255, 255, 255, 0.06); border-color: var(--edge);
+}
 
 .pol { margin: 0 0 20px; padding: 14px 18px; border: 1px solid var(--edge); border-radius: 14px;
   background: var(--tile); color: var(--dim); font-size: 14px; line-height: 1.6; }

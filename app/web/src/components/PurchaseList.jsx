@@ -35,6 +35,10 @@ export default function PurchaseList({ purchases, busy, running, onApprove, onCa
   const needsUnlock = Boolean(x402Enabled) && purchases.some((p) => p.steps?.settle && !p.x402);
   const settleable = needsSettle || needsUnlock;
 
+  // 서버 배열은 생성순(오래된 것부터)이고 회귀·스테퍼가 "마지막 = 최신"을 전제하므로
+  // 순서는 여기 표시 계층에서만 뒤집는다. 방금 맡긴 일이 스크롤 없이 맨 위에 보여야 한다.
+  const newestFirst = [...purchases].reverse();
+
   return (
     <div className="svc-list">
       <div className="svc-list-head">
@@ -46,7 +50,7 @@ export default function PurchaseList({ purchases, busy, running, onApprove, onCa
         )}
       </div>
 
-      {purchases.map((p) => (
+      {newestFirst.map((p) => (
         <PurchaseCard
           key={p.requestId}
           p={p}

@@ -48,6 +48,14 @@ export default function WalletGate({ onConnect, busy, error, reconnect = false }
         )}
       </div>
 
+      {canLocal && (
+        /* "Live Demo(실제 온체인)" 원칙과 어긋나 보인다는 오해를 차단한다. 임시 지갑도
+           브라우저가 만든 실제 키페어이고 이후 모든 동작이 온체인이다. */
+        <p className="svc-hint">
+          임시 지갑도 <b>실제 온체인 지갑</b>입니다. 키는 이 브라우저에만 저장됩니다.
+        </p>
+      )}
+
       {!wallets.length && !reconnect && (
         <p className="svc-hint">
           설치된 지갑이 보이지 않습니다. D&apos;CENT나 Phantom 익스텐션이 있으면 새로고침해 주세요.
