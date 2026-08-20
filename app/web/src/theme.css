@@ -434,10 +434,23 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px
 .os-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .os-t { font-size: 12px; color: var(--faint); letter-spacing: 0.02em; }
 .os-c { font-size: 12.5px; font-weight: 800; color: var(--dim); }
-.os-row { display: flex; flex-wrap: wrap; gap: 7px 14px; list-style: none; margin: 0; padding: 0; }
-.os-i { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--faint); }
-.os-l { white-space: nowrap; }
-.os-d { width: 7px; height: 7px; border-radius: 50%; background: var(--edge); flex: none; }
+/* **세로 타임라인.** 가로로 눕혀 두면 점 색만 바뀌어서, 체인에서 방금 무엇이 일어났는지가
+   눈에 안 잡힌다(8/21 리허설). 세로로 세우고 점 사이를 선으로 이으면 위에서 아래로
+   차오르는 것으로 진행이 읽힌다 — 이 데모에서 "목업이 아니다"를 움직임으로 증명하는
+   자리이므로 그 움직임이 보여야 한다. */
+.os-row { display: flex; flex-direction: column; gap: 0; list-style: none; margin: 0; padding: 0; }
+.os-i { position: relative; display: flex; align-items: center; gap: 9px; font-size: 13px;
+  color: var(--faint); padding: 5px 0 5px 2px; }
+/* 점과 점을 잇는 선. 마지막 칸에는 아래로 뻗을 곳이 없으므로 그리지 않는다. */
+.os-i::before { content: ''; position: absolute; left: 6px; top: 50%; width: 2px; height: 100%;
+  background: rgba(255, 255, 255, 0.16); }
+.os-i:last-child::before { display: none; }
+/* 이미 지난 구간은 선도 살아 있는 색으로 — 어디까지 왔는지가 선 하나로 읽힌다. */
+.os-i.done::before { background: rgba(74, 212, 140, 0.5); }
+.os-l { white-space: nowrap; min-width: 68px; }
+/* 점에 링(box-shadow)을 두르지 않는다 — 카드 배경이 반투명이라 어느 색을 넣어도 겉돈다. */
+.os-d { position: relative; z-index: 1; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--edge); flex: none; }
 .os-i.done { color: var(--dim); }
 .os-i.done .os-d { background: var(--ok); }
 .os-i.wait { color: var(--warn); }
