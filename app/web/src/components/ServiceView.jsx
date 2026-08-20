@@ -293,20 +293,6 @@ export default function ServiceView({ onBack }) {
   const step = currentStep({ draft, purchases: round.purchases, result, page: route.page });
   const taskCount = round.purchases.length;
 
-  // 영수증은 자기 셸(.stage)과 헤더·스테퍼를 이미 갖춘 완성 페이지다 — 그대로 쓴다.
-  // 상세(`#/receipt/:id`)도 같은 컴포넌트가 맡는다 — 데이터 소스가 하나라 목록에서 이미
-  // 받아 둔 응답을 그대로 쓰고, 돌아가기만 목록으로 향한다.
-  if (route.page === 'receipt' || route.page === 'receiptItem') {
-    const isItem = route.page === 'receiptItem';
-    return (
-      <PurchaseReceipt
-        onBack={() => navigate(isItem ? '#/receipt' : '#/tasks')}
-        fetcher={api.fetchReceipt}
-        requestId={isItem ? route.param : null}
-      />
-    );
-  }
-
   const isHome = route.page === 'home';
 
   return (
@@ -430,6 +416,18 @@ export default function ServiceView({ onBack }) {
         )}
 
         {route.page === 'mcp' && <McpCard agentAddress={me?.agentAddress} />}
+
+        {/* 영수증도 다른 서브페이지와 같은 셸(위 네비 + 스테퍼)을 탄다. 전에는 조기 반환으로
+            자기 화면을 통째로 그려, 다른 페이지에는 다 있는 상단 검은 박스가 여기만
+            없었다 — 같은 제품을 도는 느낌이 이 한 화면에서 끊겼다(8/21 리허설).
+            상세(`#/receipt/:id`)도 같은 컴포넌트가 맡는다. */}
+        {(route.page === 'receipt' || route.page === 'receiptItem') && (
+          <PurchaseReceipt
+            onBack={() => navigate(route.page === 'receiptItem' ? '#/receipt' : '#/tasks')}
+            fetcher={api.fetchReceipt}
+            requestId={route.page === 'receiptItem' ? route.param : null}
+          />
+        )}
 
           {/* 무엇을 살 수 있는지 보여야 무엇을 시킬지 정할 수 있다. 셀러 등록 화면은
               두지 않는다(8/19 퀵싱크) — 이미 등록된 것만 놓는다. */}

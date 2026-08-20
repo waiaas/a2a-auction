@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { fetchPurchaseReceipt } from '../api.js';
 import { verdictInfo, fmtUsdc } from '../lib/derive.js';
 import { navigate } from '../lib/router.js';
-import Stepper from './Stepper.jsx';
 import TxLink from './TxLink.jsx';
 import { ClusterContext } from '../lib/explorer.js';
 
@@ -62,13 +61,13 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
 
   if (error || !receipt) {
     return (
-      <div className="stage">
+      <>
         <div className="sec-h">
           <h2>구매 영수증</h2>
           <button className="cta ghost" onClick={onBack}>← 돌아가기</button>
         </div>
         <p className="pol">{error ? '아직 라운드 기록이 없습니다. 구매 라운드를 먼저 실행하세요.' : '불러오는 중…'}</p>
-      </div>
+      </>
     );
   }
 
@@ -78,7 +77,7 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
   if (requestId) {
     return (
       <ClusterContext.Provider value={receipt.network || 'devnet'}>
-        <div className="stage">
+        <>
           <div className="sec-h">
             <h2>{picked ? picked.request.title : '영수증'}</h2>
             <button className="cta ghost" onClick={onBack}>← 영수증으로</button>
@@ -86,7 +85,7 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
           {picked
             ? <ReceiptDetail p={picked} />
             : <p className="pol">그 건의 기록을 찾지 못했습니다. 목록에서 다시 골라 주세요.</p>}
-        </div>
+        </>
       </ClusterContext.Provider>
     );
   }
@@ -96,15 +95,11 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
 
   return (
     <ClusterContext.Provider value={receipt.network || 'devnet'}>
-    <div className="stage">
+    <>
       <div className="sec-h">
         <h2>구매 영수증</h2>
         <button className="cta ghost" onClick={onBack}>← 돌아가기</button>
       </div>
-
-      {/* 영수증이 스테퍼의 마지막 칸이다. 여기서 렌더하지 않으면 그 칸은 어떤 경로로도
-          도달하지 않는 장식이 된다(감사 발견 5). */}
-      <Stepper current="receipt" />
 
       <p className="pol">
         정책: <b>{receipt.policy.note}</b> · {receipt.network} · phase {receipt.phase}
@@ -123,7 +118,7 @@ export default function PurchaseReceipt({ onBack, fetcher = fetchPurchaseReceipt
       {receipt.purchases.map((p) => (
         <ReceiptRow key={p.requestId} p={p} />
       ))}
-    </div>
+    </>
     </ClusterContext.Provider>
   );
 }
