@@ -36,6 +36,31 @@ const OUTCOME = {
 
 const short = (s, n = 16) => (s ? `${String(s).slice(0, n)}…` : '—');
 
+/**
+ * 승인 시각을 한국 시간으로 적는다.
+ *
+ * 서버는 `toISOString()`(UTC)으로 저장하는데, 화면이 그 문자열을 그대로 잘라 쓰고 있어
+ * 9시간 어긋난 값이 보였다(8/21 발견). 브라우저 로케일에 기대지 않고 `Asia/Seoul`을
+ * 명시한다 — 발표 노트북의 설정이 무엇이든 같은 값이 나와야 한다.
+ *
+ * `hourCycle: 'h23'`을 쓰는 이유: `hour12: false`만 주면 자정이 24시로 나오는 구현이 있다.
+ * 시간대를 글자로 붙이는 것은 온체인 explorer가 UTC로 보여주기 때문이다 — 기준을 밝히지
+ * 않으면 대조하는 사람이 9시간을 암산해야 한다.
+ */
+const KST = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Seoul',
+  month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+function kstTime(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = KST.formatToParts(d);
+  const get = (type) => parts.find((x) => x.type === type)?.value ?? '';
+  return `${get('month')}/${get('day')} ${get('hour')}:${get('minute')} KST`;
+}
+
 const outcomeOf = (p) => OUTCOME[p.outcome] ?? { cls: 'pending', label: p.outcome };
 
 /**
@@ -168,7 +193,7 @@ function ReceiptDetail({ p }) {
     ['settle', <TxLink sig={p.tx?.settle} />, !!p.tx?.settle],
     ['결과물 hash', <span className="tx">{short(p.result?.hash, 14)}</span>, !!p.result?.hash],
     ['x402 서명', <TxLink sig={p.x402?.onchainSignature} />, !!p.x402],
-    ['승인 시각', <span className="tx">{p.approvedAt?.slice(11, 19)}</span>, !!p.approvedAt],
+    ['승인 시각', <span className="tx">{kstTime(p.approvedAt)}</span>, !!p.approvedAt],
   ].filter(([, , has]) => has);
 
   return (
