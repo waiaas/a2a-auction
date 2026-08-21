@@ -4,9 +4,11 @@
 >
 > Payment rails prove the payment happened. **WAIaaS proves the agent was allowed to pay.**
 
-에이전트끼리 일을 사고파는 온체인 경매 데모입니다. 각 에이전트는 **자기만의 self-hosted 정책 지갑([WAIaaS](https://github.com/waiaas/WAIaaS) 데몬)** 을 가지고, 사람은 미리 위임한 예산·권한(mandate)만 정해둡니다. 그 다음부터 입찰과 예치, 정산은 사람 개입 없이 진행됩니다. **위임 범위를 벗어난 지출은 에이전트가 아무리 원해도 체결되지 않습니다.**
+**2026-08-21 AI Agent Hackathon 데모데이 Second Prize 수상작**입니다.
 
-이 데모의 킬러 장면은 결제가 성공하는 것이 아니라 **최고가 입찰이 예치조차 하지 못하는 것**입니다.
+사람이 에이전트에게 일을 맡기면, 에이전트가 공급자 후보를 골라 온체인 경매(commit-reveal)로 사 옵니다. 각 에이전트는 **자기만의 self-hosted 정책 지갑([WAIaaS](https://github.com/waiaas/WAIaaS) 데몬)** 을 가지고, 사람은 미리 위임한 예산·권한(mandate)만 정해둡니다. 지출은 금액 구간에 따라 세 갈래로 갈립니다: 한도 안이면 **알림만 남기고 그대로 진행**, 그 위는 **60초 유예 뒤 진행**(그 사이 취소 가능), 그 이상은 **사람의 지갑 서명 없이는 한 푼도 나가지 않습니다.**
+
+이 데모의 킬러 장면은 결제가 성공하는 것이 아니라 **위임 범위 밖의 지출이 체결되지 못하는 것**입니다.
 
 ## 라이브 데모
 
@@ -16,16 +18,18 @@ Solana **devnet**에 배포해 실제로 돌립니다. 화면의 경매 개설�
 
 ### 직접 해보기 — 내 지갑으로, 내 에이전트에게
 
-**<https://a2a-house.8-230-9-237.nip.io/#me>** 에서 지갑을 연결하면 **본인 전용 에이전트 지갑**이 발급됩니다. 내가 맡긴 금액 안에서만 에이전트가 스스로 사고, 한도를 넘는 지출은 내 서명을 받아야 진행됩니다. 한도를 바꿔 같은 것을 다시 사면 **판정이 달라지는 것**을 직접 확인할 수 있습니다.
+루트 화면이 곧 서비스입니다. 지갑(D'CENT · Phantom, 없으면 임시 체험 지갑)을 연결하면 **본인 전용 에이전트 지갑**이 발급됩니다. 체험 자산을 받아 에이전트에게 맡기고 "내가 정한 한도" 두 값(알림 상한 · 유예 상한)을 정한 뒤 일을 맡기면, 에이전트가 후보를 나열하고(가격·품질 중요도는 슬라이더로 사람이 정합니다) 구매부터 온체인 정산, 결과물 채점까지 진행합니다. 한도를 바꿔 같은 것을 다시 사면 **판정이 달라지는 것**을 직접 확인할 수 있습니다.
 
-일을 맡기는 것은 MCP 도구(터미널)의 일이고, 웹은 사람이 결정하는 것(자금 위임·한도·승인)과 진행 확인을 맡습니다. 지갑이 없어도 임시 체험 지갑으로 전 과정을 볼 수 있습니다.
+일을 맡기는 정식 경로는 MCP 도구(터미널, 웹 `#/mcp` 페이지에서 설정 복사)이고, 웹의 요청 입력창은 MCP 클라이언트가 없어도 볼 수 있게 둔 보조 입력입니다. 웹은 사람이 결정하는 것(자금 위임·한도·승인)과 진행 확인을 맡습니다.
 
 > **[TRY-IT.md](TRY-IT.md)** 에 단계별 안내가 있습니다(웹만 5분, MCP까지 10분).
 
-### 발표용 고정 라운드
+### 발표용 고정 라운드 (`#live` · `#purchase`)
 
-- `Seller` 탭에서 **경매 오픈** → `Live` 탭에서 **Start Round**를 누르면 한 라운드가 끝까지 돕니다(약 20초).
-- `Owner` 탭은 데모 진행자가 씁니다(`OWNER_TOKEN` 필요). 승인 대기 큐 조회와 **거부** 버튼이 여기에 해당하고 나머지 장면은 전부 토큰 없이 동작합니다.
+8/3 제출본의 3자 경매 화면과 콘티 고정 라운드는 주소를 직접 열어야 나옵니다(루트를 서비스 화면에 내주고, 옛 링크가 죽지 않게 해시로 남겼습니다).
+
+- **`/#purchase`**: 공용 데모 지갑으로 고정 요청 3건(5 · 10 · 20 USDC)을 돌려, 같은 정책이 금액마다 어떻게 반응하는지(알림 · 유예 · 승인)를 한 화면에서 보여줍니다.
+- **`/#live`**: 3자 봉인 입찰 경매. `Seller` 탭에서 **경매 오픈** → `Live` 탭에서 **Start Round**를 누르면 한 라운드가 끝까지 돕니다(약 20초). `Owner` 탭은 데모 진행자가 씁니다(`OWNER_TOKEN` 필요). 승인 대기 큐 조회와 **거부** 버튼이 여기에 해당하고 나머지 장면은 전부 토큰 없이 동작합니다.
 
 > 구성: GCP VM 1대에 WAIaaS 데몬 5개(docker compose) + 오케스트레이터·seller(호스트 Node) + Caddy 자동 HTTPS. 라이브 배포본의 Gemini 호출은 **Vertex AI** 백엔드로 나갑니다.
 
@@ -58,6 +62,24 @@ Solana **devnet**에 배포해 실제로 돌립니다. 화면의 경매 개설�
 
 ## 무엇을 보여주는가
 
+### 서비스: 에이전트에게 일을 맡긴다
+
+요청을 적으면(웹 입력창 또는 MCP `request_work`) 에이전트가 카탈로그에서 후보를 나열합니다. 순위는 **가격·품질 중요도 슬라이더 2개**로 사람이 정한 가중치로 계산합니다. 점수식은 Gemini가 아니라 순수 로컬 계산이고, 브라우저와 서버가 같은 파일(`app/lib/ranking.js`)을 import해서 화면의 1위와 실제 구매가 어긋나지 않습니다. "이 기준으로 맡기기"를 누르면 구매 한 건이 온체인 5단계(`createAuction → commit → deposit → reveal → settle`)로 진행됩니다.
+
+예치 금액이 정책 심사를 지나는 순간 세 티어로 갈립니다(아래는 기본값입니다. 한도 두 값은 사용자가 바꿀 수 있고, 유예 상한은 에이전트 지갑 잔고를 넘지 못합니다):
+
+| 금액 | 티어 | 일어나는 일 | 폰 알림(텔레그램) |
+| --- | --- | --- | --- |
+| ≤ 5 USDC | **NOTIFY** | 알림만 남기고 그대로 실행 | 🤖 "에이전트가 스스로 샀습니다" |
+| ≤ 10 USDC | **DELAY** | **60초 유예 후 스스로 진행**, 그 사이 취소 가능 | ⏳ "에이전트가 잠시 기다립니다" + 취소 링크 |
+| 초과 | **APPROVAL** | 실행 정지. **오너 지갑 서명**으로만 승인되고, 거부하면 실행되지 않습니다 | 🔔 "에이전트가 승인을 요청했습니다" + 승인 링크 |
+
+승인·거부가 끝나면 결말도 알림으로 옵니다. 승인 버튼을 텔레그램에 두지 않은 것은 의도입니다: 메신저 계정만으로 돈이 나가는 구조를 배제했고, 알림은 링크만 보내며 승인은 웹에서 지갑 서명으로 합니다.
+
+정산이 끝나면 결과물이 생성되고(Gemini) 5개 기준으로 채점되어 셀러 평점(이동평균)에 반영됩니다. 영수증은 목록(요청 · 정산 · 실제 지출 · x402 열람 결제 · 셀러 잔고 합계)과 건별 상세(온체인 해시 전 구간 + KST 승인 시각)로 남습니다.
+
+### 고정 라운드: 세 입찰의 갈림 (`#live`)
+
 buyer 에이전트 3개가 같은 리서치 슬롯 하나를 두고 경매에 참여합니다. 세 에이전트 모두 입찰 해시를 온체인에 commit하는 데는 **성공**합니다. 금액을 공개하며 USDC를 예치하는 순간 셋이 갈립니다.
 
 | Buyer | Bid | 위임된 mandate | 예치 판정 | 왜 |
@@ -74,8 +96,8 @@ buyer 에이전트 3개가 같은 리서치 슬롯 하나를 두고 경매에 �
 
 ```mermaid
 flowchart LR
-    UI[웹 앱<br/>경매 스테이지 · Receipt] -->|1s polling| ORCH[오케스트레이터<br/>:4000]
-    ORCH -->|bid rationale·결과물| GEMINI["Gemini (Vertex AI)"]
+    UI[웹 앱<br/>서비스 화면 · 고정 라운드] -->|1s polling| ORCH[오케스트레이터<br/>:4000]
+    ORCH -->|공급자 선택 근거 · 결과물 생성 · 채점| GEMINI["Gemini (Vertex AI)"]
 
     subgraph Compose["docker-compose: 에이전트마다 자기 데몬"]
         BA[Buyer A 데몬<br/>:3100]
@@ -101,7 +123,9 @@ flowchart LR
 
 **키 격리**: 오케스트레이터와 seller는 **에이전트 지갑 키를 갖지 않습니다.** 데몬 API 호출과 읽기 전용 온체인 조회만 하고 에이전트를 대신한 서명은 전적으로 각 WAIaaS 데몬 안에서 일어납니다. 단 하나의 예외는 x402 모드([x402 결과물 unlock](#7-x402-결과물-unlock-선택))를 켰을 때 seller가 보유하는 **facilitator 키**입니다. 결제 트랜잭션의 수수료를 대납하는 인프라 키입니다. 에이전트 지갑과는 별개입니다.
 
-**owner 인증 대행 (데모 한정)**: Owner Console의 승인 대기 거부는 relay(`POST /api/owner/reject/:txId`)로 동작합니다. 여기서 오케스트레이터가 **B 데몬의 마스터 인증을 대행**합니다. 단일 화면에서 owner 개입 장면을 시연하기 위한 구성이며 실제 운영이라면 owner가 자기 데몬의 콘솔에서 직접 수행합니다. 이 relay는 `OWNER_TOKEN`으로 인증합니다. 오케스트레이터·seller는 기본 `127.0.0.1` 바인딩이고 외부 노출(`HOST=0.0.0.0`) 시 토큰이 없으면 owner 라우트 자체가 닫힙니다(404, fail-safe). 라이브 배포본도 이 토큰 인증으로 보호됩니다.
+**사용자 흐름 서버**: 서비스 화면과 MCP는 `/api/u/*`(`app/user-api.js`)를 탑니다. 지갑 서명으로 연결하면 데몬에 본인 전용 에이전트 지갑과 정책이 실제로 등록되고(`app/lib/onboarding.js`), 구매 한 건은 `purchase-flow.js` 상태 머신(`choosing → purchasing → awaiting → settling → settled`)이 끝까지 몹니다. 서비스 화면의 승인·거부는 아래의 대행 방식이 아니라 **오너 지갑 서명**으로 동작합니다(서명 문구 발급 → 지갑 서명 → 중계).
+
+**owner 인증 대행 (`#live` 고정 라운드 한정)**: Owner Console의 승인 대기 거부는 relay(`POST /api/owner/reject/:txId`)로 동작합니다. 여기서 오케스트레이터가 **B 데몬의 마스터 인증을 대행**합니다. 단일 화면에서 owner 개입 장면을 시연하기 위한 구성이며 실제 운영이라면 owner가 자기 데몬의 콘솔에서 직접 수행합니다. 이 relay는 `OWNER_TOKEN`으로 인증합니다. 오케스트레이터·seller는 기본 `127.0.0.1` 바인딩이고 외부 노출(`HOST=0.0.0.0`) 시 토큰이 없으면 owner 라우트 자체가 닫힙니다(404, fail-safe). 라이브 배포본도 이 토큰 인증으로 보호됩니다.
 
 ### 경매 흐름
 
@@ -120,7 +144,7 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
 | --- | --- | --- |
 | **정책·서명·감사** | WAIaaS 데몬 5개 (buyer 3 + seller + marketplace) | 기구현. 경매 경로는 무수정, x402 경로는 업스트림 수정 1건(#406) |
 | **온체인 경매** | Anchor 프로그램 (`create_auction` / `commit_bid` / `reveal_bid` / `settle`) | 신규 구축 |
-| **오케스트레이션** | 경매 상태 머신, seller 게이트 서비스, 웹 UI | 신규 구축 |
+| **오케스트레이션** | 경매·구매 상태 머신, 사용자 API(`/api/u/*`), MCP 서버(도구 5종), seller 게이트 서비스, 웹 UI | 신규 구축 |
 
 ### 데모 개념 ↔ WAIaaS 실물 매핑
 
@@ -128,6 +152,7 @@ create_auction → commit_bid ×3 → [예치: USDC 전송] → reveal_bid → s
 | --- | --- |
 | 에이전트의 지갑 인프라 | 에이전트별 self-hosted 데몬 (docker-compose) |
 | Mandate (위임 예산·권한) | `CONTRACT_WHITELIST` + `WHITELIST` + `ALLOWED_TOKENS` + `SPENDING_LIMIT` |
+| 3티어 개입 (알림 · 유예 · 승인) | `SPENDING_LIMIT`의 `notify_max`·`delay_max` → 티어 `NOTIFY`/`DELAY`/`APPROVAL` |
 | 온체인 commit | `CONTRACT_CALL` (programId + instructionData + accounts) |
 | 예치 | `TOKEN_TRANSFER` (USDC → auction vault) |
 | `ALLOW` | 정책 티어 통과 → 자동 실행, 온체인 txHash |
@@ -330,7 +355,9 @@ UI를 개발할 때는 Vite dev 서버(`npm run dev`, :5173)를 쓰면 됩니다
 
 ### 6. 데모 실행
 
-브라우저에서 **http://localhost:4000** 을 열고 **Start Round** 버튼을 누르면 전 과정이 자동으로 진행됩니다. 정산 후 **Receipt** 탭에서 증거 체인과 데몬별 트랜잭션·정책 판정 기록(tx ID·티어·상태·거부 사유)을 볼 수 있습니다.
+브라우저에서 **http://localhost:4000** 을 열면 서비스 화면이 나옵니다. 지갑 연결 → 체험 자산 → 입금·한도 → 일 맡기기 → 후보 선택 → (티어에 따라 개입) → 결과물·영수증 순서이고, 단계별 안내는 [TRY-IT.md](TRY-IT.md)에 있습니다.
+
+발표용 고정 라운드는 **http://localhost:4000/#live** 로 엽니다. **Start Round** 버튼을 누르면 전 과정이 자동으로 진행되고, 정산 후 **Receipt** 탭에서 증거 체인과 데몬별 트랜잭션·정책 판정 기록(tx ID·티어·상태·거부 사유)을 볼 수 있습니다.
 
 판매자 관점으로 두 단계에 나눠 진행하려면 **Seller** 탭에서 시작합니다. **경매 오픈**을 누르면 `create_auction`만 먼저 실행되어 경매가 열린 상태(`phase=open`)로 대기합니다. 이어서 Live 경매의 **Start Round**가 입찰부터 정산까지를 실행합니다. 정산이 끝나면 Seller 탭에 낙찰자와 낙찰가가 표시되고 같은 자리의 **다음 경매 준비** 버튼으로 새 라운드를 열 수 있습니다. Start Round를 바로 누르면 개설과 입찰이 한 번에 진행되므로 기존 단일 버튼 흐름도 그대로 동작합니다.
 
@@ -343,6 +370,15 @@ cd <레포 루트>/app && ./verify-e2e.sh
 ```
 
 헬스체크 → seller 게이트(미정산 403) → 라운드 실행 → receipt → unlock(200) → 3분기 및 온체인 `Settled`·`winner=A` 판정까지 확인합니다.
+
+사용자 흐름(서비스 화면) 회귀는 별도 스크립트 4종으로 검증합니다(`app/` 에서 실행):
+
+```bash
+node verify-user-flow.mjs   # 브라우저 지갑을 로컬 키로 재현해 /api/u/* 전 경로
+node verify-weight.mjs      # 화면 랭킹 1위 = 실제 구매 대조
+node verify-tiers.js        # 5/10/20 USDC로 알림·유예·승인 3분기 대조
+node verify-mcp-user.mjs    # MCP 서버를 stdio로 띄워 토큰 경로 검증
+```
 
 ### 7. x402 결과물 unlock (선택)
 
@@ -375,6 +411,18 @@ X402_UNLOCK=1 ./verify-e2e.sh
 - **사내망 DNS가 `*.trycloudflare.com`을 막을 수 있습니다.** 데몬 컨테이너가 터널 호스트를 해석하지 못하면 결제가 도메인 평가 전에 끊깁니다. `infra/docker-compose.yml`은 이 때문에 컨테이너 DNS를 공용 리졸버로 지정합니다. 컨테이너 안 `curl`은 CA 번들이 없어 실패하지만 데몬의 Node fetch는 정상이니 curl 실패를 데몬 실패로 읽지 마세요.
 - **quick tunnel은 기동마다 도메인이 바뀝니다.** 정책은 `*.trycloudflare.com` 와일드카드 1건으로 등록하므로 재등록은 불필요하지만 `SELLER_PUBLIC_URL`은 다시 넘겨야 합니다.
 
+### 8. 텔레그램 알림 (선택)
+
+판정 3종(알림 · 유예 · 승인 요청)과 오너 승인·거부의 결말이 폰으로 갑니다. 정책이 그 자리에서 거부한 건(DENY)과 승인 타임아웃은 보내지 않습니다(돈이 나가지 않았고 오해를 부르므로). BotFather로 봇을 만든 뒤:
+
+```bash
+cd <레포 루트>/app
+node setup-telegram.mjs          # 봇에게 아무 말이나 건 뒤 실행하면 chat_id를 알려줍니다
+node setup-telegram.mjs --test   # 데모와 같은 함수로 실제 메시지 1회 발송
+```
+
+`TELEGRAM_BOT_TOKEN` · `TELEGRAM_CHAT_ID`(둘 다 필수) · `PUBLIC_URL`(알림 속 "승인하러 가기" 버튼의 링크 대상, 없으면 버튼만 빠집니다)을 **오케스트레이터를 띄우는 프로세스 환경에 직접** 실으세요. 미설정이면 알림만 조용히 건너뛰고 구매는 그대로 진행됩니다.
+
 ### API
 
 **오케스트레이터** (`:4000`)
@@ -398,6 +446,10 @@ X402_UNLOCK=1 ./verify-e2e.sh
 
 `phase`는 `idle → opening → open → committing → depositing → revealing → settling → settled` 순으로 진행합니다(실패 시 `error`). Seller 콘솔로 개설만 한 경우 `open`에서 입찰 시작을 기다립니다.
 
+**사용자 API** (`/api/u/*`, `app/user-api.js`): 서비스 화면과 MCP가 쓰는 사용자별 경로입니다. `POST /api/u/connect`(지갑 서명 검증 → 에이전트 지갑 발급 + 토큰)로 시작하고 이후는 Bearer 토큰 인증입니다. 자금(`faucet` · `deposit/prepare` · `deposit/submit`), 한도(`GET`/`PUT /api/u/policy`), 구매(`purchase` · `purchase/state` · `purchase/settle` · `purchase/result/:id` · `purchase/receipt`), 개입(`purchase/approve/:id`는 오너 지갑 서명 필수, `purchase/cancel/:id`)으로 구성되고 카탈로그(`GET /api/u/catalog`)만 무인증입니다. 사용자 구매의 phase는 `choosing → purchasing → awaiting → settling → settled`입니다. `#purchase` 고정 라운드는 공용 데모 지갑의 `/api/purchase/*`를 씁니다.
+
+**MCP 서버** (`app/mcp-server.js`, `npm run mcp`): 도구 5종(`register_skill` · `list_skills` · `purchase_skill` · `request_work` · `get_status`)을 stdio로 제공합니다. `A2A_TOKEN`이 있으면 내 에이전트 지갑(`/api/u/*`)으로, 없으면 공용 데모 지갑으로 동작하고 `request_work`만 토큰이 필수입니다. 정책 판정(`policyTier` · `verdict` · `nextStep`)을 도구 응답으로 그대로 돌려주며, **승인은 도구로 할 수 없습니다**. APPROVAL이면 웹으로 안내합니다.
+
 ### 환경 변수
 
 | 변수 | 기본값 | 용도 |
@@ -415,6 +467,14 @@ X402_UNLOCK=1 ./verify-e2e.sh
 | `SELLER_PUBLIC_URL` | _(미설정)_ | seller의 공개 HTTPS URL(cloudflared 터널). `X402_UNLOCK=1`이면 필수 |
 | `X402_ALLOWED_DOMAIN` | `*.trycloudflare.com` | 시드가 A의 `X402_ALLOWED_DOMAINS` 정책에 등록할 도메인 |
 | `OWNER_TOKEN` | _(미설정 = 인증 없음)_ | owner relay(`/api/owner/*`) 인증 토큰. **`HOST`를 루프백 밖으로 열 때는 반드시 지정하세요.** 없으면 해당 라우트가 404로 닫힙니다. 프론트는 최초 진입 시 `?t=<토큰>`으로 받습니다 |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | _(미설정 = 알림 꺼짐)_ | 텔레그램 알림. **둘 다** 있어야 발송하고, 없으면 조용히 건너뜁니다 |
+| `PUBLIC_URL` | _(미설정)_ | 텔레그램 알림의 "승인하러 가기"/"지금 취소하러 가기" 버튼 링크 대상. 없으면 버튼만 빠집니다 |
+| `A2A_TOKEN` | _(미설정 = 공용 데모 지갑)_ | MCP 서버용 내 계정 토큰(웹 `#/mcp`에서 복사). 있으면 `/api/u/*` 경로로 동작합니다 |
+| `ORCHESTRATOR_URL` | `http://127.0.0.1:4000` | MCP 서버가 붙을 오케스트레이터 주소 |
+| `A2A_DB_PATH` | `app/a2ahouse.json` | 사용자·구매 이력 JSON 저장소 경로 |
+| `FAUCET_GRANT_USDC` / `FAUCET_GRANT_SOL` | `100` / devnet `0.05` · localnet `0.1` | 접속자에게 지급하는 체험 자산 |
+| `FAUCET_TOTAL_SOL` | `3` | faucet SOL 총량 상한 |
+| `AGENT_GAS_SOL` | `0.02` | 입금 tx에 동봉해 보내는 에이전트 가스 목표치 |
 
 > **RPC는 두 곳을 맞춰야 합니다.** 데몬은 `LOCALNET_RPC`를, 앱은 `RPC_URL`을 각각 읽습니다. **둘이 같은 체인을 가리키지 않으면** 데몬이 보낸 tx를 앱이 조회하지 못해 라운드가 멈춥니다. devnet으로 옮길 때는 두 값을 함께 바꾸고 프로그램 재배포와 USDC mint 재생성도 필요합니다.
 
@@ -430,9 +490,11 @@ X402_UNLOCK=1 ./verify-e2e.sh
 | **실물** (판매자 콘솔) | Seller Console의 **경매 오픈** 버튼은 marketplace 데몬을 통해 실제 `create_auction` tx를 냅니다. 화면의 경매 계정·vault·create tx는 그 라운드의 온체인 주소입니다 |
 | **실물** (Owner 콘솔) | 위임 한도는 B 데몬의 `SPENDING_LIMIT` 정책에서 실시간 조회하고, **거부** 버튼은 데몬 어드민 API로 대기 tx를 실제 `CANCELLED`로 만듭니다. 단, 이 조작은 오케스트레이터가 owner의 마스터 인증을 **대행**하는 데모 구성입니다(실운영은 owner가 자기 데몬 콘솔에서 직접) |
 | **실물** (x402 모드) | A 데몬의 `X402_PAYMENT` 기록(티어 `INSTANT`), 부분 서명 → facilitator 공동 서명 → 제출까지의 실제 온체인 결제 tx, seller의 `402` 응답. 금액 0.05 USDC는 고정값입니다 |
-| **미구성** | owner 알림 **외부 발송**. 데몬이 승인 알림 이벤트는 발행하지만, 이 데모의 compose에는 발송 채널(텔레그램 등)을 설정하지 않았습니다. 그래서 화면도 "발송"이 아니라 **"승인 큐 등재"** 로 표기합니다 |
+| **실물** (사용자 지갑) | 지갑 연결 시 데몬에 실제로 발급되는 본인 전용 에이전트 지갑과 정책. 화면의 한도 값은 config 상수가 아니라 **데몬에서 실시간으로 읽습니다** |
+| **실물** (폰 알림) | 텔레그램 발송 4종: 자동 실행(NOTIFY) · 유예(DELAY) · 승인 요청(APPROVAL) · 승인/거부 결말. 승인 버튼은 의도적으로 두지 않았습니다(메신저 계정만으로 돈이 나가는 구조 배제, 승인은 웹에서 지갑 서명). 정책 거부·타임아웃은 돈이 나가지 않았으므로 보내지 않습니다 |
+| **실물** (선택·채점) | Gemini 호출 4종: 공급자 선택(가중치 없는 MCP 경로) · 선택 근거 작성(슬라이더 경로. 1위는 로컬 점수식이 확정하고 모델은 근거만 씁니다) · 결과물 생성 · 5개 기준 채점. 폴백으로 떨어지면 화면에 "규칙으로 선택/채점" 뱃지로 표기합니다 |
 | **미구현** (후순위) | 결과물 **요청자 신원 검증**. seller가 게이트하는 것은 온체인 `Settled`·`winner`입니다. 정산 전에는 누구에게도 열리지 않지만, 정산 후에는 요청자를 가리지 않습니다. 낙찰자 서명을 요구하는 인증은 넣지 않았습니다 |
-| **연출** (고정·간소화) | bid 금액 3개(고정), make-vs-buy 원가 수치(대표값), 경매 1건·1라운드, agent 디스커버리(하드코딩), 카탈로그 리스팅(정적 소품), 판매자 콘솔의 **작업 등록 내용**(제목·태스크·제공 능력은 `config.js`의 고정값이며 등록 폼은 없습니다) |
+| **연출** (고정·간소화) | 고정 라운드의 bid 금액 3개, make-vs-buy 원가 수치(대표값), 카탈로그 기본 리스팅 3종(`fixtures/listings.json` 고정값. 단 MCP `register_skill`로 실제 등록도 됩니다), 샘플 채점(라이브가 아니라 `scripts/score-samples.mjs`로 1회 채점해 고정), 판매자 콘솔의 **작업 등록 내용**(제목·태스크·제공 능력은 `config.js`의 고정값이며 등록 폼은 없습니다) |
 | **미구현** (경매 운영) | **입찰 마감 시각**과 **판매자의 낙찰자 선택**. 온체인 `Auction` 계정에 마감 필드가 없고(`state.rs`) 낙찰자는 reveal된 최고 유효 입찰가로 자동 결정됩니다. 그래서 판매자 콘솔도 카운트다운 대신 "입찰 마감: 운영자 진행"으로 표기합니다 |
 | **후순위** | 패자 환불, 마감 시간 온체인 강제, 유찰 처리 (데모 경로에서 발생하지 않는 상태) |
 
@@ -470,22 +532,30 @@ Gemini는 실제로 호출됩니다. API 키가 없으면 이전에 생성된 �
 a2a-auction/
 ├── app/                    데모 백엔드 (ESM JS, 빌드 스텝 없음. web/ 은 Vite 빌드 필요)
 │   ├── config.js           단일 상수 소스 (금액·정책 임계값·프로그램 ID·경로)
-│   ├── auction-flow.js     경매 상태 머신 (runAuction 6단계 · 판정 분류 · receipt 조립)
-│   ├── orchestrator.js     :4000 (/api/auction/* + 웹 정적 서빙 + seller relay)
+│   ├── auction-flow.js     3자 경매 상태 머신 (#live 고정 라운드)
+│   ├── purchase-flow.js    사용자 구매 상태 머신 (선택 → 구매 → 개입 → 정산 → 결과물 → 채점)
+│   ├── user-api.js         /api/u/* 사용자 API (지갑 연결 · faucet · 입금 · 한도 · 구매 · 승인)
+│   ├── mcp-server.js       MCP stdio 서버 (도구 5종)
+│   ├── orchestrator.js     :4000 (/api/* + 웹 정적 서빙 + seller relay)
 │   ├── seller.js           :4100 (온체인 Settled·winner 확인 후 결과물 게이트)
 │   ├── seed.js             멱등 시드 (정책 재등록 · owner verify · 캐시 무효화)
+│   ├── setup-telegram.mjs  텔레그램 봇 설정 도우미 (chat_id 조회 · 발송 테스트)
 │   ├── demo-path.js        서버 없이 코어 플로우만 1회 실행 (CLI 판정)
-│   ├── verify-e2e.sh       완료 판정 스크립트
-│   ├── lib/                daemon(REST) · state(로더) · solana(PDA·인코딩)
-│   │                       instructions(tx 빌더) · onchain-setup(시드 전용) · gemini
-│   ├── fixtures/           actors · quotes · rationales · result.md (생성물 폴백 캐시)
-│   └── web/                React + Vite SPA (경매 스테이지 · Seller Console · Owner Console · Receipt 뷰)
+│   ├── verify-e2e.sh       고정 라운드 완주 판정
+│   ├── verify-*.mjs · verify-tiers.js   사용자 흐름 회귀 4종 (전 경로 · 랭킹 대조 · 티어 3분기 · MCP)
+│   ├── scripts/            score-samples(샘플 1회 채점) · reset-scores(평점 초기화)
+│   ├── lib/                daemon(REST) · state(로더) · solana(PDA·인코딩) · instructions(tx 빌더) · onchain-setup · gemini
+│   │                       auth · onboarding(에이전트 지갑 발급) · user-context · store · faucet · deposit
+│   │                       decision(공급자 선택) · ranking(순위 점수식, 웹과 공용) · grading(채점) · scoring(평점) · telegram
+│   ├── fixtures/           listings(카탈로그 3종) · criteria(채점 기준) · sample-*(샘플 원고) · result-*(리스팅별 폴백 원고)
+│   └── web/                React + Vite SPA: 서비스 화면(홈 · 후보 · 맡긴 일 · 결과물 · 영수증 · MCP) + #live · #purchase 고정 라운드
 ├── onchain/                Anchor 경매 프로그램 (create/commit/reveal/settle)
 │   └── programs/onchain/
 │       ├── src/            lib.rs · state.rs · instructions/ · error.rs · constants.rs
 │       └── tests/          happy_path.rs (litesvm 인프로세스 e2e)
 ├── infra/                  docker-compose (데몬 5개)
-└── scripts/                지갑 프로비저닝 · D-6 리스크 스파이크 실측 스크립트
+├── scripts/                지갑 프로비저닝 · D-6 리스크 스파이크 실측 스크립트
+└── TRY-IT.md               직접 해보기 단계별 안내 (웹만 5분, MCP까지 10분)
 ```
 
 온체인 프로그램 테스트:
@@ -501,6 +571,6 @@ cargo test
 ## 라이선스 · 크레딧
 
 - **MIT License** ([LICENSE](LICENSE))
-- **Gemini (Vertex AI)** powers the agents (bid rationale · 결과물 생성)
+- **Gemini (Vertex AI)** powers the agents (공급자 선택 · 결과물 생성 · 채점)
 - **Solana** settles on-chain (commit · 예치 · 정산)
 - **[WAIaaS](https://github.com/waiaas/WAIaaS)** proves the agent was allowed to pay
