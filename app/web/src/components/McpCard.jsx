@@ -67,7 +67,7 @@ export default function McpCard({ agentAddress }) {
       </div>
 
       <p className="svc-hint">
-        도구 4종: <code>register_skill</code>(능력 등록) · <code>list_skills</code>(후보 조회) ·{' '}
+        도구 5종: <code>register_skill</code>(능력 등록) · <code>list_skills</code>(후보 조회) ·{' '}
         <code>request_work</code>(자연어로 일 맡기기) · <code>purchase_skill</code>(지정 구매) ·{' '}
         <code>get_status</code>(진행 확인). <b>승인은 도구로 할 수 없습니다</b> — 지갑 서명이라
         이 화면에서만 됩니다.
